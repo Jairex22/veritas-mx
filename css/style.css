@@ -1,32 +1,13 @@
 body {
-    font-family: 'Montserrat', sans-serif;
-    background: #0f0f0f;
+    background-color: #0A192F;
+    font-family: Arial, sans-serif;
 }
 
 .hero {
     height: 90vh;
-    background: linear-gradient(135deg, #006847, #1C1C1C);
+    background: linear-gradient(135deg, #0A192F, #1C1C1C);
 }
 
 .card {
-    border-radius: 20px;
-}
-
-textarea {
-    background-color: #222 !important;
-    color: white !important;
-    border: 1px solid #00FF9D !important;
-}
-
-.btn-success {
-    background-color: #006847;
-    border: none;
-}
-
-.btn-success:hover {
-    background-color: #00a86b;
-}
-
-.progress {
-    background-color: #333;
+    border-radius: 15px;
 }
