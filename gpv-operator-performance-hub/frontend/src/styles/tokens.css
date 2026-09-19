@@ -1,0 +1,158 @@
+/*
+  Sistema de diseño — GPV Operator Performance Hub
+  Identidad industrial, humana y sobria (sala de control de manufactura).
+  Grid base de 8px. Radios entre 4 y 10px. Sombras solo para elevación real.
+*/
+:root {
+  /* --- Paleta principal (uso por significado, no decorativo) --- */
+  --color-carbon: #182126;
+  --color-steel-blue: #294c60;
+  --color-warm-ivory: #f4f1e8;
+  --color-tech-gray: #d7d9d7;
+  --color-op-green: #2f7d5b;
+  --color-attention-amber: #d99a2b;
+  --color-intervention-red: #b54747;
+  --color-reference-blue: #377d9b;
+
+  /* --- Superficies (tema claro por defecto) --- */
+  --surface-app: #eceae1;
+  --surface-panel: #ffffff;
+  --surface-panel-alt: #f4f1e8;
+  --surface-sidebar: #182126;
+  --surface-sidebar-active: #294c60;
+  --surface-input: #ffffff;
+  --surface-hover: #eae7db;
+  --surface-table-header: #ece9dd;
+  --surface-table-stripe: #f7f5ee;
+
+  /* --- Texto --- */
+  --text-primary: #1c2327;
+  --text-secondary: #4c5559;
+  --text-muted: #767f82;
+  --text-inverse: #f4f1e8;
+  --text-on-accent: #ffffff;
+
+  /* --- Bordes --- */
+  --border-subtle: #d7d9d7;
+  --border-strong: #b7bcbb;
+  --border-focus: #377d9b;
+
+  /* --- Estados de nivel de rendimiento (identidad propia por nivel) --- */
+  --state-excellent-bg: #e4f1ea;
+  --state-excellent-fg: #205b41;
+  --state-excellent-border: #2f7d5b;
+
+  --state-good-bg: #e6f0f5;
+  --state-good-fg: #245972;
+  --state-good-border: #377d9b;
+
+  --state-watch-bg: #faf0dd;
+  --state-watch-fg: #8a5f14;
+  --state-watch-border: #d99a2b;
+
+  --state-support-bg: #f6e7e7;
+  --state-support-fg: #8a3535;
+  --state-support-border: #b54747;
+
+  --state-insufficient-bg: #eceded;
+  --state-insufficient-fg: #555c5e;
+  --state-insufficient-border: #d7d9d7;
+
+  /* --- Tipografía --- */
+  --font-family-base: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-family-mono: "IBM Plex Mono", "Consolas", monospace;
+
+  --font-size-xs: 11px;
+  --font-size-sm: 12.5px;
+  --font-size-base: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 19px;
+  --font-size-xl: 24px;
+  --font-size-xxl: 30px;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.2;
+  --line-height-base: 1.5;
+
+  /* --- Espaciado (grid de 8px) --- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 40px;
+  --space-8: 48px;
+  --space-9: 64px;
+
+  /* --- Radios (4-10px, nunca más) --- */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  /* --- Sombra de elevación real (no decorativa) --- */
+  --shadow-elevation-1: 0 1px 2px rgba(24, 33, 38, 0.08);
+  --shadow-elevation-2: 0 2px 8px rgba(24, 33, 38, 0.12);
+  --shadow-elevation-3: 0 6px 20px rgba(24, 33, 38, 0.16);
+
+  --sidebar-width: 236px;
+  --sidebar-width-collapsed: 64px;
+  --topbar-height: 60px;
+
+  --transition-fast: 120ms ease;
+  --transition-base: 180ms ease;
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --surface-app: #12181b;
+  --surface-panel: #1b2429;
+  --surface-panel-alt: #1f292e;
+  --surface-sidebar: #0f1518;
+  --surface-sidebar-active: #294c60;
+  --surface-input: #212b30;
+  --surface-hover: #243035;
+  --surface-table-header: #212b30;
+  --surface-table-stripe: #1c262b;
+
+  --text-primary: #f0eee5;
+  --text-secondary: #c3c9c8;
+  --text-muted: #8b9396;
+  --text-inverse: #182126;
+  --text-on-accent: #ffffff;
+
+  --border-subtle: #2b363b;
+  --border-strong: #3a464b;
+  --border-focus: #5fa3c2;
+
+  --state-excellent-bg: #16332580;
+  --state-excellent-fg: #7fd3ab;
+  --state-excellent-border: #2f7d5b;
+
+  --state-good-bg: #16303c80;
+  --state-good-fg: #83c2dd;
+  --state-good-border: #377d9b;
+
+  --state-watch-bg: #3a2c0f80;
+  --state-watch-fg: #eab35c;
+  --state-watch-border: #d99a2b;
+
+  --state-support-bg: #3a191980;
+  --state-support-fg: #e08a8a;
+  --state-support-border: #b54747;
+
+  --state-insufficient-bg: #262f3380;
+  --state-insufficient-fg: #a7aeb1;
+  --state-insufficient-border: #3a464b;
+
+  --shadow-elevation-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-elevation-2: 0 2px 10px rgba(0, 0, 0, 0.4);
+  --shadow-elevation-3: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+  color-scheme: dark;
+}
