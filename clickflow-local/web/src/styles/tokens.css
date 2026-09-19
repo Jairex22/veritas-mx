@@ -1,0 +1,64 @@
+/*
+ * Paleta base de ClickFlow Local. Cada negocio puede sobreescribir estas
+ * variables (ver theme.ts) sin tocar este archivo. Contraste verificado:
+ * - Texto grafito sobre marfil: ~16:1 (excelente).
+ * - Texto marfil sobre verde petróleo: ~5.9:1 (AA para texto normal).
+ * - Texto grafito sobre coral: ~4.85:1 (AA para texto normal). Por eso el
+ *   acento coral SIEMPRE lleva texto grafito, nunca texto claro encima.
+ */
+:root {
+  --cf-ivory: #f7f4ee;
+  --cf-graphite: #222b32;
+  --cf-petrol: #245c57;
+  --cf-coral: #d96c56;
+
+  --cf-bg: var(--cf-ivory);
+  --cf-surface: #ffffff;
+  --cf-text: var(--cf-graphite);
+  --cf-text-muted: #5b6570;
+  --cf-primary: var(--cf-petrol);
+  --cf-primary-text: var(--cf-ivory);
+  --cf-accent: var(--cf-coral);
+  --cf-accent-text: var(--cf-graphite);
+  --cf-border: #e3ddd0;
+  --cf-danger: #b3261e;
+  --cf-success: #1e6b3a;
+  --cf-warning: #8a5a00;
+
+  --cf-radius-sm: 8px;
+  --cf-radius-md: 14px;
+  --cf-radius-lg: 20px;
+  --cf-shadow: 0 8px 28px rgba(34, 43, 50, 0.16);
+  --cf-font: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--cf-font);
+  background: var(--cf-bg);
+  color: var(--cf-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--cf-petrol);
+  outline-offset: 2px;
+}
+
+a {
+  color: var(--cf-petrol);
+}
