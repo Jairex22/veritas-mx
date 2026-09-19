@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+.env
+*.local
+
+# Base de datos persistente (contiene datos, no código)
+server/data/*.sqlite3
+server/data/*.sqlite3-journal
+server/data/*.sqlite3-wal
+server/data/*.sqlite3-shm
+
+*.log
+.DS_Store
+*.tsbuildinfo
