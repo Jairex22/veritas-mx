@@ -10,6 +10,7 @@ backend/.pytest_cache/
 frontend/node_modules/
 frontend/dist/
 frontend/.env
+frontend/tsconfig.tsbuildinfo
 
 # Sistema
 .DS_Store
