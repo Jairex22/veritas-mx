@@ -125,8 +125,6 @@ class App:
         self.root.geometry("1200x750")
         self.root.minsize(1024, 640)
 
-        self.include_subfolders = tk.BooleanVar(value=False)
-
         self._build_style()
         self._build_header()
         self._build_footer()
@@ -219,7 +217,7 @@ class App:
         ).pack(anchor="w")
         tk.Label(
             left,
-            text="XML Folder Analysis & Cleanup Tool",
+            text="Selecciona tu carpeta FLX y te digo todo",
             font=("Segoe UI", 10),
             bg=COLORS["bg_header"],
             fg="#9aa5b1",
@@ -265,18 +263,14 @@ class App:
         bar.pack(fill="x", padx=20, pady=(14, 6))
 
         self.btn_select = ttk.Button(
-            bar, text="📁 Seleccionar carpeta", style="Accent.TButton", command=self.select_folder
+            bar, text="📁 Seleccionar carpeta FLX", style="Accent.TButton", command=self.select_folder
         )
         self.btn_select.pack(side="left")
 
         self.btn_rescan = ttk.Button(
-            bar, text="🔄 Analizar nuevamente", style="Secondary.TButton", command=self.start_scan, state="disabled"
+            bar, text="🔄 Volver a revisar", style="Secondary.TButton", command=self.start_scan, state="disabled"
         )
         self.btn_rescan.pack(side="left", padx=(10, 0))
-
-        ttk.Checkbutton(bar, text="Analizar subcarpetas", variable=self.include_subfolders).pack(
-            side="left", padx=(16, 0)
-        )
 
         ttk.Button(bar, text="⚙ Configuración", style="Secondary.TButton", command=self.open_settings_dialog).pack(
             side="right"
@@ -290,7 +284,7 @@ class App:
         tk.Label(
             path_bar, text="Carpeta:", bg=COLORS["bg_app"], fg=COLORS["text_muted"], font=("Segoe UI", 9, "bold")
         ).pack(side="left")
-        self.folder_path_var = tk.StringVar(value="Ninguna carpeta seleccionada")
+        self.folder_path_var = tk.StringVar(value="Ninguna carpeta seleccionada todavía")
         tk.Label(
             path_bar,
             textvariable=self.folder_path_var,
@@ -327,60 +321,65 @@ class App:
     def _build_cards(self) -> None:
         self.cards_container = tk.Frame(self.root, bg=COLORS["bg_app"])
         self.cards_container.pack(fill="x", padx=20, pady=(6, 10))
-        for i in range(5):
+        for i in range(4):
             self.cards_container.grid_columnconfigure(i, weight=1, uniform="cards")
 
         specs = [
-            ("XML TOTALES", "total"),
-            ("XML MÁS ANTIGUO", "oldest"),
-            ("XML ÚLTIMOS 7 DÍAS", "last7"),
-            ("ESPACIO UTILIZADO", "size"),
-            ("ESPACIO RECUPERABLE", "reclaim"),
+            ("XML TOTALES", "total", COLORS["text_dark"]),
+            ("EN PROCESS", "process", COLORS["accent"]),
+            ("SIN PROCESAR", "unprocess", COLORS["orange"]),
+            ("ESPACIO USADO", "size", COLORS["text_dark"]),
         ]
         self.card_value_vars = {}
         self.card_sub_vars = {}
-        for i, (title, key) in enumerate(specs):
+        for i, (title, key, value_color) in enumerate(specs):
             card = tk.Frame(
                 self.cards_container, bg=COLORS["card_bg"], highlightbackground=COLORS["border"], highlightthickness=1
             )
             card.grid(row=0, column=i, sticky="nsew", padx=(0 if i == 0 else 8, 0))
             tk.Label(
-                card, text=title, bg=COLORS["card_bg"], fg=COLORS["text_muted"], font=("Segoe UI", 8, "bold")
-            ).pack(anchor="w", padx=14, pady=(12, 0))
+                card, text=title, bg=COLORS["card_bg"], fg=COLORS["text_muted"], font=("Segoe UI", 9, "bold")
+            ).pack(anchor="w", padx=16, pady=(16, 0))
             val_var = tk.StringVar(value="—")
             tk.Label(
-                card, textvariable=val_var, bg=COLORS["card_bg"], fg=COLORS["text_dark"], font=("Segoe UI", 20, "bold")
-            ).pack(anchor="w", padx=14, pady=(2, 0))
+                card, textvariable=val_var, bg=COLORS["card_bg"], fg=value_color, font=("Segoe UI", 30, "bold")
+            ).pack(anchor="w", padx=16, pady=(2, 0))
             sub_var = tk.StringVar(value="")
             tk.Label(
-                card, textvariable=sub_var, bg=COLORS["card_bg"], fg=COLORS["text_muted"], font=("Segoe UI", 8)
-            ).pack(anchor="w", padx=14, pady=(0, 12))
+                card, textvariable=sub_var, bg=COLORS["card_bg"], fg=COLORS["text_muted"], font=("Segoe UI", 9)
+            ).pack(anchor="w", padx=16, pady=(0, 16))
             self.card_value_vars[key] = val_var
             self.card_sub_vars[key] = sub_var
 
     # ------------------------------------------------------------------
     # Oldest XML panel (always visible)
     # ------------------------------------------------------------------
-    def _build_oldest_panel(self) -> None:
-        self.oldest_frame = tk.Frame(
-            self.root, bg=COLORS["card_bg"], highlightbackground=COLORS["border"], highlightthickness=1
-        )
-        self.oldest_frame.pack(fill="x", padx=20, pady=(0, 10))
-        inner = tk.Frame(self.oldest_frame, bg=COLORS["card_bg"])
+    def _build_info_file_panel(self, title: str, title_color: str, attr_prefix: str, get_file):
+        """Build a compact 'file spotlight' card (used for both the oldest
+        and the most recent XML) and store its StringVars as
+        self.<attr_prefix>_file_var / _modified_var / _age_var / _size_var.
+        """
+        frame = tk.Frame(self.root, bg=COLORS["card_bg"], highlightbackground=COLORS["border"], highlightthickness=1)
+        frame.pack(fill="x", padx=20, pady=(0, 10))
+        inner = tk.Frame(frame, bg=COLORS["card_bg"])
         inner.pack(fill="x", padx=16, pady=10)
         inner.grid_columnconfigure(0, weight=1)
 
-        tk.Label(
-            inner, text="OLDEST XML", bg=COLORS["card_bg"], fg=COLORS["red"], font=("Segoe UI", 9, "bold")
-        ).grid(row=0, column=0, sticky="w", columnspan=2)
+        tk.Label(inner, text=title, bg=COLORS["card_bg"], fg=title_color, font=("Segoe UI", 9, "bold")).grid(
+            row=0, column=0, sticky="w", columnspan=2
+        )
 
         row1 = tk.Frame(inner, bg=COLORS["card_bg"])
         row1.grid(row=1, column=0, sticky="w", pady=(6, 0))
 
-        self.oldest_file_var = tk.StringVar(value="-")
-        self.oldest_modified_var = tk.StringVar(value="-")
-        self.oldest_age_var = tk.StringVar(value="-")
-        self.oldest_size_var = tk.StringVar(value="-")
+        file_var = tk.StringVar(value="-")
+        modified_var = tk.StringVar(value="-")
+        age_var = tk.StringVar(value="-")
+        size_var = tk.StringVar(value="-")
+        setattr(self, f"{attr_prefix}_file_var", file_var)
+        setattr(self, f"{attr_prefix}_modified_var", modified_var)
+        setattr(self, f"{attr_prefix}_age_var", age_var)
+        setattr(self, f"{attr_prefix}_size_var", size_var)
 
         def add_field(parent, label, var, col):
             f = tk.Frame(parent, bg=COLORS["card_bg"])
@@ -392,20 +391,31 @@ class App:
                 f, textvariable=var, bg=COLORS["card_bg"], fg=COLORS["text_dark"], font=("Segoe UI", 10, "bold")
             ).pack(anchor="w")
 
-        add_field(row1, "Archivo", self.oldest_file_var, 0)
-        add_field(row1, "Modificado", self.oldest_modified_var, 1)
-        add_field(row1, "Antigüedad", self.oldest_age_var, 2)
-        add_field(row1, "Tamaño", self.oldest_size_var, 3)
+        add_field(row1, "Archivo", file_var, 0)
+        add_field(row1, "Modificado", modified_var, 1)
+        add_field(row1, "Antigüedad", age_var, 2)
+        add_field(row1, "Tamaño", size_var, 3)
 
-        self.btn_open_oldest = ttk.Button(
+        ttk.Button(
             inner,
             text="📂 Abrir ubicación",
             style="Secondary.TButton",
-            command=lambda: self.open_file_location(
-                self.scan_result.oldest.path if self.scan_result and self.scan_result.oldest else ""
-            ),
+            command=lambda: self.open_file_location(get_file().path if get_file() else ""),
+        ).grid(row=1, column=1, sticky="e")
+
+    def _build_oldest_panel(self) -> None:
+        self._build_info_file_panel(
+            "EL MÁS VIEJO",
+            COLORS["red"],
+            "oldest",
+            lambda: self.scan_result.oldest if self.scan_result else None,
         )
-        self.btn_open_oldest.grid(row=1, column=1, sticky="e")
+        self._build_info_file_panel(
+            "EL MÁS NUEVO (el último)",
+            COLORS["accent"],
+            "newest",
+            lambda: self.scan_result.newest if self.scan_result else None,
+        )
 
     # ------------------------------------------------------------------
     # Notebook
@@ -414,17 +424,89 @@ class App:
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill="both", expand=True, padx=20, pady=(0, 14))
 
+        self.tab_projects = tk.Frame(self.notebook, bg=COLORS["bg_app"])
         self.tab_dashboard = tk.Frame(self.notebook, bg=COLORS["bg_app"])
         self.tab_advisor = tk.Frame(self.notebook, bg=COLORS["bg_app"])
         self.tab_stats = tk.Frame(self.notebook, bg=COLORS["bg_app"])
 
+        self.notebook.add(self.tab_projects, text="  📊 Proyectos  ")
         self.notebook.add(self.tab_dashboard, text="  Tabla de Archivos  ")
         self.notebook.add(self.tab_advisor, text="  Cleanup Advisor  ")
         self.notebook.add(self.tab_stats, text="  Statistics  ")
 
+        self._build_projects_tab(self.tab_projects)
         self._build_dashboard_tab(self.tab_dashboard)
         self._build_advisor_tab(self.tab_advisor)
         self._build_stats_tab(self.tab_stats)
+
+    # ------------------------------------------------------------------
+    # Proyectos tab: process / unprocess por carpeta de proyecto (FLX)
+    # ------------------------------------------------------------------
+    def _build_projects_tab(self, parent: tk.Frame) -> None:
+        container = tk.Frame(parent, bg=COLORS["bg_app"])
+        container.pack(fill="both", expand=True, pady=(14, 0))
+
+        tk.Label(
+            container,
+            text="Tus proyectos",
+            bg=COLORS["bg_app"],
+            fg=COLORS["text_dark"],
+            font=("Segoe UI", 14, "bold"),
+        ).pack(anchor="w")
+        tk.Label(
+            container,
+            text="Cuántos XML hay en Process y en Unprocess dentro de cada proyecto de la carpeta FLX.",
+            bg=COLORS["bg_app"],
+            fg=COLORS["text_muted"],
+            font=("Segoe UI", 9),
+        ).pack(anchor="w", pady=(0, 12))
+
+        self.projects_empty_label = tk.Label(
+            container,
+            text="Selecciona tu carpeta FLX arriba para ver aquí tus proyectos. 📁",
+            bg=COLORS["bg_app"],
+            fg=COLORS["text_muted"],
+            font=("Segoe UI", 11),
+        )
+        self.projects_empty_label.pack(anchor="w", pady=(20, 0))
+
+        tree_frame = tk.Frame(container, bg=COLORS["bg_app"])
+        tree_frame.grid_rowconfigure(0, weight=1)
+        tree_frame.grid_columnconfigure(0, weight=1)
+        self.projects_tree_frame = tree_frame
+
+        vsb = ttk.Scrollbar(tree_frame, orient="vertical")
+        columns = ("project", "process", "unprocess", "total", "size")
+        self.projects_tree = ttk.Treeview(
+            tree_frame, columns=columns, show="headings", yscrollcommand=vsb.set, selectmode="browse", height=18
+        )
+        vsb.config(command=self.projects_tree.yview)
+        headings = {
+            "project": "Proyecto",
+            "process": "En Process",
+            "unprocess": "Sin Procesar",
+            "total": "Total XML",
+            "size": "Espacio",
+        }
+        widths = {"project": 260, "process": 140, "unprocess": 140, "total": 120, "size": 120}
+        for col in columns:
+            self.projects_tree.heading(col, text=headings[col])
+            self.projects_tree.column(
+                col, width=widths[col], anchor=("w" if col == "project" else "center"), stretch=(col == "project")
+            )
+        self.projects_tree.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
+        self.projects_tree.bind(
+            "<Double-1>", lambda e: self._open_path(self.projects_tree.identify_row(e.y))
+        )
+
+        self.projects_hint_label = tk.Label(
+            container,
+            text="Doble clic en un proyecto para abrir su carpeta.",
+            bg=COLORS["bg_app"],
+            fg=COLORS["text_muted"],
+            font=("Segoe UI", 8),
+        )
 
     # ------------------------------------------------------------------
     # Dashboard tab: filters, search, table
@@ -641,7 +723,7 @@ class App:
         )
         self.ranking_empty_label = tk.Label(
             right,
-            text="Activa 'Analizar subcarpetas' en la barra superior y vuelve a analizar para ver este panel.",
+            text="Selecciona tu carpeta FLX para ver aquí qué carpeta tiene más espacio para liberar.",
             bg=COLORS["card_bg"],
             fg=COLORS["text_muted"],
             font=("Segoe UI", 9),
@@ -787,7 +869,7 @@ class App:
     # Folder selection & scanning
     # ------------------------------------------------------------------
     def select_folder(self) -> None:
-        path = filedialog.askdirectory(title="Seleccionar carpeta con archivos XML")
+        path = filedialog.askdirectory(title="Seleccionar carpeta FLX")
         if not path:
             return
         self.current_folder = path
@@ -814,7 +896,7 @@ class App:
         self.btn_rescan.config(state="disabled")
         self.btn_cancel_scan.config(state="normal")
 
-        include_sub = self.include_subfolders.get()
+        include_sub = True  # FLX projects nest process/unprocess XML two levels deep.
         settings_copy = dict(self.settings)
         folder = self.current_folder
         cancel_event = self.cancel_event
@@ -927,11 +1009,44 @@ class App:
     def _refresh_all_views(self) -> None:
         self._update_dashboard_cards()
         self._update_oldest_panel()
+        self._update_projects_tab()
         self._apply_filters_and_search()
         self._update_top10()
         self._update_subfolder_ranking()
         self._update_cleanup_simulation()
         self._update_statistics_tab()
+
+    def _update_projects_tab(self) -> None:
+        projects = self.scan_result.projects if self.scan_result else []
+        self.projects_tree.delete(*self.projects_tree.get_children())
+
+        if not projects:
+            self.projects_tree_frame.pack_forget()
+            self.projects_hint_label.pack_forget()
+            self.projects_empty_label.pack(anchor="w", pady=(20, 0))
+            return
+
+        self.projects_empty_label.pack_forget()
+        self.projects_tree_frame.pack(fill="both", expand=True, pady=(0, 6))
+        self.projects_hint_label.pack(anchor="w")
+
+        for p in projects:
+            iid = str(Path(self.current_folder) / p.name) if p.name != "(raíz)" else self.current_folder
+            try:
+                self.projects_tree.insert(
+                    "",
+                    "end",
+                    iid=iid,
+                    values=(
+                        p.name,
+                        f"{p.process_count:,}",
+                        f"{p.unprocess_count:,}",
+                        f"{p.total_count:,}",
+                        format_size(p.total_bytes),
+                    ),
+                )
+            except tk.TclError:
+                continue
 
     def _get_current_retention_days(self) -> int:
         sel = self.retention_var.get()
@@ -948,38 +1063,43 @@ class App:
     def _update_dashboard_cards(self) -> None:
         total = len(self.all_files)
         self.card_value_vars["total"].set(f"{total:,}")
+        n_projects = len(self.scan_result.projects) if self.scan_result else 0
+        self.card_sub_vars["total"].set(f"en {n_projects:,} proyecto(s)" if n_projects else "")
 
-        oldest = self.scan_result.oldest if self.scan_result else None
-        if oldest:
-            self.card_value_vars["oldest"].set(f"{int(oldest.age_days):,} días")
-            self.card_sub_vars["oldest"].set(oldest.name)
+        total_process = self.scan_result.total_process if self.scan_result else 0
+        total_unprocess = self.scan_result.total_unprocess if self.scan_result else 0
+        self.card_value_vars["process"].set(f"{total_process:,}")
+        self.card_value_vars["unprocess"].set(f"{total_unprocess:,}")
+        if total:
+            self.card_sub_vars["process"].set(f"{total_process / total * 100:.0f}% del total")
+            self.card_sub_vars["unprocess"].set(f"{total_unprocess / total * 100:.0f}% del total")
         else:
-            self.card_value_vars["oldest"].set("0 días")
-            self.card_sub_vars["oldest"].set("-")
-
-        last7 = sum(1 for f in self.all_files if f.age_days < 7)
-        self.card_value_vars["last7"].set(f"{last7:,}")
+            self.card_sub_vars["process"].set("")
+            self.card_sub_vars["unprocess"].set("")
 
         total_size = self.scan_result.total_size_bytes if self.scan_result else 0
         self.card_value_vars["size"].set(format_size(total_size))
+        self.card_sub_vars["size"].set("")
 
-        retention = self._get_current_retention_days()
-        reclaimable = sum(f.size_bytes for f in self.all_files if f.age_days > retention)
-        self.card_value_vars["reclaim"].set(format_size(reclaimable))
-        self.card_sub_vars["reclaim"].set(f"criterio: > {retention} días")
+    def _update_info_file_panel(self, attr_prefix: str, info: Optional[XMLFileInfo]) -> None:
+        file_var = getattr(self, f"{attr_prefix}_file_var")
+        modified_var = getattr(self, f"{attr_prefix}_modified_var")
+        age_var = getattr(self, f"{attr_prefix}_age_var")
+        size_var = getattr(self, f"{attr_prefix}_size_var")
+        if not info:
+            file_var.set("-")
+            modified_var.set("-")
+            age_var.set("-")
+            size_var.set("-")
+            return
+        file_var.set(info.name)
+        modified_var.set(info.modified.strftime("%Y-%m-%d %H:%M:%S"))
+        age_var.set(f"{int(info.age_days):,} días")
+        size_var.set(info.size_display)
 
     def _update_oldest_panel(self) -> None:
-        oldest = self.scan_result.oldest if self.scan_result else None
-        if not oldest:
-            self.oldest_file_var.set("-")
-            self.oldest_modified_var.set("-")
-            self.oldest_age_var.set("-")
-            self.oldest_size_var.set("-")
-            return
-        self.oldest_file_var.set(oldest.name)
-        self.oldest_modified_var.set(oldest.modified.strftime("%Y-%m-%d %H:%M:%S"))
-        self.oldest_age_var.set(f"{int(oldest.age_days):,} días")
-        self.oldest_size_var.set(oldest.size_display)
+        self._update_info_file_panel("oldest", self.scan_result.oldest if self.scan_result else None)
+        self._update_info_file_panel("newest", self.scan_result.newest if self.scan_result else None)
 
     # ------------------------------------------------------------------
     # Filtering / search / sort / table population

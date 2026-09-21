@@ -21,6 +21,8 @@ class XMLFileInfo:
     status: str = "RECENT"
     color: str = "#2ecc71"
     recommendation: str = "KEEP"
+    project: str = ""
+    category: str = ""
 
     @property
     def size_display(self) -> str:
@@ -29,6 +31,25 @@ class XMLFileInfo:
     @property
     def age_display(self) -> str:
         return format_age(self.age_days)
+
+
+@dataclass
+class ProjectSummary:
+    """Process/unprocess breakdown for one project folder inside an FLX root."""
+
+    name: str
+    process_count: int = 0
+    unprocess_count: int = 0
+    other_count: int = 0
+    process_bytes: int = 0
+    unprocess_bytes: int = 0
+    other_bytes: int = 0
+    total_count: int = 0
+    total_bytes: int = 0
+
+    @property
+    def total_size_display(self) -> str:
+        return format_size(self.total_bytes)
 
 
 @dataclass
@@ -45,6 +66,10 @@ class ScanResult:
     by_month: Dict[str, int] = field(default_factory=dict)
     age_groups: Dict[str, int] = field(default_factory=dict)
     subfolder_breakdown: Dict[str, Dict[str, float]] = field(default_factory=dict)
+    projects: List[ProjectSummary] = field(default_factory=list)
+    total_process: int = 0
+    total_unprocess: int = 0
+    total_other: int = 0
     scan_duration_seconds: float = 0.0
     errors: List[str] = field(default_factory=list)
     cancelled: bool = False

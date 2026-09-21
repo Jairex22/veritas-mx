@@ -48,27 +48,37 @@ ejecuciones (ver `app/config.py::get_base_dir`).
 
 ## 2. Funcionalidad implementada
 
+- **Pensada para carpetas FLX**: seleccionas la carpeta raíz `FLX` (que
+  contiene todos tus proyectos, cada uno con sus subcarpetas `Process` /
+  `Unprocess`) y la app lee automáticamente TODOS los proyectos de adentro,
+  sin necesidad de marcar ninguna casilla — el escaneo siempre es completo
+  y recursivo. También reconoce variantes comunes del nombre
+  (`Processed`, `Procesado`, `Unprocessed`, `Sin Procesar`, etc.) y sigue
+  funcionando igual con cualquier otra carpeta que no tenga esa estructura.
+- Pestaña **📊 Proyectos** (la primera que se ve): una tabla simple con
+  cada proyecto y cuántos XML tiene en Process, en Unprocess y en total —
+  doble clic abre esa carpeta en el Explorador.
 - Selección de carpeta (`askdirectory`) con análisis automático.
 - Escaneo con `os.scandir()` (metadatos únicamente, nunca se lee el
   contenido del XML), en un hilo separado (`threading`) para que la
   interfaz **nunca se congele**, con barra de progreso, porcentaje y botón
   **Cancelar análisis**.
-- Dashboard con 5 tarjetas: XML totales, XML más antiguo, XML últimos 7
-  días, espacio utilizado, espacio recuperable (según el filtro de
-  limpieza activo).
-- Panel **OLDEST XML** siempre visible con botón **📂 Abrir ubicación**
+- Dashboard con 4 tarjetas grandes y fáciles de leer: XML totales, EN
+  PROCESS, SIN PROCESAR y espacio usado.
+- Panel **EL MÁS VIEJO** y panel **EL MÁS NUEVO (el último)**, siempre
+  visibles, cada uno con botón **📂 Abrir ubicación**
   (`explorer /select,`), manejando rutas con espacios correctamente.
-- Tabla (`ttk.Treeview`) ordenable por columna, con scroll vertical y
-  horizontal, coloreada por estado (verde/amarillo/naranja/rojo),
-  filtros predefinidos, rango de fechas, y búsqueda instantánea por
-  nombre/ruta.
+- Tabla completa (pestaña "Tabla de Archivos", `ttk.Treeview`) ordenable
+  por columna, con scroll vertical y horizontal, coloreada por estado
+  (verde/amarillo/naranja/rojo), filtros predefinidos, rango de fechas, y
+  búsqueda instantánea por nombre/ruta.
 - **Cleanup Advisor**: recomendación `KEEP` / `REVIEW` / `CLEANUP
   CANDIDATE` basada solo en antigüedad, fecha de modificación y tamaño
   (nunca en el contenido del archivo). Simulador de limpieza en vivo
   (sin tocar el disco) y botón **🔍 Analizar limpieza** con resumen
   detallado.
 - Panel **10 Oldest XML Files** y **Folder Cleanup Ranking** (por
-  subcarpeta, cuando se activa "Analizar subcarpetas").
+  subcarpeta), siempre activos.
 - **🧹 Limpiar XML antiguos**: flujo de limpieza con doble confirmación
   (`Cancelar` / `Ver archivos` / `Continuar`, luego confirmación final).
   **SAFE MODE** está activo por defecto: los archivos se **mueven** a

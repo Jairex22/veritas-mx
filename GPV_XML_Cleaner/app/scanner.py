@@ -10,6 +10,7 @@ the name and a cached stat() result on Windows.
 from __future__ import annotations
 
 import os
+import re
 import time
 from dataclasses import dataclass
 from datetime import datetime
@@ -18,7 +19,7 @@ from threading import Event
 from typing import Callable, Dict, Iterable, Iterator, List, Optional, Tuple
 
 from app.config import get_logger
-from app.models import ScanResult, XMLFileInfo
+from app.models import ProjectSummary, ScanResult, XMLFileInfo
 
 logger = get_logger()
 
@@ -26,6 +27,75 @@ logger = get_logger()
 AGE_BUCKETS: Tuple[int, ...] = (1, 3, 7, 15, 30, 60, 90, 180, 365)
 
 ProgressCallback = Callable[[int, Optional[int]], None]
+
+# Recognized names (case/space/underscore-insensitive) for a project's
+# "process" and "unprocess" subfolders inside an FLX-style root folder,
+# e.g. FLX/<Project>/Process/*.xml and FLX/<Project>/Unprocess/*.xml.
+PROCESS_FOLDER_NAMES = {"process", "processed", "procesado", "procesados", "proceed", "proceeded"}
+UNPROCESS_FOLDER_NAMES = {
+    "unprocess",
+    "unprocessed",
+    "unprocesed",
+    "unproceed",
+    "unproceeded",
+    "sinprocesar",
+    "noprocesado",
+    "noprocesados",
+    "pendiente",
+    "pendientes",
+}
+
+
+def _normalize_folder_name(name: str) -> str:
+    return re.sub(r"[\s_\-]+", "", name.strip().lower())
+
+
+def classify_category(folder_name: str) -> str:
+    """Classify a folder name as 'process', 'unprocess' or 'other'."""
+    norm = _normalize_folder_name(folder_name)
+    if norm in UNPROCESS_FOLDER_NAMES:
+        return "unprocess"
+    if norm in PROCESS_FOLDER_NAMES:
+        return "process"
+    return "other"
+
+
+def tag_flx_projects(files: List[XMLFileInfo], root_folder: str) -> List[ProjectSummary]:
+    """Group already-scanned files by project (first path segment under
+    root_folder) and classify each into process/unprocess/other based on
+    the second path segment. Tags f.project and f.category in place.
+
+    Works for any folder shape: a plain flat folder just yields a single
+    "(raíz)" project with everything counted as "other".
+    """
+    root = Path(root_folder)
+    projects: Dict[str, ProjectSummary] = {}
+    for f in files:
+        try:
+            parts = Path(f.path).relative_to(root).parts
+        except ValueError:
+            parts = (f.name,)
+
+        project_name = parts[0] if len(parts) > 1 else "(raíz)"
+        category = classify_category(parts[1]) if len(parts) > 2 else "other"
+
+        f.project = project_name
+        f.category = category
+
+        summary = projects.setdefault(project_name, ProjectSummary(name=project_name))
+        summary.total_count += 1
+        summary.total_bytes += f.size_bytes
+        if category == "process":
+            summary.process_count += 1
+            summary.process_bytes += f.size_bytes
+        elif category == "unprocess":
+            summary.unprocess_count += 1
+            summary.unprocess_bytes += f.size_bytes
+        else:
+            summary.other_count += 1
+            summary.other_bytes += f.size_bytes
+
+    return sorted(projects.values(), key=lambda p: p.total_count, reverse=True)
 
 
 class ScanCancelled(Exception):
@@ -360,7 +430,19 @@ def scan_folder(
     if include_subfolders:
         result.subfolder_breakdown = compute_subfolder_breakdown(files, folder_path)
 
+    result.projects = tag_flx_projects(files, folder_path)
+    result.total_process = sum(p.process_count for p in result.projects)
+    result.total_unprocess = sum(p.unprocess_count for p in result.projects)
+    result.total_other = sum(p.other_count for p in result.projects)
+
     logger.info("XML found: %d", result.total_count)
+    logger.info(
+        "Projects: %d (process=%d, unprocess=%d, other=%d)",
+        len(result.projects),
+        result.total_process,
+        result.total_unprocess,
+        result.total_other,
+    )
     if result.oldest:
         logger.info("Oldest: %s", result.oldest.name)
     logger.info("Scan finished in %.2f seconds", result.scan_duration_seconds)
