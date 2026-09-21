@@ -1,0 +1,16 @@
+{
+    "retention_days": 30,
+    "safe_mode": true,
+    "move_instead_of_delete": true,
+    "archive_folder": "XML_Archive",
+    "recent_days": 7,
+    "warning_days": 30,
+    "critical_days": 90,
+    "api_port": 8765,
+    "api_host": "127.0.0.1",
+    "health_warning_old_ratio": 0.25,
+    "health_critical_old_ratio": 0.5,
+    "health_warning_size_gb": 10.0,
+    "health_critical_size_gb": 25.0,
+    "last_folder": ""
+}
