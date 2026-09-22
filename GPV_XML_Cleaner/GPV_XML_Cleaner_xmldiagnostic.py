@@ -70,7 +70,6 @@ CSV_FIELDS = [
     "machine",
     "project",
     "category",
-    "filename",
     "path",
     "creation_date",
     "modified_date",
@@ -78,15 +77,9 @@ CSV_FIELDS = [
     "size_mb",
     "status",
     "recommendation",
-    "is_global_oldest",
-    "is_global_newest",
-    "is_machine_oldest",
-    "is_machine_newest",
-    "is_project_oldest",
-    "is_project_newest",
-    "is_machine_project_oldest",
-    "is_machine_project_newest",
 ]
+
+SUMMARY_FIELDS = ["scope", "machine", "project", "filename", "path", "modified_date"]
 
 
 # ---------------------------------------------------------------------------
@@ -105,14 +98,6 @@ class XmlRecord:
     size_mb: float
     status: str
     recommendation: str
-    is_global_oldest: bool = False
-    is_global_newest: bool = False
-    is_machine_oldest: bool = False
-    is_machine_newest: bool = False
-    is_project_oldest: bool = False
-    is_project_newest: bool = False
-    is_machine_project_oldest: bool = False
-    is_machine_project_newest: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -306,31 +291,6 @@ def compute_stats(records: List[XmlRecord]):
     return global_oldest, global_newest, machine_stats, project_stats, mp_stats
 
 
-def apply_flags(
-    records: List[XmlRecord],
-    global_oldest: XmlRecord,
-    global_newest: XmlRecord,
-    machine_stats: Dict[str, Dict[str, XmlRecord]],
-    project_stats: Dict[str, Dict[str, XmlRecord]],
-    mp_stats: Dict[Tuple[str, str], Dict[str, XmlRecord]],
-) -> None:
-    for r in records:
-        r.is_global_oldest = r is global_oldest
-        r.is_global_newest = r is global_newest
-
-        m_bucket = machine_stats[r.machine]
-        r.is_machine_oldest = r is m_bucket["oldest"]
-        r.is_machine_newest = r is m_bucket["newest"]
-
-        p_bucket = project_stats[r.project]
-        r.is_project_oldest = r is p_bucket["oldest"]
-        r.is_project_newest = r is p_bucket["newest"]
-
-        mp_bucket = mp_stats[(r.machine, r.project)]
-        r.is_machine_project_oldest = r is mp_bucket["oldest"]
-        r.is_machine_project_newest = r is mp_bucket["newest"]
-
-
 def machine_to_projects(mp_stats: Dict[Tuple[str, str], Dict[str, XmlRecord]]) -> Dict[str, List[str]]:
     grouping: Dict[str, List[str]] = {}
     for machine, project in mp_stats.keys():
@@ -404,7 +364,15 @@ def get_candidate_output_dirs() -> List[Path]:
     return unique
 
 
-def save_csv_with_fallback(records_sorted: List[XmlRecord], filename: str) -> Path:
+def save_csv_with_fallback(
+    records_sorted: List[XmlRecord],
+    filename: str,
+    global_oldest: XmlRecord,
+    global_newest: XmlRecord,
+    machine_stats: Dict[str, Dict[str, XmlRecord]],
+    project_stats: Dict[str, Dict[str, XmlRecord]],
+    mp_stats: Dict[Tuple[str, str], Dict[str, XmlRecord]],
+) -> Path:
     """Try each candidate folder in order, actually attempting to write the
     file (not just checking the folder exists) so redirected/locked/
     read-only folders are skipped automatically instead of failing silently
@@ -414,7 +382,7 @@ def save_csv_with_fallback(records_sorted: List[XmlRecord], filename: str) -> Pa
         try:
             candidate_dir.mkdir(parents=True, exist_ok=True)
             output_path = candidate_dir / filename
-            export_csv(records_sorted, output_path)
+            export_csv(records_sorted, output_path, global_oldest, global_newest, machine_stats, project_stats, mp_stats)
             return output_path
         except OSError as exc:
             last_error = exc
@@ -422,7 +390,47 @@ def save_csv_with_fallback(records_sorted: List[XmlRecord], filename: str) -> Pa
     raise OSError(f"Could not write the CSV to any known folder. Last error: {last_error}")
 
 
-def export_csv(records_sorted: List[XmlRecord], output_path: Path) -> None:
+def _format_date(record: XmlRecord) -> str:
+    return record.modified_date.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _write_summary_section(
+    writer: "csv._writer",
+    title: str,
+    role: str,
+    global_record: XmlRecord,
+    machine_stats: Dict[str, Dict[str, XmlRecord]],
+    project_stats: Dict[str, Dict[str, XmlRecord]],
+    mp_stats: Dict[Tuple[str, str], Dict[str, XmlRecord]],
+) -> None:
+    writer.writerow([])
+    writer.writerow([title])
+    writer.writerow(SUMMARY_FIELDS)
+
+    writer.writerow(["GLOBAL", global_record.machine, global_record.project, global_record.filename, global_record.path, _format_date(global_record)])
+
+    for machine in sorted(machine_stats.keys()):
+        r = machine_stats[machine][role]
+        writer.writerow(["MACHINE", machine, "", r.filename, r.path, _format_date(r)])
+
+    for project in sorted(project_stats.keys()):
+        r = project_stats[project][role]
+        writer.writerow(["PROJECT", "", project, r.filename, r.path, _format_date(r)])
+
+    for machine, project in sorted(mp_stats.keys()):
+        r = mp_stats[(machine, project)][role]
+        writer.writerow(["MACHINE+PROJECT", machine, project, r.filename, r.path, _format_date(r)])
+
+
+def export_csv(
+    records_sorted: List[XmlRecord],
+    output_path: Path,
+    global_oldest: XmlRecord,
+    global_newest: XmlRecord,
+    machine_stats: Dict[str, Dict[str, XmlRecord]],
+    project_stats: Dict[str, Dict[str, XmlRecord]],
+    mp_stats: Dict[Tuple[str, str], Dict[str, XmlRecord]],
+) -> None:
     with open(output_path, "w", newline="", encoding="utf-8-sig") as fh:
         writer = csv.DictWriter(fh, fieldnames=CSV_FIELDS)
         writer.writeheader()
@@ -432,24 +440,19 @@ def export_csv(records_sorted: List[XmlRecord], output_path: Path) -> None:
                     "machine": r.machine,
                     "project": r.project,
                     "category": r.category,
-                    "filename": r.filename,
                     "path": r.path,
                     "creation_date": r.creation_date.strftime("%Y-%m-%d %H:%M:%S"),
-                    "modified_date": r.modified_date.strftime("%Y-%m-%d %H:%M:%S"),
+                    "modified_date": _format_date(r),
                     "age_days": int(r.age_days),
                     "size_mb": f"{r.size_mb:.3f}",
                     "status": r.status,
                     "recommendation": r.recommendation,
-                    "is_global_oldest": "TRUE" if r.is_global_oldest else "FALSE",
-                    "is_global_newest": "TRUE" if r.is_global_newest else "FALSE",
-                    "is_machine_oldest": "TRUE" if r.is_machine_oldest else "FALSE",
-                    "is_machine_newest": "TRUE" if r.is_machine_newest else "FALSE",
-                    "is_project_oldest": "TRUE" if r.is_project_oldest else "FALSE",
-                    "is_project_newest": "TRUE" if r.is_project_newest else "FALSE",
-                    "is_machine_project_oldest": "TRUE" if r.is_machine_project_oldest else "FALSE",
-                    "is_machine_project_newest": "TRUE" if r.is_machine_project_newest else "FALSE",
                 }
             )
+
+        row_writer = csv.writer(fh)
+        _write_summary_section(row_writer, "NEWEST XML", "newest", global_newest, machine_stats, project_stats, mp_stats)
+        _write_summary_section(row_writer, "OLDEST XML", "oldest", global_oldest, machine_stats, project_stats, mp_stats)
 
 
 # ---------------------------------------------------------------------------
@@ -462,7 +465,7 @@ def get_root_path() -> Path:
         print("GPV XML Cleaner - XML Diagnostic")
         print("-" * 34)
         print()
-        print("Ruta de la carpeta FLX:")
+        print("Path to the FLX folder:")
         raw = input("> ")
 
     raw = raw.strip().strip('"').strip("'")
@@ -498,15 +501,14 @@ def main() -> None:
         return
 
     global_oldest, global_newest, machine_stats, project_stats, mp_stats = compute_stats(records)
-    apply_flags(records, global_oldest, global_newest, machine_stats, project_stats, mp_stats)
     grouping = machine_to_projects(mp_stats)
 
     total_size_mb = sum(r.size_mb for r in records)
 
-    print(f"XML encontrados: {len(records):,}")
-    print(f"Máquinas detectadas: {len(machine_stats):,}")
-    print(f"Proyectos detectados: {len(project_stats):,}")
-    print(f"Tamaño total: {total_size_mb:,.3f} MB")
+    print(f"XML files found: {len(records):,}")
+    print(f"Machines detected: {len(machine_stats):,}")
+    print(f"Projects detected: {len(project_stats):,}")
+    print(f"Total size: {total_size_mb:,.3f} MB")
     print()
     print("-" * 60)
     print("GLOBAL")
@@ -548,16 +550,18 @@ def main() -> None:
     filename = f"GPV_XML_Diagnostic_{timestamp}.csv"
 
     records_sorted = sorted(records, key=lambda r: (r.machine, r.project, r.modified_date))
-    output_path = save_csv_with_fallback(records_sorted, filename)
+    output_path = save_csv_with_fallback(
+        records_sorted, filename, global_oldest, global_newest, machine_stats, project_stats, mp_stats
+    )
 
-    print("CSV generado correctamente:")
+    print("CSV generated successfully:")
     print()
     print(str(output_path))
     print()
-    print(f"Tiempo de análisis: {elapsed:.2f} segundos")
+    print(f"Analysis time: {elapsed:.2f} seconds")
     if warnings:
         print()
-        print(f"Advertencias durante el escaneo: {len(warnings):,}")
+        print(f"Warnings during scan: {len(warnings):,}")
     print()
     print("=" * 60)
     print(" DIAGNOSTIC COMPLETED")
