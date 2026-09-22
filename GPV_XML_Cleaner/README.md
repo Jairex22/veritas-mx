@@ -27,6 +27,31 @@ python GPV_XML_Cleaner_xmldiagnostic.py
 python GPV_XML_Cleaner_xmldiagnostic.py "C:\FactoryLogix\FLX"
 ```
 
+### Comando `xmldiagnostics` (instalación en 1 paso)
+
+Para poder escribir simplemente `xmldiagnostics "C:\ruta\FLX"` desde **cualquier**
+ventana de CMD, en cualquier carpeta, sin usar `python` ni rutas completas:
+
+1. Asegúrate de tener estos 3 archivos juntos en la misma carpeta:
+   `GPV_XML_Cleaner_xmldiagnostic.py`, `xmldiagnostics.bat` e
+   `install_xmldiagnostics.bat`.
+2. Haz doble clic en **`install_xmldiagnostics.bat`** (una sola vez).
+   Copia los archivos a `%LOCALAPPDATA%\GPV_XML_Cleaner\` y agrega esa
+   carpeta a tu PATH de usuario (no requiere permisos de administrador).
+3. Cierra la ventana de CMD que tengas abierta y abre una **nueva**
+   (el cambio de PATH solo aplica a ventanas nuevas).
+4. Listo:
+
+```cmd
+xmldiagnostics
+xmldiagnostics "C:\FactoryLogix\FLX"
+```
+
+y el CSV se descarga automáticamente en `Downloads`, igual que con
+`python GPV_XML_Cleaner_xmldiagnostic.py`. Puedes volver a ejecutar el
+instalador en cualquier momento (por ejemplo tras actualizar el script);
+es seguro correrlo varias veces, no duplica la entrada en el PATH.
+
 ---
 
 ## 1. Arquitectura
