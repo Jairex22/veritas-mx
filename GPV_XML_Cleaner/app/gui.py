@@ -53,30 +53,30 @@ STATUS_TAGS = {
 }
 
 FILTER_OPTIONS = [
-    "Todos",
-    "Hoy",
-    "Últimas 24 horas",
-    "Últimos 7 días",
-    "Últimos 30 días",
-    "Más de 30 días",
-    "Más de 60 días",
-    "Más de 90 días",
+    "All",
+    "Today",
+    "Last 24 hours",
+    "Last 7 days",
+    "Last 30 days",
+    "More than 30 days",
+    "More than 60 days",
+    "More than 90 days",
 ]
 
-RETENTION_OPTIONS = ["1 día", "3 días", "7 días", "15 días", "30 días", "60 días", "90 días", "Personalizado"]
-RETENTION_DAYS_MAP = {"1 día": 1, "3 días": 3, "7 días": 7, "15 días": 15, "30 días": 30, "60 días": 60, "90 días": 90}
+RETENTION_OPTIONS = ["1 day", "3 days", "7 days", "15 days", "30 days", "60 days", "90 days", "Custom"]
+RETENTION_DAYS_MAP = {"1 day": 1, "3 days": 3, "7 days": 7, "15 days": 15, "30 days": 30, "60 days": 60, "90 days": 90}
 REV_RETENTION_MAP = {v: k for k, v in RETENTION_DAYS_MAP.items()}
 
 TREE_COLUMNS = ("name", "created", "modified", "age", "size", "path", "status", "recommendation")
 TREE_HEADINGS = {
-    "name": "Nombre",
-    "created": "Fecha creación",
-    "modified": "Última modificación",
-    "age": "Antigüedad",
-    "size": "Tamaño",
-    "path": "Ruta",
-    "status": "Estado",
-    "recommendation": "Recomendación",
+    "name": "Name",
+    "created": "Created",
+    "modified": "Last Modified",
+    "age": "Age",
+    "size": "Size",
+    "path": "Path",
+    "status": "Status",
+    "recommendation": "Recommendation",
 }
 TREE_WIDTHS = {
     "name": 220,
@@ -118,7 +118,7 @@ class App:
         self.move_queue: "queue.Queue" = queue.Queue()
         self._search_after_id: Optional[str] = None
         self._tree_generation = 0
-        self._search_placeholder = "Buscar XML..."
+        self._search_placeholder = "Search XML..."
         self.api_server: Optional[uvicorn.Server] = None
 
         self.root.title(config.APP_NAME)
@@ -217,7 +217,7 @@ class App:
         ).pack(anchor="w")
         tk.Label(
             left,
-            text="Selecciona tu carpeta FLX y te digo todo",
+            text="Select your FLX folder and I'll tell you everything",
             font=("Segoe UI", 10),
             bg=COLORS["bg_header"],
             fg="#9aa5b1",
@@ -263,28 +263,28 @@ class App:
         bar.pack(fill="x", padx=20, pady=(14, 6))
 
         self.btn_select = ttk.Button(
-            bar, text="📁 Seleccionar carpeta FLX", style="Accent.TButton", command=self.select_folder
+            bar, text="📁 Select FLX Folder", style="Accent.TButton", command=self.select_folder
         )
         self.btn_select.pack(side="left")
 
         self.btn_rescan = ttk.Button(
-            bar, text="🔄 Volver a revisar", style="Secondary.TButton", command=self.start_scan, state="disabled"
+            bar, text="🔄 Check Again", style="Secondary.TButton", command=self.start_scan, state="disabled"
         )
         self.btn_rescan.pack(side="left", padx=(10, 0))
 
-        ttk.Button(bar, text="⚙ Configuración", style="Secondary.TButton", command=self.open_settings_dialog).pack(
+        ttk.Button(bar, text="⚙ Settings", style="Secondary.TButton", command=self.open_settings_dialog).pack(
             side="right"
         )
-        ttk.Button(bar, text="📤 Exportar reporte", style="Secondary.TButton", command=self.export_report).pack(
+        ttk.Button(bar, text="📤 Export Report", style="Secondary.TButton", command=self.export_report).pack(
             side="right", padx=(0, 8)
         )
 
         path_bar = tk.Frame(self.root, bg=COLORS["bg_app"])
         path_bar.pack(fill="x", padx=20)
         tk.Label(
-            path_bar, text="Carpeta:", bg=COLORS["bg_app"], fg=COLORS["text_muted"], font=("Segoe UI", 9, "bold")
+            path_bar, text="Folder:", bg=COLORS["bg_app"], fg=COLORS["text_muted"], font=("Segoe UI", 9, "bold")
         ).pack(side="left")
-        self.folder_path_var = tk.StringVar(value="Ninguna carpeta seleccionada todavía")
+        self.folder_path_var = tk.StringVar(value="No folder selected yet")
         tk.Label(
             path_bar,
             textvariable=self.folder_path_var,
@@ -302,7 +302,7 @@ class App:
         )
         self.progress_label.pack(side="left")
         self.btn_cancel_scan = ttk.Button(
-            inner, text="Cancelar análisis", style="Secondary.TButton", command=self.cancel_scan, state="disabled"
+            inner, text="Cancel Scan", style="Secondary.TButton", command=self.cancel_scan, state="disabled"
         )
         self.btn_cancel_scan.pack(side="right")
         self.progress_bar = ttk.Progressbar(self.progress_frame, orient="horizontal", mode="determinate")
@@ -325,10 +325,10 @@ class App:
             self.cards_container.grid_columnconfigure(i, weight=1, uniform="cards")
 
         specs = [
-            ("XML TOTALES", "total", COLORS["text_dark"]),
-            ("EN PROCESS", "process", COLORS["accent"]),
-            ("SIN PROCESAR", "unprocess", COLORS["orange"]),
-            ("ESPACIO USADO", "size", COLORS["text_dark"]),
+            ("TOTAL XML", "total", COLORS["text_dark"]),
+            ("IN PROCESS", "process", COLORS["accent"]),
+            ("UNPROCESSED", "unprocess", COLORS["orange"]),
+            ("SPACE USED", "size", COLORS["text_dark"]),
         ]
         self.card_value_vars = {}
         self.card_sub_vars = {}
@@ -391,27 +391,27 @@ class App:
                 f, textvariable=var, bg=COLORS["card_bg"], fg=COLORS["text_dark"], font=("Segoe UI", 10, "bold")
             ).pack(anchor="w")
 
-        add_field(row1, "Archivo", file_var, 0)
-        add_field(row1, "Modificado", modified_var, 1)
-        add_field(row1, "Antigüedad", age_var, 2)
-        add_field(row1, "Tamaño", size_var, 3)
+        add_field(row1, "File", file_var, 0)
+        add_field(row1, "Modified", modified_var, 1)
+        add_field(row1, "Age", age_var, 2)
+        add_field(row1, "Size", size_var, 3)
 
         ttk.Button(
             inner,
-            text="📂 Abrir ubicación",
+            text="📂 Open Location",
             style="Secondary.TButton",
             command=lambda: self.open_file_location(get_file().path if get_file() else ""),
         ).grid(row=1, column=1, sticky="e")
 
     def _build_oldest_panel(self) -> None:
         self._build_info_file_panel(
-            "EL MÁS VIEJO",
+            "THE OLDEST",
             COLORS["red"],
             "oldest",
             lambda: self.scan_result.oldest if self.scan_result else None,
         )
         self._build_info_file_panel(
-            "EL MÁS NUEVO (el último)",
+            "THE NEWEST (the last one)",
             COLORS["accent"],
             "newest",
             lambda: self.scan_result.newest if self.scan_result else None,
@@ -429,8 +429,8 @@ class App:
         self.tab_advisor = tk.Frame(self.notebook, bg=COLORS["bg_app"])
         self.tab_stats = tk.Frame(self.notebook, bg=COLORS["bg_app"])
 
-        self.notebook.add(self.tab_projects, text="  📊 Proyectos  ")
-        self.notebook.add(self.tab_dashboard, text="  Tabla de Archivos  ")
+        self.notebook.add(self.tab_projects, text="  📊 Projects  ")
+        self.notebook.add(self.tab_dashboard, text="  File Table  ")
         self.notebook.add(self.tab_advisor, text="  Cleanup Advisor  ")
         self.notebook.add(self.tab_stats, text="  Statistics  ")
 
@@ -440,7 +440,7 @@ class App:
         self._build_stats_tab(self.tab_stats)
 
     # ------------------------------------------------------------------
-    # Proyectos tab: process / unprocess por carpeta de proyecto (FLX)
+    # Projects tab: process / unprocess per project folder (FLX)
     # ------------------------------------------------------------------
     def _build_projects_tab(self, parent: tk.Frame) -> None:
         container = tk.Frame(parent, bg=COLORS["bg_app"])
@@ -448,14 +448,14 @@ class App:
 
         tk.Label(
             container,
-            text="Tus proyectos",
+            text="Your Projects",
             bg=COLORS["bg_app"],
             fg=COLORS["text_dark"],
             font=("Segoe UI", 14, "bold"),
         ).pack(anchor="w")
         tk.Label(
             container,
-            text="Cuántos XML hay en Process y en Unprocess dentro de cada proyecto de la carpeta FLX.",
+            text="How many XML files are in Process and Unprocess inside each project in the FLX folder.",
             bg=COLORS["bg_app"],
             fg=COLORS["text_muted"],
             font=("Segoe UI", 9),
@@ -463,7 +463,7 @@ class App:
 
         self.projects_empty_label = tk.Label(
             container,
-            text="Selecciona tu carpeta FLX arriba para ver aquí tus proyectos. 📁",
+            text="Select your FLX folder above to see your projects here. 📁",
             bg=COLORS["bg_app"],
             fg=COLORS["text_muted"],
             font=("Segoe UI", 11),
@@ -482,11 +482,11 @@ class App:
         )
         vsb.config(command=self.projects_tree.yview)
         headings = {
-            "project": "Proyecto",
-            "process": "En Process",
-            "unprocess": "Sin Procesar",
+            "project": "Project",
+            "process": "In Process",
+            "unprocess": "Unprocessed",
             "total": "Total XML",
-            "size": "Espacio",
+            "size": "Space",
         }
         widths = {"project": 260, "process": 140, "unprocess": 140, "total": 120, "size": 120}
         for col in columns:
@@ -502,7 +502,7 @@ class App:
 
         self.projects_hint_label = tk.Label(
             container,
-            text="Doble clic en un proyecto para abrir su carpeta.",
+            text="Double-click a project to open its folder.",
             bg=COLORS["bg_app"],
             fg=COLORS["text_muted"],
             font=("Segoe UI", 8),
@@ -517,25 +517,25 @@ class App:
 
         filters = tk.Frame(container, bg=COLORS["bg_app"])
         filters.pack(fill="x", pady=(0, 6))
-        tk.Label(filters, text="Filtro:", bg=COLORS["bg_app"], font=("Segoe UI", 9)).pack(side="left")
-        self.filter_var = tk.StringVar(value="Todos")
+        tk.Label(filters, text="Filter:", bg=COLORS["bg_app"], font=("Segoe UI", 9)).pack(side="left")
+        self.filter_var = tk.StringVar(value="All")
         filter_combo = ttk.Combobox(
             filters, textvariable=self.filter_var, values=FILTER_OPTIONS, state="readonly", width=18
         )
         filter_combo.pack(side="left", padx=(6, 16))
         filter_combo.bind("<<ComboboxSelected>>", lambda e: self._apply_filters_and_search())
 
-        tk.Label(filters, text="Desde:", bg=COLORS["bg_app"], font=("Segoe UI", 9)).pack(side="left")
+        tk.Label(filters, text="From:", bg=COLORS["bg_app"], font=("Segoe UI", 9)).pack(side="left")
         self.date_from_var = tk.StringVar()
         ttk.Entry(filters, textvariable=self.date_from_var, width=10).pack(side="left", padx=(4, 10))
-        tk.Label(filters, text="Hasta:", bg=COLORS["bg_app"], font=("Segoe UI", 9)).pack(side="left")
+        tk.Label(filters, text="To:", bg=COLORS["bg_app"], font=("Segoe UI", 9)).pack(side="left")
         self.date_to_var = tk.StringVar()
         ttk.Entry(filters, textvariable=self.date_to_var, width=10).pack(side="left", padx=(4, 10))
         ttk.Button(
-            filters, text="Aplicar", style="Secondary.TButton", command=self._apply_filters_and_search
+            filters, text="Apply", style="Secondary.TButton", command=self._apply_filters_and_search
         ).pack(side="left")
         tk.Label(
-            filters, text="(DD/MM/AAAA)", bg=COLORS["bg_app"], fg=COLORS["text_muted"], font=("Segoe UI", 7)
+            filters, text="(DD/MM/YYYY)", bg=COLORS["bg_app"], fg=COLORS["text_muted"], font=("Segoe UI", 7)
         ).pack(side="left", padx=(6, 0))
 
         search_frame = tk.Frame(container, bg=COLORS["bg_app"])
@@ -547,7 +547,7 @@ class App:
         self._add_placeholder(self.search_entry, self.search_var, self._search_placeholder)
         self.search_var.trace_add("write", lambda *a: self._on_search_change())
         self.results_count_label = tk.Label(
-            search_frame, text="0 archivo(s)", bg=COLORS["bg_app"], fg=COLORS["text_muted"], font=("Segoe UI", 9)
+            search_frame, text="0 file(s)", bg=COLORS["bg_app"], fg=COLORS["text_muted"], font=("Segoe UI", 9)
         )
         self.results_count_label.pack(side="right")
 
@@ -612,7 +612,7 @@ class App:
         ).pack(anchor="w")
         tk.Label(
             container,
-            text="Las recomendaciones se basan solo en antigüedad, fecha de modificación y tamaño. Ningún XML se elimina automáticamente.",
+            text="Recommendations are based only on age, modification date and size. No XML file is ever deleted automatically.",
             bg=COLORS["bg_app"],
             fg=COLORS["text_muted"],
             font=("Segoe UI", 8),
@@ -628,7 +628,7 @@ class App:
         row1 = tk.Frame(inner, bg=COLORS["card_bg"])
         row1.pack(fill="x")
         tk.Label(
-            row1, text="Conservar XML de los últimos:", bg=COLORS["card_bg"], font=("Segoe UI", 10, "bold")
+            row1, text="Keep XML from the last:", bg=COLORS["card_bg"], font=("Segoe UI", 10, "bold")
         ).pack(side="left")
         self.retention_var = tk.StringVar(value=self._retention_label_for_days(self.settings.get("retention_days", 30)))
         retention_combo = ttk.Combobox(
@@ -642,7 +642,7 @@ class App:
             row1, from_=0, to=3650, textvariable=self.custom_days_var, width=6, command=self._on_retention_change
         )
         self.custom_days_spin.bind("<Return>", lambda e: self._on_retention_change())
-        if self.retention_var.get() == "Personalizado":
+        if self.retention_var.get() == "Custom":
             self.custom_days_spin.pack(side="left")
 
         row2 = tk.Frame(inner, bg=COLORS["card_bg"])
@@ -662,18 +662,18 @@ class App:
         self.sim_candidates_var = tk.StringVar(value="—")
         self.sim_kept_size_var = tk.StringVar(value="—")
         self.sim_candidates_size_var = tk.StringVar(value="—")
-        sim_field(row2, "XML conservados", self.sim_kept_var, 0)
-        sim_field(row2, "XML candidatos a limpieza", self.sim_candidates_var, 1)
-        sim_field(row2, "Espacio conservado", self.sim_kept_size_var, 2)
-        sim_field(row2, "Espacio potencialmente recuperable", self.sim_candidates_size_var, 3)
+        sim_field(row2, "XML kept", self.sim_kept_var, 0)
+        sim_field(row2, "XML cleanup candidates", self.sim_candidates_var, 1)
+        sim_field(row2, "Space kept", self.sim_kept_size_var, 2)
+        sim_field(row2, "Potentially reclaimable space", self.sim_candidates_size_var, 3)
 
         row3 = tk.Frame(inner, bg=COLORS["card_bg"])
         row3.pack(fill="x", pady=(16, 0))
         ttk.Button(
-            row3, text="🔍 Analizar limpieza", style="Accent.TButton", command=self.analyze_cleanup_dialog
+            row3, text="🔍 Analyze Cleanup", style="Accent.TButton", command=self.analyze_cleanup_dialog
         ).pack(side="left")
         ttk.Button(
-            row3, text="🧹 Limpiar XML antiguos", style="Danger.TButton", command=self.start_cleanup_flow
+            row3, text="🧹 Clean Old XML", style="Danger.TButton", command=self.start_cleanup_flow
         ).pack(side="left", padx=(10, 0))
 
         row4 = tk.Frame(inner, bg=COLORS["card_bg"])
@@ -681,7 +681,7 @@ class App:
         self.safe_mode = tk.BooleanVar(value=self.settings.get("safe_mode", True))
         ttk.Checkbutton(
             row4,
-            text="SAFE MODE (nunca eliminar, solo mover)",
+            text="SAFE MODE (never delete, only move)",
             variable=self.safe_mode,
             style="Card.TCheckbutton",
             command=self._on_safe_mode_change,
@@ -689,7 +689,7 @@ class App:
         self.move_instead = tk.BooleanVar(value=self.settings.get("move_instead_of_delete", True))
         ttk.Checkbutton(
             row4,
-            text="Mover archivos en lugar de eliminar",
+            text="Move files instead of deleting",
             variable=self.move_instead,
             style="Card.TCheckbutton",
             command=self._on_move_instead_change,
@@ -707,8 +707,8 @@ class App:
             anchor="w", padx=12, pady=(10, 4)
         )
         self.top10_tree = ttk.Treeview(left, columns=("rank_name", "age"), show="headings", height=10)
-        self.top10_tree.heading("rank_name", text="Archivo")
-        self.top10_tree.heading("age", text="Antigüedad")
+        self.top10_tree.heading("rank_name", text="File")
+        self.top10_tree.heading("age", text="Age")
         self.top10_tree.column("rank_name", width=260, anchor="w")
         self.top10_tree.column("age", width=90, anchor="center")
         self.top10_tree.pack(fill="both", expand=True, padx=12, pady=(0, 10))
@@ -723,7 +723,7 @@ class App:
         )
         self.ranking_empty_label = tk.Label(
             right,
-            text="Selecciona tu carpeta FLX para ver aquí qué carpeta tiene más espacio para liberar.",
+            text="Select your FLX folder to see here which folder has the most space to free up.",
             bg=COLORS["card_bg"],
             fg=COLORS["text_muted"],
             font=("Segoe UI", 9),
@@ -732,9 +732,9 @@ class App:
         )
         self.ranking_empty_label.pack(anchor="w", padx=12, pady=(0, 10))
         self.ranking_tree = ttk.Treeview(right, columns=("folder", "count", "reclaimable"), show="headings", height=10)
-        self.ranking_tree.heading("folder", text="Carpeta")
+        self.ranking_tree.heading("folder", text="Folder")
         self.ranking_tree.heading("count", text="XML")
-        self.ranking_tree.heading("reclaimable", text="Recuperable")
+        self.ranking_tree.heading("reclaimable", text="Reclaimable")
         self.ranking_tree.column("folder", width=160, anchor="w")
         self.ranking_tree.column("count", width=70, anchor="center")
         self.ranking_tree.column("reclaimable", width=100, anchor="e")
@@ -786,13 +786,13 @@ class App:
         ).pack(anchor="w", padx=12, pady=(10, 4))
         self.growth_labels = {}
         for key, label in [
-            ("per_day", "Promedio / día"),
-            ("per_hour", "≈ por hora"),
-            ("per_minute", "≈ por minuto"),
-            ("now", "Actualmente"),
-            ("plus1", "+1 día"),
-            ("plus7", "+7 días"),
-            ("plus30", "+30 días"),
+            ("per_day", "Average / day"),
+            ("per_hour", "≈ per hour"),
+            ("per_minute", "≈ per minute"),
+            ("now", "Currently"),
+            ("plus1", "+1 day"),
+            ("plus7", "+7 days"),
+            ("plus30", "+30 days"),
         ]:
             row = tk.Frame(growth_card, bg=COLORS["card_bg"])
             row.pack(fill="x", padx=12, pady=2)
@@ -839,27 +839,27 @@ class App:
 
         chart_card = tk.Frame(bottom, bg=COLORS["card_bg"], highlightbackground=COLORS["border"], highlightthickness=1)
         chart_card.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
-        tk.Label(chart_card, text="XML generados por día", font=("Segoe UI", 10, "bold"), bg=COLORS["card_bg"]).pack(
+        tk.Label(chart_card, text="XML generated per day", font=("Segoe UI", 10, "bold"), bg=COLORS["card_bg"]).pack(
             anchor="w", padx=12, pady=(10, 4)
         )
-        self.chart_label = tk.Label(chart_card, bg=COLORS["card_bg"], text="Sin datos todavía.", fg=COLORS["text_muted"])
+        self.chart_label = tk.Label(chart_card, bg=COLORS["card_bg"], text="No data yet.", fg=COLORS["text_muted"])
         self.chart_label.pack(fill="both", expand=True, padx=12, pady=(0, 12))
 
         table_card = tk.Frame(bottom, bg=COLORS["card_bg"], highlightbackground=COLORS["border"], highlightthickness=1)
         table_card.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
         header_row = tk.Frame(table_card, bg=COLORS["card_bg"])
         header_row.pack(fill="x", padx=12, pady=(10, 4))
-        tk.Label(header_row, text="Archivos por periodo", font=("Segoe UI", 10, "bold"), bg=COLORS["card_bg"]).pack(
+        tk.Label(header_row, text="Files per period", font=("Segoe UI", 10, "bold"), bg=COLORS["card_bg"]).pack(
             side="left"
         )
-        self.group_var = tk.StringVar(value="Día")
+        self.group_var = tk.StringVar(value="Day")
         group_combo = ttk.Combobox(
-            header_row, textvariable=self.group_var, values=["Día", "Semana", "Mes"], state="readonly", width=10
+            header_row, textvariable=self.group_var, values=["Day", "Week", "Month"], state="readonly", width=10
         )
         group_combo.pack(side="right")
         group_combo.bind("<<ComboboxSelected>>", lambda e: self._update_period_table())
         self.period_tree = ttk.Treeview(table_card, columns=("period", "count"), show="headings", height=12)
-        self.period_tree.heading("period", text="Periodo")
+        self.period_tree.heading("period", text="Period")
         self.period_tree.heading("count", text="XML")
         self.period_tree.column("period", width=140, anchor="w")
         self.period_tree.column("count", width=80, anchor="center")
@@ -869,7 +869,7 @@ class App:
     # Folder selection & scanning
     # ------------------------------------------------------------------
     def select_folder(self) -> None:
-        path = filedialog.askdirectory(title="Seleccionar carpeta FLX")
+        path = filedialog.askdirectory(title="Select FLX Folder")
         if not path:
             return
         self.current_folder = path
@@ -883,7 +883,7 @@ class App:
         if self.scanning:
             return
         if not self.current_folder or not os.path.isdir(self.current_folder):
-            messagebox.showerror("Carpeta inválida", "La carpeta seleccionada no existe o no es accesible.")
+            messagebox.showerror("Invalid Folder", "The selected folder does not exist or is not accessible.")
             return
 
         self.scanning = True
@@ -959,17 +959,17 @@ class App:
         self.btn_cancel_scan.config(state="disabled")
 
         if result.cancelled:
-            self._set_status_ready(note="ANÁLISIS CANCELADO", color=COLORS["orange"])
+            self._set_status_ready(note="SCAN CANCELLED", color=COLORS["orange"])
             messagebox.showinfo(
-                "Análisis cancelado",
-                f"El análisis fue cancelado. Se procesaron {len(result.files):,} archivo(s) antes de cancelar.",
+                "Scan Cancelled",
+                f"The scan was cancelled. {len(result.files):,} file(s) were processed before cancelling.",
             )
         else:
             self._set_status_ready()
             if not result.errors and result.total_count == 0:
                 messagebox.showinfo(
-                    "Sin archivos XML",
-                    "No se encontraron archivos .xml en la carpeta seleccionada.",
+                    "No XML Files",
+                    "No .xml files were found in the selected folder.",
                 )
 
         if result.errors:
@@ -985,7 +985,7 @@ class App:
         self.btn_rescan.config(state="normal" if self.current_folder else "disabled")
         self.btn_cancel_scan.config(state="disabled")
         self._set_status_ready(note="ERROR", color=COLORS["red"])
-        messagebox.showerror("Error de análisis", f"Ocurrió un error inesperado durante el análisis:\n{message}")
+        messagebox.showerror("Scan Error", f"An unexpected error occurred during the scan:\n{message}")
 
     def cancel_scan(self) -> None:
         if self.cancel_event is not None:
@@ -1031,7 +1031,7 @@ class App:
         self.projects_hint_label.pack(anchor="w")
 
         for p in projects:
-            iid = str(Path(self.current_folder) / p.name) if p.name != "(raíz)" else self.current_folder
+            iid = str(Path(self.current_folder) / p.name) if p.name != "(root)" else self.current_folder
             try:
                 self.projects_tree.insert(
                     "",
@@ -1050,7 +1050,7 @@ class App:
 
     def _get_current_retention_days(self) -> int:
         sel = self.retention_var.get()
-        if sel == "Personalizado":
+        if sel == "Custom":
             try:
                 return max(0, int(self.custom_days_var.get()))
             except ValueError:
@@ -1058,21 +1058,21 @@ class App:
         return RETENTION_DAYS_MAP.get(sel, int(self.settings.get("retention_days", 30)))
 
     def _retention_label_for_days(self, days: int) -> str:
-        return REV_RETENTION_MAP.get(days, "Personalizado")
+        return REV_RETENTION_MAP.get(days, "Custom")
 
     def _update_dashboard_cards(self) -> None:
         total = len(self.all_files)
         self.card_value_vars["total"].set(f"{total:,}")
         n_projects = len(self.scan_result.projects) if self.scan_result else 0
-        self.card_sub_vars["total"].set(f"en {n_projects:,} proyecto(s)" if n_projects else "")
+        self.card_sub_vars["total"].set(f"in {n_projects:,} project(s)" if n_projects else "")
 
         total_process = self.scan_result.total_process if self.scan_result else 0
         total_unprocess = self.scan_result.total_unprocess if self.scan_result else 0
         self.card_value_vars["process"].set(f"{total_process:,}")
         self.card_value_vars["unprocess"].set(f"{total_unprocess:,}")
         if total:
-            self.card_sub_vars["process"].set(f"{total_process / total * 100:.0f}% del total")
-            self.card_sub_vars["unprocess"].set(f"{total_unprocess / total * 100:.0f}% del total")
+            self.card_sub_vars["process"].set(f"{total_process / total * 100:.0f}% of total")
+            self.card_sub_vars["unprocess"].set(f"{total_unprocess / total * 100:.0f}% of total")
         else:
             self.card_sub_vars["process"].set("")
             self.card_sub_vars["unprocess"].set("")
@@ -1094,7 +1094,7 @@ class App:
             return
         file_var.set(info.name)
         modified_var.set(info.modified.strftime("%Y-%m-%d %H:%M:%S"))
-        age_var.set(f"{int(info.age_days):,} días")
+        age_var.set(f"{int(info.age_days):,} days")
         size_var.set(info.size_display)
 
     def _update_oldest_panel(self) -> None:
@@ -1123,21 +1123,21 @@ class App:
     def _apply_filters_and_search(self) -> None:
         files = list(self.all_files)
         now = datetime.now()
-        filt = self.filter_var.get() if hasattr(self, "filter_var") else "Todos"
+        filt = self.filter_var.get() if hasattr(self, "filter_var") else "All"
 
-        if filt == "Hoy":
+        if filt == "Today":
             files = [f for f in files if f.modified.date() == now.date()]
-        elif filt == "Últimas 24 horas":
+        elif filt == "Last 24 hours":
             files = [f for f in files if f.age_days < 1]
-        elif filt == "Últimos 7 días":
+        elif filt == "Last 7 days":
             files = [f for f in files if f.age_days < 7]
-        elif filt == "Últimos 30 días":
+        elif filt == "Last 30 days":
             files = [f for f in files if f.age_days < 30]
-        elif filt == "Más de 30 días":
+        elif filt == "More than 30 days":
             files = [f for f in files if f.age_days > 30]
-        elif filt == "Más de 60 días":
+        elif filt == "More than 60 days":
             files = [f for f in files if f.age_days > 60]
-        elif filt == "Más de 90 días":
+        elif filt == "More than 90 days":
             files = [f for f in files if f.age_days > 90]
 
         date_from = self._parse_date(self.date_from_var.get()) if hasattr(self, "date_from_var") else None
@@ -1155,7 +1155,7 @@ class App:
         self.filtered_files = files
         self._populate_tree(files)
         if hasattr(self, "results_count_label"):
-            self.results_count_label.config(text=f"{len(files):,} archivo(s)")
+            self.results_count_label.config(text=f"{len(files):,} file(s)")
 
     def _sort_files(self, files: List[XMLFileInfo]) -> List[XMLFileInfo]:
         key = SORT_KEYS.get(self.sort_column, SORT_KEYS["modified"])
@@ -1249,7 +1249,7 @@ class App:
     # Cleanup simulation (live, no rescan required)
     # ------------------------------------------------------------------
     def _on_retention_change(self, event=None) -> None:
-        if self.retention_var.get() == "Personalizado":
+        if self.retention_var.get() == "Custom":
             self.custom_days_spin.pack(side="left")
         else:
             self.custom_days_spin.pack_forget()
@@ -1305,7 +1305,7 @@ class App:
             self.health_status_var.set("—")
             self.health_status_label.configure(fg=COLORS["text_dark"])
             self.health_reasons_var.set("")
-            self.chart_label.configure(image="", text="Sin datos todavía.")
+            self.chart_label.configure(image="", text="No data yet.")
             self.chart_label.image = None
             self.period_tree.delete(*self.period_tree.get_children())
             return
@@ -1318,9 +1318,9 @@ class App:
         self.stats_labels["avg_size"].set(st["average_size_display"])
 
         growth = stats_module.compute_growth(self.all_files)
-        self.growth_labels["per_day"].set(f"≈ {growth['avg_files_per_day']:,.0f} XML/día")
-        self.growth_labels["per_hour"].set(f"≈ {growth['avg_files_per_hour']:,.1f} XML/hora")
-        self.growth_labels["per_minute"].set(f"≈ {growth['avg_files_per_minute']:,.2f} XML/minuto")
+        self.growth_labels["per_day"].set(f"≈ {growth['avg_files_per_day']:,.0f} XML/day")
+        self.growth_labels["per_hour"].set(f"≈ {growth['avg_files_per_hour']:,.1f} XML/hour")
+        self.growth_labels["per_minute"].set(f"≈ {growth['avg_files_per_minute']:,.2f} XML/minute")
         self.growth_labels["now"].set(growth["current_size_display"])
         self.growth_labels["plus1"].set(f"≈ {growth['projected_1d_display']}")
         self.growth_labels["plus7"].set(f"≈ {growth['projected_7d_display']}")
@@ -1342,11 +1342,11 @@ class App:
                 self.chart_label.configure(image=img, text="")
                 self.chart_label.image = img
             except tk.TclError:
-                self.chart_label.configure(image="", text="Gráfico no disponible.")
+                self.chart_label.configure(image="", text="Chart not available.")
                 self.chart_label.image = None
         else:
             self.chart_label.configure(
-                image="", text="Gráfico no disponible (instala matplotlib para habilitarlo)."
+                image="", text="Chart not available (install matplotlib to enable it)."
             )
             self.chart_label.image = None
 
@@ -1357,7 +1357,7 @@ class App:
             self.period_tree.delete(*self.period_tree.get_children())
             return
         st = stats_module.compute_statistics(self.all_files)
-        mapping = {"Día": st["by_day"], "Semana": st["by_week"], "Mes": st["by_month"]}
+        mapping = {"Day": st["by_day"], "Week": st["by_week"], "Month": st["by_month"]}
         data = mapping.get(self.group_var.get(), st["by_day"])
         self.period_tree.delete(*self.period_tree.get_children())
         for period in sorted(data.keys(), reverse=True):
@@ -1368,7 +1368,7 @@ class App:
     # ------------------------------------------------------------------
     def open_file_location(self, path: str) -> None:
         if not path or not os.path.exists(path):
-            messagebox.showwarning("Archivo no encontrado", "El archivo ya no existe en esa ubicación.")
+            messagebox.showwarning("File Not Found", "The file no longer exists at that location.")
             return
         try:
             if os.name == "nt":
@@ -1379,11 +1379,11 @@ class App:
                 subprocess.Popen(["xdg-open", os.path.dirname(path)])
         except Exception as exc:  # noqa: BLE001
             logger.warning("Could not open file location: %s", exc)
-            messagebox.showerror("Error", f"No se pudo abrir la ubicación:\n{exc}")
+            messagebox.showerror("Error", f"Could not open the location:\n{exc}")
 
     def _open_path(self, path: str) -> None:
         if not path or not os.path.exists(path):
-            messagebox.showwarning("Carpeta no encontrada", "La carpeta ya no existe en esa ubicación.")
+            messagebox.showwarning("Folder Not Found", "The folder no longer exists at that location.")
             return
         try:
             if os.name == "nt":
@@ -1394,7 +1394,7 @@ class App:
                 subprocess.Popen(["xdg-open", path])
         except Exception as exc:  # noqa: BLE001
             logger.warning("Could not open folder: %s", exc)
-            messagebox.showerror("Error", f"No se pudo abrir la carpeta:\n{exc}")
+            messagebox.showerror("Error", f"Could not open the folder:\n{exc}")
 
     # ------------------------------------------------------------------
     # Generic dialog helpers
@@ -1425,7 +1425,7 @@ class App:
             padx=24,
             pady=20,
         ).pack()
-        ttk.Button(dlg, text="Cerrar", style="Accent.TButton", command=dlg.destroy).pack(pady=(0, 16))
+        ttk.Button(dlg, text="Close", style="Accent.TButton", command=dlg.destroy).pack(pady=(0, 16))
         self._center_window(dlg)
 
     # ------------------------------------------------------------------
@@ -1433,20 +1433,20 @@ class App:
     # ------------------------------------------------------------------
     def analyze_cleanup_dialog(self) -> None:
         if not self.all_files:
-            messagebox.showinfo("Sin datos", "Primero selecciona y analiza una carpeta.")
+            messagebox.showinfo("No Data", "First select and scan a folder.")
             return
         retention = self._get_current_retention_days()
         summary = cleanup.analyze_cleanup(self.all_files, retention)
         text = (
-            "DIAGNÓSTICO DE LIMPIEZA\n\n"
-            f"XML encontrados:\n{summary['total_found']:,}\n\n"
-            f"XML que se conservarían:\n{summary['would_keep']:,}\n\n"
-            f"XML candidatos a limpieza:\n{summary['candidates']:,}\n\n"
-            f"Archivo más antiguo:\n{summary['oldest_name']}\n\n"
-            f"Antigüedad máxima:\n{summary['oldest_age_days']:,} días\n\n"
-            f"Espacio potencialmente recuperable:\n{summary['reclaimable_display']}"
+            "CLEANUP DIAGNOSIS\n\n"
+            f"XML found:\n{summary['total_found']:,}\n\n"
+            f"XML that would be kept:\n{summary['would_keep']:,}\n\n"
+            f"XML cleanup candidates:\n{summary['candidates']:,}\n\n"
+            f"Oldest file:\n{summary['oldest_name']}\n\n"
+            f"Maximum age:\n{summary['oldest_age_days']:,} days\n\n"
+            f"Potentially reclaimable space:\n{summary['reclaimable_display']}"
         )
-        self._show_text_dialog("Análisis de limpieza", text)
+        self._show_text_dialog("Cleanup Analysis", text)
         logger.info(
             "Cleanup simulation: retention=%d kept=%d candidates=%d",
             retention,
@@ -1459,13 +1459,13 @@ class App:
     # ------------------------------------------------------------------
     def start_cleanup_flow(self) -> None:
         if not self.all_files:
-            messagebox.showinfo("Sin datos", "Primero selecciona y analiza una carpeta.")
+            messagebox.showinfo("No Data", "First select and scan a folder.")
             return
         retention = self._get_current_retention_days()
         candidates = cleanup.get_cleanup_candidates(self.all_files, retention)
         if not candidates:
             messagebox.showinfo(
-                "Sin candidatos", "No se encontraron archivos que cumplan el criterio de limpieza seleccionado."
+                "No Candidates", "No files were found matching the selected cleanup criteria."
             )
             return
         total_bytes = sum(f.size_bytes for f in candidates)
@@ -1473,17 +1473,17 @@ class App:
 
     def _show_step1_dialog(self, candidates: List[XMLFileInfo], total_bytes: int) -> None:
         dlg = tk.Toplevel(self.root)
-        dlg.title("Atención")
+        dlg.title("Attention")
         dlg.configure(bg=COLORS["card_bg"])
         dlg.resizable(False, False)
         dlg.transient(self.root)
 
         text = (
-            "ATENCIÓN\n\n"
-            f"Se encontraron {len(candidates):,} archivos que cumplen\n"
-            "los criterios seleccionados.\n\n"
-            f"Espacio:\n{format_size(total_bytes)}\n\n"
-            "¿Deseas continuar?"
+            "ATTENTION\n\n"
+            f"{len(candidates):,} files were found matching\n"
+            "the selected criteria.\n\n"
+            f"Space:\n{format_size(total_bytes)}\n\n"
+            "Do you want to continue?"
         )
         tk.Label(
             dlg, text=text, justify="center", bg=COLORS["card_bg"], fg=COLORS["text_dark"], font=("Segoe UI", 10),
@@ -1492,21 +1492,21 @@ class App:
 
         btns = tk.Frame(dlg, bg=COLORS["card_bg"])
         btns.pack(pady=(0, 18))
-        ttk.Button(btns, text="Cancelar", style="Secondary.TButton", command=dlg.destroy).pack(side="left", padx=6)
+        ttk.Button(btns, text="Cancel", style="Secondary.TButton", command=dlg.destroy).pack(side="left", padx=6)
         ttk.Button(
-            btns, text="Ver archivos", style="Secondary.TButton", command=lambda: self._show_files_preview(candidates)
+            btns, text="View Files", style="Secondary.TButton", command=lambda: self._show_files_preview(candidates)
         ).pack(side="left", padx=6)
 
         def go_continue():
             dlg.destroy()
             self._show_step2_dialog(candidates, total_bytes)
 
-        ttk.Button(btns, text="Continuar", style="Accent.TButton", command=go_continue).pack(side="left", padx=6)
+        ttk.Button(btns, text="Continue", style="Accent.TButton", command=go_continue).pack(side="left", padx=6)
         self._center_window(dlg)
 
     def _show_files_preview(self, candidates: List[XMLFileInfo]) -> None:
         dlg = tk.Toplevel(self.root)
-        dlg.title(f"Archivos candidatos ({len(candidates):,})")
+        dlg.title(f"Candidate Files ({len(candidates):,})")
         dlg.configure(bg=COLORS["card_bg"])
         dlg.transient(self.root)
         dlg.geometry("640x420")
@@ -1515,9 +1515,9 @@ class App:
         frame.pack(fill="both", expand=True, padx=16, pady=16)
         cols = ("name", "age", "size")
         tree = ttk.Treeview(frame, columns=cols, show="headings")
-        tree.heading("name", text="Nombre")
-        tree.heading("age", text="Antigüedad")
-        tree.heading("size", text="Tamaño")
+        tree.heading("name", text="Name")
+        tree.heading("age", text="Age")
+        tree.heading("size", text="Size")
         tree.column("name", width=340, anchor="w")
         tree.column("age", width=100, anchor="center")
         tree.column("size", width=100, anchor="e")
@@ -1528,12 +1528,12 @@ class App:
         for f in sorted(candidates, key=lambda x: x.age_days, reverse=True):
             tree.insert("", "end", values=(f.name, f.age_display, f.size_display))
 
-        ttk.Button(dlg, text="Cerrar", style="Secondary.TButton", command=dlg.destroy).pack(pady=(0, 14))
+        ttk.Button(dlg, text="Close", style="Secondary.TButton", command=dlg.destroy).pack(pady=(0, 14))
         self._center_window(dlg)
 
     def _show_step2_dialog(self, candidates: List[XMLFileInfo], total_bytes: int) -> None:
         dlg = tk.Toplevel(self.root)
-        dlg.title("Confirmar limpieza")
+        dlg.title("Confirm Cleanup")
         dlg.configure(bg=COLORS["card_bg"])
         dlg.resizable(False, False)
         dlg.transient(self.root)
@@ -1546,30 +1546,30 @@ class App:
 
         if safe:
             text = (
-                f"Esta acción moverá {len(candidates):,} archivo(s) a la carpeta:\n{archive_path}\n\n"
-                f"Espacio: {format_size(total_bytes)}\n\n"
-                "SAFE MODE está activo: los archivos NO se eliminarán, solo se moverán.\n\n"
-                "¿Confirmar?"
+                f"This action will move {len(candidates):,} file(s) to the folder:\n{archive_path}\n\n"
+                f"Space: {format_size(total_bytes)}\n\n"
+                "SAFE MODE is active: files will NOT be deleted, only moved.\n\n"
+                "Confirm?"
             )
             tk.Label(
                 dlg, text=text, justify="center", bg=COLORS["card_bg"], fg=COLORS["text_dark"],
                 font=("Segoe UI", 10), padx=24, pady=18, wraplength=420,
             ).pack()
             btns.pack(pady=(0, 18))
-            ttk.Button(btns, text="Cancelar", style="Secondary.TButton", command=dlg.destroy).pack(side="left", padx=6)
+            ttk.Button(btns, text="Cancel", style="Secondary.TButton", command=dlg.destroy).pack(side="left", padx=6)
 
             def confirm_move():
                 dlg.destroy()
                 self._execute_move(candidates)
 
-            ttk.Button(btns, text="Confirmar", style="Accent.TButton", command=confirm_move).pack(side="left", padx=6)
+            ttk.Button(btns, text="Confirm", style="Accent.TButton", command=confirm_move).pack(side="left", padx=6)
         else:
             text = (
-                "ADVERTENCIA: SAFE MODE está DESACTIVADO.\n\n"
-                f"Esta acción ELIMINARÁ PERMANENTEMENTE {len(candidates):,} archivo(s)\n"
+                "WARNING: SAFE MODE is DISABLED.\n\n"
+                f"This action will PERMANENTLY DELETE {len(candidates):,} file(s)\n"
                 f"({format_size(total_bytes)}).\n\n"
-                "Esta acción NO se puede deshacer.\n\n"
-                'Para confirmar, escribe ELIMINAR en el campo y presiona "Confirmar".'
+                "This action CANNOT be undone.\n\n"
+                'To confirm, type DELETE in the field and press "Confirm".'
             )
             tk.Label(
                 dlg, text=text, justify="center", bg=COLORS["card_bg"], fg=COLORS["red"],
@@ -1581,12 +1581,12 @@ class App:
             entry.pack(pady=(0, 14))
 
             btns.pack(pady=(0, 18))
-            ttk.Button(btns, text="Cancelar", style="Secondary.TButton", command=dlg.destroy).pack(side="left", padx=6)
-            confirm_btn = ttk.Button(btns, text="Confirmar", style="Danger.TButton", state="disabled")
+            ttk.Button(btns, text="Cancel", style="Secondary.TButton", command=dlg.destroy).pack(side="left", padx=6)
+            confirm_btn = ttk.Button(btns, text="Confirm", style="Danger.TButton", state="disabled")
             confirm_btn.pack(side="left", padx=6)
 
             def on_key(*_args):
-                confirm_btn.config(state="normal" if confirm_var.get().strip() == "ELIMINAR" else "disabled")
+                confirm_btn.config(state="normal" if confirm_var.get().strip() == "DELETE" else "disabled")
 
             confirm_var.trace_add("write", on_key)
 
@@ -1619,14 +1619,14 @@ class App:
                 self.cleanup_cancel_event.set()
             cancel_btn.config(state="disabled")
 
-        cancel_btn = ttk.Button(inner, text="Cancelar", style="Secondary.TButton", command=do_cancel)
+        cancel_btn = ttk.Button(inner, text="Cancel", style="Secondary.TButton", command=do_cancel)
         cancel_btn.pack(pady=(12, 0))
         self._center_window(dlg)
         return dlg
 
     def _execute_move(self, candidates: List[XMLFileInfo]) -> None:
         self.cleanup_cancel_event = threading.Event()
-        dlg = self._make_progress_dialog("Moviendo archivos a XML_Archive...")
+        dlg = self._make_progress_dialog("Moving files to XML_Archive...")
         archive_folder = self.settings.get("archive_folder", "XML_Archive")
         folder = self.current_folder
         cancel_event = self.cleanup_cancel_event
@@ -1641,11 +1641,11 @@ class App:
             self.move_queue.put(("done", moved, errors))
 
         threading.Thread(target=worker, daemon=True).start()
-        self._poll_cleanup_queue(dlg, "movido(s) a XML_Archive")
+        self._poll_cleanup_queue(dlg, "moved to XML_Archive")
 
     def _execute_delete(self, candidates: List[XMLFileInfo]) -> None:
         self.cleanup_cancel_event = threading.Event()
-        dlg = self._make_progress_dialog("Eliminando archivos permanentemente...")
+        dlg = self._make_progress_dialog("Permanently deleting files...")
         cancel_event = self.cleanup_cancel_event
 
         def progress_cb(done: int, total: int) -> None:
@@ -1658,7 +1658,7 @@ class App:
             self.move_queue.put(("done", deleted, errors))
 
         threading.Thread(target=worker, daemon=True).start()
-        self._poll_cleanup_queue(dlg, "eliminado(s) permanentemente")
+        self._poll_cleanup_queue(dlg, "permanently deleted")
 
     def _poll_cleanup_queue(self, dlg: tk.Toplevel, verb: str) -> None:
         try:
@@ -1672,10 +1672,10 @@ class App:
                 elif item[0] == "done":
                     _, affected, errors = item
                     dlg.destroy()
-                    msg = f"{len(affected):,} archivo(s) {verb}."
+                    msg = f"{len(affected):,} file(s) {verb}."
                     if errors:
-                        msg += f"\n\n{len(errors)} error(es). Revisa el log para más detalles."
-                    messagebox.showinfo("Operación completada", msg)
+                        msg += f"\n\n{len(errors)} error(s). Check the log for more details."
+                    messagebox.showinfo("Operation Complete", msg)
                     self.start_scan()
                     return
         except queue.Empty:
@@ -1687,7 +1687,7 @@ class App:
     # ------------------------------------------------------------------
     def export_report(self) -> None:
         if not self.all_files:
-            messagebox.showinfo("Sin datos", "Primero selecciona y analiza una carpeta.")
+            messagebox.showinfo("No Data", "First select and scan a folder.")
             return
         default_name = f"xml_diagnostic_{datetime.now().strftime('%Y-%m-%d')}.csv"
         path = filedialog.asksaveasfilename(
@@ -1700,17 +1700,17 @@ class App:
             cleanup.export_csv(export_set, path)
             summary_path = str(Path(path).with_suffix("")) + "_summary.txt"
             cleanup.export_summary(self.all_files, self._get_current_retention_days(), summary_path)
-            messagebox.showinfo("Exportación completa", f"Reporte exportado:\n{path}\n\nResumen:\n{summary_path}")
+            messagebox.showinfo("Export Complete", f"Report exported:\n{path}\n\nSummary:\n{summary_path}")
         except OSError as exc:
             logger.error("Export failed: %s", exc)
-            messagebox.showerror("Error al exportar", str(exc))
+            messagebox.showerror("Export Error", str(exc))
 
     # ------------------------------------------------------------------
     # Settings dialog
     # ------------------------------------------------------------------
     def open_settings_dialog(self) -> None:
         dlg = tk.Toplevel(self.root)
-        dlg.title("Configuración")
+        dlg.title("Settings")
         dlg.configure(bg=COLORS["card_bg"])
         dlg.resizable(False, False)
         dlg.transient(self.root)
@@ -1720,12 +1720,12 @@ class App:
         form.pack(padx=24, pady=20)
 
         fields = [
-            ("retention_days", "Retención por defecto (días)"),
-            ("recent_days", "Verde (RECENT) — menos de (días)"),
-            ("warning_days", "Amarillo (REVIEW) — desde (días)"),
-            ("critical_days", "Naranja→Rojo (VERY OLD) — desde (días)"),
-            ("archive_folder", "Carpeta de archivo (Safe Mode)"),
-            ("api_port", "Puerto API local"),
+            ("retention_days", "Default retention (days)"),
+            ("recent_days", "Green (RECENT) — less than (days)"),
+            ("warning_days", "Yellow (REVIEW) — from (days)"),
+            ("critical_days", "Orange→Red (VERY OLD) — from (days)"),
+            ("archive_folder", "Archive folder (Safe Mode)"),
+            ("api_port", "Local API port"),
         ]
         entry_vars = {}
         for i, (key, label) in enumerate(fields):
@@ -1747,11 +1747,11 @@ class App:
                 new_port = int(entry_vars["api_port"].get())
             except ValueError:
                 messagebox.showerror(
-                    "Valor inválido", "Los campos numéricos deben ser enteros válidos.", parent=dlg
+                    "Invalid Value", "Numeric fields must be valid integers.", parent=dlg
                 )
                 return
             if not (1 <= new_port <= 65535):
-                messagebox.showerror("Puerto inválido", "El puerto debe estar entre 1 y 65535.", parent=dlg)
+                messagebox.showerror("Invalid Port", "The port must be between 1 and 65535.", parent=dlg)
                 return
 
             port_changed = new_port != self.settings.get("api_port")
@@ -1761,7 +1761,7 @@ class App:
 
             self.retention_var.set(self._retention_label_for_days(self.settings["retention_days"]))
             self.custom_days_var.set(str(self.settings["retention_days"]))
-            if self.retention_var.get() == "Personalizado":
+            if self.retention_var.get() == "Custom":
                 self.custom_days_spin.pack(side="left")
             else:
                 self.custom_days_spin.pack_forget()
@@ -1774,12 +1774,12 @@ class App:
             if port_changed:
                 self._restart_api_server()
             dlg.destroy()
-            messagebox.showinfo("Configuración guardada", "Los cambios se aplicaron correctamente.")
+            messagebox.showinfo("Settings Saved", "The changes were applied successfully.")
 
         btns = tk.Frame(dlg, bg=COLORS["card_bg"])
         btns.pack(pady=(0, 18))
-        ttk.Button(btns, text="Cancelar", style="Secondary.TButton", command=dlg.destroy).pack(side="left", padx=6)
-        ttk.Button(btns, text="Guardar", style="Accent.TButton", command=on_save).pack(side="left", padx=6)
+        ttk.Button(btns, text="Cancel", style="Secondary.TButton", command=dlg.destroy).pack(side="left", padx=6)
+        ttk.Button(btns, text="Save", style="Accent.TButton", command=on_save).pack(side="left", padx=6)
         self._center_window(dlg)
 
     # ------------------------------------------------------------------

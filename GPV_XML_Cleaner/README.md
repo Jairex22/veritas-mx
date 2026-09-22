@@ -11,6 +11,22 @@ local de solo lectura) y librerías estándar. No requiere Node.js, React,
 Docker, Git ni permisos de administrador. Pensada para convertirse en un
 `.exe` portable con PyInstaller.
 
+## Versión CLI standalone (sin GUI)
+
+`GPV_XML_Cleaner_xmldiagnostic.py`, en la raíz del proyecto, es una
+herramienta de **solo diagnóstico** independiente: un único archivo, sin
+Tkinter, sin FastAPI, sin ninguna dependencia de terceros. Recorre
+recursivamente una carpeta FLX (`Machine/Project/Process|Unprocess/*.xml`),
+identifica máquina/proyecto/categoría por cada XML, calcula el más
+viejo/nuevo global, por máquina, por proyecto y por combinación
+máquina+proyecto, y exporta automáticamente un CSV a
+`%USERPROFILE%\Downloads`. Nunca modifica, mueve ni elimina ningún XML.
+
+```cmd
+python GPV_XML_Cleaner_xmldiagnostic.py
+python GPV_XML_Cleaner_xmldiagnostic.py "C:\FactoryLogix\FLX"
+```
+
 ---
 
 ## 1. Arquitectura

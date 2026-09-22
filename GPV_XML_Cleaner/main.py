@@ -24,7 +24,7 @@ def main() -> None:
     def handle_exception(exc_type, exc_value, exc_tb) -> None:
         logger.error("Unhandled GUI exception", exc_info=(exc_type, exc_value, exc_tb))
         try:
-            messagebox.showerror("Error inesperado", f"Ocurrió un error inesperado:\n{exc_value}")
+            messagebox.showerror("Unexpected Error", f"An unexpected error occurred:\n{exc_value}")
         except Exception:
             pass
 

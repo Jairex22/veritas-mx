@@ -66,7 +66,7 @@ def tag_flx_projects(files: List[XMLFileInfo], root_folder: str) -> List[Project
     the second path segment. Tags f.project and f.category in place.
 
     Works for any folder shape: a plain flat folder just yields a single
-    "(raíz)" project with everything counted as "other".
+    "(root)" project with everything counted as "other".
     """
     root = Path(root_folder)
     projects: Dict[str, ProjectSummary] = {}
@@ -76,7 +76,7 @@ def tag_flx_projects(files: List[XMLFileInfo], root_folder: str) -> List[Project
         except ValueError:
             parts = (f.name,)
 
-        project_name = parts[0] if len(parts) > 1 else "(raíz)"
+        project_name = parts[0] if len(parts) > 1 else "(root)"
         category = classify_category(parts[1]) if len(parts) > 2 else "other"
 
         f.project = project_name
