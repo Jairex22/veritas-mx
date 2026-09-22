@@ -343,11 +343,83 @@ def machine_to_projects(mp_stats: Dict[Tuple[str, str], Dict[str, XmlRecord]]) -
 # ---------------------------------------------------------------------------
 # CSV export
 # ---------------------------------------------------------------------------
-def get_output_dir() -> Path:
-    downloads = Path.home() / "Downloads"
-    if downloads.is_dir():
-        return downloads
-    return Path(__file__).resolve().parent
+# Registry value names (under the User Shell Folders key) for the special
+# folders we care about. Reading them here - instead of just assuming
+# Path.home() / "Downloads" - is what makes this work correctly even when
+# Downloads/Documents have been redirected (OneDrive Known Folder Move,
+# a domain policy, a custom profile, etc.), which is the normal setup on
+# a lot of managed Windows 11 machines.
+DOWNLOADS_FOLDER_GUID = "{374DE290-123F-4565-9164-39C4925E467B}"
+DOCUMENTS_FOLDER_NAME = "Personal"
+
+
+def _read_shell_folder(value_name: str) -> Optional[Path]:
+    """Best-effort read of a (possibly redirected) special folder from the
+    Windows registry. Returns None on any failure or on non-Windows."""
+    if os.name != "nt":
+        return None
+    try:
+        import winreg  # noqa: PLC0415 - Windows-only, imported lazily on purpose
+
+        with winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders",
+        ) as key:
+            raw_value, _ = winreg.QueryValueEx(key, value_name)
+        path = Path(os.path.expandvars(raw_value))
+        return path if path.is_dir() else None
+    except OSError:
+        return None
+    except Exception:  # noqa: BLE001 - registry access must never crash the tool
+        return None
+
+
+def get_candidate_output_dirs() -> List[Path]:
+    """Ordered list of folders to try for the CSV: real (possibly
+    redirected) Downloads first, then real Documents, then the plain
+    Path.home() versions of both as a safety net, then the home folder
+    itself, then finally the folder this script lives in."""
+    candidates: List[Path] = []
+
+    downloads = _read_shell_folder(DOWNLOADS_FOLDER_GUID)
+    if downloads:
+        candidates.append(downloads)
+    candidates.append(Path.home() / "Downloads")
+
+    documents = _read_shell_folder(DOCUMENTS_FOLDER_NAME)
+    if documents:
+        candidates.append(documents)
+    candidates.append(Path.home() / "Documents")
+
+    candidates.append(Path.home())
+    candidates.append(Path(__file__).resolve().parent)
+
+    seen = set()
+    unique: List[Path] = []
+    for c in candidates:
+        key = str(c).lower()
+        if key not in seen:
+            seen.add(key)
+            unique.append(c)
+    return unique
+
+
+def save_csv_with_fallback(records_sorted: List[XmlRecord], filename: str) -> Path:
+    """Try each candidate folder in order, actually attempting to write the
+    file (not just checking the folder exists) so redirected/locked/
+    read-only folders are skipped automatically instead of failing silently
+    or crashing the whole diagnostic."""
+    last_error: Optional[Exception] = None
+    for candidate_dir in get_candidate_output_dirs():
+        try:
+            candidate_dir.mkdir(parents=True, exist_ok=True)
+            output_path = candidate_dir / filename
+            export_csv(records_sorted, output_path)
+            return output_path
+        except OSError as exc:
+            last_error = exc
+            continue
+    raise OSError(f"Could not write the CSV to any known folder. Last error: {last_error}")
 
 
 def export_csv(records_sorted: List[XmlRecord], output_path: Path) -> None:
@@ -472,12 +544,11 @@ def main() -> None:
     print("-" * 60)
     print()
 
-    output_dir = get_output_dir()
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    output_path = output_dir / f"GPV_XML_Diagnostic_{timestamp}.csv"
+    filename = f"GPV_XML_Diagnostic_{timestamp}.csv"
 
     records_sorted = sorted(records, key=lambda r: (r.machine, r.project, r.modified_date))
-    export_csv(records_sorted, output_path)
+    output_path = save_csv_with_fallback(records_sorted, filename)
 
     print("CSV generado correctamente:")
     print()
