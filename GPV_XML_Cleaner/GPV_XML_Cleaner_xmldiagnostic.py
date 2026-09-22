@@ -69,17 +69,13 @@ PROGRESS_EVERY = 10000
 CSV_FIELDS = [
     "machine",
     "project",
-    "category",
-    "path",
     "creation_date",
-    "modified_date",
+    "last_date",
     "age_days",
     "size_mb",
     "status",
     "recommendation",
 ]
-
-SUMMARY_FIELDS = ["scope", "machine", "project", "filename", "path", "modified_date"]
 
 
 # ---------------------------------------------------------------------------
@@ -157,8 +153,15 @@ def classify_location(rel_parts: Tuple[str, ...]) -> Tuple[str, str, str]:
             break
 
     if idx is not None:
-        project = rel_parts[idx - 1] if idx - 1 >= 0 else UNKNOWN
-        machine = rel_parts[idx - 2] if idx - 2 >= 0 else UNKNOWN
+        # Skip past a plain "xml" container folder that sometimes sits
+        # between the real project folder and Process/Unprocess (e.g.
+        # Machine/Project/XML/Process/*.xml) - it is never itself the
+        # project name.
+        above = idx - 1
+        while above >= 0 and _normalize_folder_name(rel_parts[above]) == "xml":
+            above -= 1
+        project = rel_parts[above] if above >= 0 else UNKNOWN
+        machine = rel_parts[above - 1] if above - 1 >= 0 else UNKNOWN
     else:
         if len(rel_parts) >= 2:
             machine, project = rel_parts[-2], rel_parts[-1]
@@ -369,9 +372,6 @@ def save_csv_with_fallback(
     filename: str,
     global_oldest: XmlRecord,
     global_newest: XmlRecord,
-    machine_stats: Dict[str, Dict[str, XmlRecord]],
-    project_stats: Dict[str, Dict[str, XmlRecord]],
-    mp_stats: Dict[Tuple[str, str], Dict[str, XmlRecord]],
 ) -> Path:
     """Try each candidate folder in order, actually attempting to write the
     file (not just checking the folder exists) so redirected/locked/
@@ -382,7 +382,7 @@ def save_csv_with_fallback(
         try:
             candidate_dir.mkdir(parents=True, exist_ok=True)
             output_path = candidate_dir / filename
-            export_csv(records_sorted, output_path, global_oldest, global_newest, machine_stats, project_stats, mp_stats)
+            export_csv(records_sorted, output_path, global_oldest, global_newest)
             return output_path
         except OSError as exc:
             last_error = exc
@@ -390,36 +390,17 @@ def save_csv_with_fallback(
     raise OSError(f"Could not write the CSV to any known folder. Last error: {last_error}")
 
 
-def _format_date(record: XmlRecord) -> str:
-    return record.modified_date.strftime("%Y-%m-%d %H:%M:%S")
-
-
-def _write_summary_section(
-    writer: "csv._writer",
-    title: str,
-    role: str,
-    global_record: XmlRecord,
-    machine_stats: Dict[str, Dict[str, XmlRecord]],
-    project_stats: Dict[str, Dict[str, XmlRecord]],
-    mp_stats: Dict[Tuple[str, str], Dict[str, XmlRecord]],
-) -> None:
-    writer.writerow([])
-    writer.writerow([title])
-    writer.writerow(SUMMARY_FIELDS)
-
-    writer.writerow(["GLOBAL", global_record.machine, global_record.project, global_record.filename, global_record.path, _format_date(global_record)])
-
-    for machine in sorted(machine_stats.keys()):
-        r = machine_stats[machine][role]
-        writer.writerow(["MACHINE", machine, "", r.filename, r.path, _format_date(r)])
-
-    for project in sorted(project_stats.keys()):
-        r = project_stats[project][role]
-        writer.writerow(["PROJECT", "", project, r.filename, r.path, _format_date(r)])
-
-    for machine, project in sorted(mp_stats.keys()):
-        r = mp_stats[(machine, project)][role]
-        writer.writerow(["MACHINE+PROJECT", machine, project, r.filename, r.path, _format_date(r)])
+def _row_dict(r: XmlRecord) -> dict:
+    return {
+        "machine": r.machine,
+        "project": r.project,
+        "creation_date": r.creation_date.strftime("%Y-%m-%d %H:%M:%S"),
+        "last_date": r.modified_date.strftime("%Y-%m-%d %H:%M:%S"),
+        "age_days": int(r.age_days),
+        "size_mb": f"{r.size_mb:.3f}",
+        "status": r.status,
+        "recommendation": r.recommendation,
+    }
 
 
 def export_csv(
@@ -427,32 +408,21 @@ def export_csv(
     output_path: Path,
     global_oldest: XmlRecord,
     global_newest: XmlRecord,
-    machine_stats: Dict[str, Dict[str, XmlRecord]],
-    project_stats: Dict[str, Dict[str, XmlRecord]],
-    mp_stats: Dict[Tuple[str, str], Dict[str, XmlRecord]],
 ) -> None:
     with open(output_path, "w", newline="", encoding="utf-8-sig") as fh:
         writer = csv.DictWriter(fh, fieldnames=CSV_FIELDS)
         writer.writeheader()
         for r in records_sorted:
-            writer.writerow(
-                {
-                    "machine": r.machine,
-                    "project": r.project,
-                    "category": r.category,
-                    "path": r.path,
-                    "creation_date": r.creation_date.strftime("%Y-%m-%d %H:%M:%S"),
-                    "modified_date": _format_date(r),
-                    "age_days": int(r.age_days),
-                    "size_mb": f"{r.size_mb:.3f}",
-                    "status": r.status,
-                    "recommendation": r.recommendation,
-                }
-            )
+            writer.writerow(_row_dict(r))
 
-        row_writer = csv.writer(fh)
-        _write_summary_section(row_writer, "NEWEST XML", "newest", global_newest, machine_stats, project_stats, mp_stats)
-        _write_summary_section(row_writer, "OLDEST XML", "oldest", global_oldest, machine_stats, project_stats, mp_stats)
+        plain = csv.writer(fh)
+        plain.writerow([])
+        plain.writerow(["This is the newest XML"])
+        writer.writerow(_row_dict(global_newest))
+
+        plain.writerow([])
+        plain.writerow(["This is the oldest XML"])
+        writer.writerow(_row_dict(global_oldest))
 
 
 # ---------------------------------------------------------------------------
@@ -550,9 +520,7 @@ def main() -> None:
     filename = f"GPV_XML_Diagnostic_{timestamp}.csv"
 
     records_sorted = sorted(records, key=lambda r: (r.machine, r.project, r.modified_date))
-    output_path = save_csv_with_fallback(
-        records_sorted, filename, global_oldest, global_newest, machine_stats, project_stats, mp_stats
-    )
+    output_path = save_csv_with_fallback(records_sorted, filename, global_oldest, global_newest)
 
     print("CSV generated successfully:")
     print()
