@@ -1,0 +1,535 @@
+:root {
+  --gpv-green: #1e8e4f;
+  --gpv-green-dark: #146338;
+  --navbar-bg: #12182b;
+  --navbar-text: #e6e9f0;
+  --navbar-muted: #8b93a7;
+  --bg: #f3f5f8;
+  --card-bg: #ffffff;
+  --border: #dde1e8;
+  --text: #1c2330;
+  --text-muted: #6b7383;
+
+  --status-completed-bg: #e6f4ea;
+  --status-completed-fg: #1e8e4f;
+  --status-current-bg: #e8f0fe;
+  --status-current-fg: #1a56db;
+  --status-next-bg: #f1f2f5;
+  --status-next-fg: #5b6472;
+  --status-blocked-bg: #fdecec;
+  --status-blocked-fg: #c92a2a;
+  --status-notstarted-bg: #f6f7f9;
+  --status-notstarted-fg: #98a0af;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Navbar ------------------------------------------------------------- */
+.navbar {
+  background: var(--navbar-bg);
+  color: var(--navbar-text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  border-bottom: 3px solid var(--gpv-green);
+}
+
+.navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.navbar-badge {
+  background: var(--gpv-green);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.navbar-title {
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+}
+
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  color: var(--navbar-muted);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gpv-green);
+  display: inline-block;
+  box-shadow: 0 0 0 3px rgba(30, 142, 79, 0.18);
+}
+
+.navbar-status-label {
+  font-weight: 600;
+  color: var(--navbar-text);
+}
+
+/* Main layout ---------------------------------------------------------- */
+.app-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px 22px;
+}
+
+.card-title {
+  margin: 0 0 16px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  border-left: 3px solid var(--gpv-green);
+  padding-left: 10px;
+}
+
+.subsection-title {
+  margin: 18px 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.muted {
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* Search panel ----------------------------------------------------------- */
+.search-panel {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 22px;
+}
+
+.search-title {
+  margin: 0 0 14px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.search-row {
+  display: flex;
+  gap: 10px;
+}
+
+.search-input {
+  flex: 1;
+  padding: 12px 14px;
+  font-size: 15px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: inherit;
+  color: var(--text);
+  background: #fbfcfd;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--gpv-green);
+  background: #ffffff;
+}
+
+.search-button {
+  padding: 12px 26px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #ffffff;
+  background: var(--gpv-green);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.search-button:hover {
+  background: var(--gpv-green-dark);
+}
+
+.search-message {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 14px;
+  border-radius: 6px;
+  width: fit-content;
+}
+
+.search-message-found {
+  color: var(--status-completed-fg);
+  background: var(--status-completed-bg);
+}
+
+.search-message-notfound {
+  color: var(--status-blocked-fg);
+  background: var(--status-blocked-bg);
+}
+
+/* Empty state -------------------------------------------------------- */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.empty-state-title {
+  font-size: 26px;
+  font-weight: 700;
+  margin: 0 0 10px;
+  color: var(--text);
+}
+
+.empty-state-subtitle {
+  color: var(--text-muted);
+  margin: 0 0 32px;
+  font-size: 14px;
+}
+
+.empty-diagram {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.empty-diagram-chip {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  padding: 10px 18px;
+  border-radius: 6px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+/* Assembly info -------------------------------------------------------- */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px 24px;
+}
+
+.info-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.info-value {
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.progress-block {
+  margin-top: 18px;
+}
+
+.progress-bar-track {
+  margin-top: 6px;
+  width: 100%;
+  height: 8px;
+  background: var(--status-next-bg);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--gpv-green);
+  border-radius: 999px;
+  transition: width 200ms ease;
+}
+
+.progress-value {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gpv-green-dark);
+}
+
+.route-summary {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+/* Genealogy tree --------------------------------------------------------- */
+.genealogy-tree {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding: 4px;
+}
+
+.route-arrow {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: 18px;
+  padding: 0 2px;
+}
+
+.level-card {
+  flex: 1 1 0;
+  min-width: 130px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 12px;
+  background: var(--card-bg);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 120ms ease, transform 120ms ease;
+}
+
+.level-card:hover {
+  border-color: var(--gpv-green);
+}
+
+.level-card-selected {
+  border-color: var(--gpv-green);
+  box-shadow: 0 0 0 3px rgba(30, 142, 79, 0.15);
+}
+
+.level-card-name {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+
+/* Status badges ---------------------------------------------------------- */
+.badge {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 4px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.badge-completed {
+  background: var(--status-completed-bg);
+  color: var(--status-completed-fg);
+}
+
+.badge-current {
+  background: var(--status-current-bg);
+  color: var(--status-current-fg);
+}
+
+.badge-next {
+  background: var(--status-next-bg);
+  color: var(--status-next-fg);
+}
+
+.badge-blocked {
+  background: var(--status-blocked-bg);
+  color: var(--status-blocked-fg);
+}
+
+.badge-not-started {
+  background: var(--status-notstarted-bg);
+  color: var(--status-notstarted-fg);
+}
+
+/* Level detail + stations ------------------------------------------------ */
+.level-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.level-detail-name {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.stations-table-wrap {
+  overflow-x: auto;
+}
+
+.stations-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.stations-table th {
+  text-align: left;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 700;
+  padding: 8px 10px;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+
+.station-row td {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.station-seq {
+  font-weight: 700;
+  color: var(--text-muted);
+  width: 32px;
+}
+
+.station-name {
+  font-weight: 600;
+}
+
+.station-time {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Related assemblies ------------------------------------------------------ */
+.relation-block + .relation-block {
+  margin-top: 14px;
+}
+
+.relation-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.relation-link {
+  background: none;
+  border: none;
+  color: var(--gpv-green-dark);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.relation-link:hover {
+  text-decoration: underline;
+}
+
+/* Footer ------------------------------------------------------------------ */
+.app-footer {
+  text-align: center;
+  padding: 16px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  background: var(--card-bg);
+}
+
+/* Responsive: vertical genealogy tree on small screens -------------------- */
+@media (max-width: 640px) {
+  .app-main {
+    padding: 16px 12px 32px;
+  }
+
+  .genealogy-tree {
+    flex-direction: column;
+    overflow-x: visible;
+  }
+
+  .level-card {
+    width: 100%;
+  }
+
+  .route-arrow {
+    transform: rotate(90deg);
+    padding: 2px 0;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .search-row {
+    flex-direction: column;
+  }
+
+  .search-button {
+    width: 100%;
+  }
+}

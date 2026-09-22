@@ -1,0 +1,244 @@
+{
+  "_meta": {
+    "type": "DEMO DATA",
+    "note": "Local demonstration data only. This file is read directly by node/index.js. Replace this source (or point the API at FactoryLogix / OData / CSV / SQL Server) without changing the frontend - it only depends on the shapes documented below.",
+    "schema": {
+      "assembly": "object - one manufactured unit tracked through the route",
+      "levels[]": {
+        "id": "string - short level code, e.g. SMT / HM / MS / MS1",
+        "name": "string - display name",
+        "status": "COMPLETED | CURRENT | NEXT | BLOCKED | NOT STARTED",
+        "previousLevel": "string|null - id of the previous level",
+        "nextLevel": "string|null - id of the next level, or a terminal label like FINISHED",
+        "stations[]": {
+          "sequence": "number",
+          "name": "string",
+          "status": "COMPLETED | CURRENT | NEXT | BLOCKED | NOT STARTED",
+          "startTime": "ISO datetime string | null",
+          "endTime": "ISO datetime string | null",
+          "duration": "string | null - human readable, e.g. '4m 12s'"
+        }
+      },
+      "avl": "object - reserved for future AVL/part-master columns (item number, alternative, manufacturer, MPN, text, obsolete, status, lead free, received lead free, valid until, temperature, marking, duration). Not populated from the current Excel source yet - Work Order, stations and genealogy do NOT come from that Excel.",
+      "parentAssembly": "object|null - { assembly, partNumber, description } of the parent unit, when known",
+      "childAssemblies": "array - [{ assembly, partNumber, description }] of child units, when known"
+    }
+  },
+  "assemblies": [
+    {
+      "assembly": "983306932663201345",
+      "partNumber": "MR01400000V",
+      "description": "POWER MODULE",
+      "workOrder": "WO-2026-001245",
+      "currentLevel": "MS",
+      "status": "IN PROCESS",
+      "progress": 72,
+      "route": ["SMT", "HM", "MS", "MS1"],
+      "parentAssembly": {
+        "assembly": "FINAL-PRODUCT-0001",
+        "partNumber": "FP-9000",
+        "description": "FINAL PRODUCT"
+      },
+      "childAssemblies": [],
+      "avl": {
+        "itemNumber": null,
+        "alternative": null,
+        "manufacturer": null,
+        "mpn": null,
+        "text": null,
+        "obsolete": null,
+        "status": null,
+        "leadFree": null,
+        "receivedLeadFree": null,
+        "validUntil": null,
+        "temperature": null,
+        "marking": null,
+        "duration": null
+      },
+      "levels": [
+        {
+          "id": "SMT",
+          "name": "SMT",
+          "status": "COMPLETED",
+          "previousLevel": null,
+          "nextLevel": "HM",
+          "stations": [
+            { "sequence": 1, "name": "MATERIAL LOAD", "status": "COMPLETED", "startTime": "2026-09-18T06:02:10", "endTime": "2026-09-18T06:04:40", "duration": "2m 30s" },
+            { "sequence": 2, "name": "SOLDER PASTE", "status": "COMPLETED", "startTime": "2026-09-18T06:04:45", "endTime": "2026-09-18T06:06:12", "duration": "1m 27s" },
+            { "sequence": 3, "name": "SPI", "status": "COMPLETED", "startTime": "2026-09-18T06:06:15", "endTime": "2026-09-18T06:07:03", "duration": "48s" },
+            { "sequence": 4, "name": "PICK AND PLACE", "status": "COMPLETED", "startTime": "2026-09-18T06:07:10", "endTime": "2026-09-18T06:12:55", "duration": "5m 45s" },
+            { "sequence": 5, "name": "REFLOW", "status": "COMPLETED", "startTime": "2026-09-18T06:13:00", "endTime": "2026-09-18T06:19:20", "duration": "6m 20s" },
+            { "sequence": 6, "name": "AOI", "status": "COMPLETED", "startTime": "2026-09-18T06:19:25", "endTime": "2026-09-18T06:21:47", "duration": "2m 22s" },
+            { "sequence": 7, "name": "INSPECTION", "status": "COMPLETED", "startTime": "2026-09-18T06:21:50", "endTime": "2026-09-18T06:23:15", "duration": "1m 25s" }
+          ]
+        },
+        {
+          "id": "HM",
+          "name": "HM",
+          "status": "COMPLETED",
+          "previousLevel": "SMT",
+          "nextLevel": "MS",
+          "stations": [
+            { "sequence": 1, "name": "INITIALIZE", "status": "COMPLETED", "startTime": "2026-09-19T07:00:00", "endTime": "2026-09-19T07:01:10", "duration": "1m 10s" },
+            { "sequence": 2, "name": "THT AUTO INSERTION", "status": "COMPLETED", "startTime": "2026-09-19T07:01:15", "endTime": "2026-09-19T07:06:30", "duration": "5m 15s" },
+            { "sequence": 3, "name": "HEATSINK INSERTION", "status": "COMPLETED", "startTime": "2026-09-19T07:06:35", "endTime": "2026-09-19T07:09:50", "duration": "3m 15s" },
+            { "sequence": 4, "name": "HM AOI", "status": "COMPLETED", "startTime": "2026-09-19T07:09:55", "endTime": "2026-09-19T07:11:40", "duration": "1m 45s" },
+            { "sequence": 5, "name": "POWER MODULE MEASUREMENT", "status": "COMPLETED", "startTime": "2026-09-19T07:11:45", "endTime": "2026-09-19T07:15:02", "duration": "3m 17s" },
+            { "sequence": 6, "name": "ICT", "status": "COMPLETED", "startTime": "2026-09-19T07:15:05", "endTime": "2026-09-19T07:18:22", "duration": "3m 17s" },
+            { "sequence": 7, "name": "FCT", "status": "COMPLETED", "startTime": "2026-09-19T07:18:25", "endTime": "2026-09-19T07:21:48", "duration": "3m 23s" },
+            { "sequence": 8, "name": "DEPANEL", "status": "COMPLETED", "startTime": "2026-09-19T07:21:50", "endTime": "2026-09-19T07:22:35", "duration": "45s" }
+          ]
+        },
+        {
+          "id": "MS",
+          "name": "MS",
+          "status": "CURRENT",
+          "previousLevel": "HM",
+          "nextLevel": "MS1",
+          "stations": [
+            { "sequence": 1, "name": "INITIALIZE", "status": "COMPLETED", "startTime": "2026-09-22T08:00:00", "endTime": "2026-09-22T08:00:40", "duration": "40s" },
+            { "sequence": 2, "name": "CHOKE VALIDATION", "status": "CURRENT", "startTime": "2026-09-22T08:00:45", "endTime": null, "duration": null },
+            { "sequence": 3, "name": "ASSEMBLY VALIDATION", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null }
+          ]
+        },
+        {
+          "id": "MS1",
+          "name": "MS1",
+          "status": "NEXT",
+          "previousLevel": "MS",
+          "nextLevel": "FINISHED",
+          "stations": [
+            { "sequence": 1, "name": "FINAL ASSEMBLY", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null },
+            { "sequence": 2, "name": "FINAL TEST", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null },
+            { "sequence": 3, "name": "PACKING", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null },
+            { "sequence": 4, "name": "DIGITAL CONTAINER", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null }
+          ]
+        }
+      ]
+    },
+    {
+      "assembly": "FINAL-PRODUCT-0001",
+      "partNumber": "FP-9000",
+      "description": "FINAL PRODUCT",
+      "workOrder": "WO-2026-001200",
+      "currentLevel": "MS1",
+      "status": "IN PROCESS",
+      "progress": 88,
+      "route": ["SMT", "HM", "MS", "MS1"],
+      "parentAssembly": null,
+      "childAssemblies": [
+        { "assembly": "983306932663201345", "partNumber": "MR01400000V", "description": "POWER MODULE" }
+      ],
+      "avl": {
+        "itemNumber": null, "alternative": null, "manufacturer": null, "mpn": null, "text": null,
+        "obsolete": null, "status": null, "leadFree": null, "receivedLeadFree": null,
+        "validUntil": null, "temperature": null, "marking": null, "duration": null
+      },
+      "levels": [
+        {
+          "id": "SMT", "name": "SMT", "status": "COMPLETED", "previousLevel": null, "nextLevel": "HM",
+          "stations": [
+            { "sequence": 1, "name": "MATERIAL LOAD", "status": "COMPLETED", "startTime": "2026-09-10T06:00:00", "endTime": "2026-09-10T06:02:30", "duration": "2m 30s" },
+            { "sequence": 2, "name": "SOLDER PASTE", "status": "COMPLETED", "startTime": "2026-09-10T06:02:35", "endTime": "2026-09-10T06:04:00", "duration": "1m 25s" },
+            { "sequence": 3, "name": "SPI", "status": "COMPLETED", "startTime": "2026-09-10T06:04:05", "endTime": "2026-09-10T06:04:50", "duration": "45s" },
+            { "sequence": 4, "name": "PICK AND PLACE", "status": "COMPLETED", "startTime": "2026-09-10T06:04:55", "endTime": "2026-09-10T06:10:20", "duration": "5m 25s" },
+            { "sequence": 5, "name": "REFLOW", "status": "COMPLETED", "startTime": "2026-09-10T06:10:25", "endTime": "2026-09-10T06:16:40", "duration": "6m 15s" },
+            { "sequence": 6, "name": "AOI", "status": "COMPLETED", "startTime": "2026-09-10T06:16:45", "endTime": "2026-09-10T06:19:00", "duration": "2m 15s" },
+            { "sequence": 7, "name": "INSPECTION", "status": "COMPLETED", "startTime": "2026-09-10T06:19:05", "endTime": "2026-09-10T06:20:30", "duration": "1m 25s" }
+          ]
+        },
+        {
+          "id": "HM", "name": "HM", "status": "COMPLETED", "previousLevel": "SMT", "nextLevel": "MS",
+          "stations": [
+            { "sequence": 1, "name": "INITIALIZE", "status": "COMPLETED", "startTime": "2026-09-12T07:00:00", "endTime": "2026-09-12T07:01:05", "duration": "1m 5s" },
+            { "sequence": 2, "name": "THT AUTO INSERTION", "status": "COMPLETED", "startTime": "2026-09-12T07:01:10", "endTime": "2026-09-12T07:06:00", "duration": "4m 50s" },
+            { "sequence": 3, "name": "HEATSINK INSERTION", "status": "COMPLETED", "startTime": "2026-09-12T07:06:05", "endTime": "2026-09-12T07:09:15", "duration": "3m 10s" },
+            { "sequence": 4, "name": "HM AOI", "status": "COMPLETED", "startTime": "2026-09-12T07:09:20", "endTime": "2026-09-12T07:11:00", "duration": "1m 40s" },
+            { "sequence": 5, "name": "POWER MODULE MEASUREMENT", "status": "COMPLETED", "startTime": "2026-09-12T07:11:05", "endTime": "2026-09-12T07:14:20", "duration": "3m 15s" },
+            { "sequence": 6, "name": "ICT", "status": "COMPLETED", "startTime": "2026-09-12T07:14:25", "endTime": "2026-09-12T07:17:40", "duration": "3m 15s" },
+            { "sequence": 7, "name": "FCT", "status": "COMPLETED", "startTime": "2026-09-12T07:17:45", "endTime": "2026-09-12T07:21:00", "duration": "3m 15s" },
+            { "sequence": 8, "name": "DEPANEL", "status": "COMPLETED", "startTime": "2026-09-12T07:21:05", "endTime": "2026-09-12T07:21:50", "duration": "45s" }
+          ]
+        },
+        {
+          "id": "MS", "name": "MS", "status": "COMPLETED", "previousLevel": "HM", "nextLevel": "MS1",
+          "stations": [
+            { "sequence": 1, "name": "INITIALIZE", "status": "COMPLETED", "startTime": "2026-09-15T08:00:00", "endTime": "2026-09-15T08:00:40", "duration": "40s" },
+            { "sequence": 2, "name": "CHOKE VALIDATION", "status": "COMPLETED", "startTime": "2026-09-15T08:00:45", "endTime": "2026-09-15T08:02:10", "duration": "1m 25s" },
+            { "sequence": 3, "name": "ASSEMBLY VALIDATION", "status": "COMPLETED", "startTime": "2026-09-15T08:02:15", "endTime": "2026-09-15T08:03:30", "duration": "1m 15s" }
+          ]
+        },
+        {
+          "id": "MS1", "name": "MS1", "status": "CURRENT", "previousLevel": "MS", "nextLevel": "FINISHED",
+          "stations": [
+            { "sequence": 1, "name": "FINAL ASSEMBLY", "status": "COMPLETED", "startTime": "2026-09-22T09:00:00", "endTime": "2026-09-22T09:04:10", "duration": "4m 10s" },
+            { "sequence": 2, "name": "FINAL TEST", "status": "CURRENT", "startTime": "2026-09-22T09:04:15", "endTime": null, "duration": null },
+            { "sequence": 3, "name": "PACKING", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null },
+            { "sequence": 4, "name": "DIGITAL CONTAINER", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null }
+          ]
+        }
+      ]
+    },
+    {
+      "assembly": "983306932663201900",
+      "partNumber": "MR01400001A",
+      "description": "CONTROL BOARD ASSEMBLY",
+      "workOrder": "WO-2026-001300",
+      "currentLevel": "SMT",
+      "status": "IN PROCESS",
+      "progress": 43,
+      "route": ["SMT", "HM", "MS", "MS1"],
+      "parentAssembly": null,
+      "childAssemblies": [],
+      "avl": {
+        "itemNumber": null, "alternative": null, "manufacturer": null, "mpn": null, "text": null,
+        "obsolete": null, "status": null, "leadFree": null, "receivedLeadFree": null,
+        "validUntil": null, "temperature": null, "marking": null, "duration": null
+      },
+      "levels": [
+        {
+          "id": "SMT", "name": "SMT", "status": "CURRENT", "previousLevel": null, "nextLevel": "HM",
+          "stations": [
+            { "sequence": 1, "name": "MATERIAL LOAD", "status": "COMPLETED", "startTime": "2026-09-22T10:00:00", "endTime": "2026-09-22T10:02:30", "duration": "2m 30s" },
+            { "sequence": 2, "name": "SOLDER PASTE", "status": "COMPLETED", "startTime": "2026-09-22T10:02:35", "endTime": "2026-09-22T10:04:02", "duration": "1m 27s" },
+            { "sequence": 3, "name": "SPI", "status": "COMPLETED", "startTime": "2026-09-22T10:04:05", "endTime": "2026-09-22T10:04:53", "duration": "48s" },
+            { "sequence": 4, "name": "PICK AND PLACE", "status": "CURRENT", "startTime": "2026-09-22T10:05:00", "endTime": null, "duration": null },
+            { "sequence": 5, "name": "REFLOW", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null },
+            { "sequence": 6, "name": "AOI", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null },
+            { "sequence": 7, "name": "INSPECTION", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null }
+          ]
+        },
+        {
+          "id": "HM", "name": "HM", "status": "NEXT", "previousLevel": "SMT", "nextLevel": "MS",
+          "stations": [
+            { "sequence": 1, "name": "INITIALIZE", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null },
+            { "sequence": 2, "name": "THT AUTO INSERTION", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null },
+            { "sequence": 3, "name": "HEATSINK INSERTION", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null },
+            { "sequence": 4, "name": "HM AOI", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null },
+            { "sequence": 5, "name": "POWER MODULE MEASUREMENT", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null },
+            { "sequence": 6, "name": "ICT", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null },
+            { "sequence": 7, "name": "FCT", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null },
+            { "sequence": 8, "name": "DEPANEL", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null }
+          ]
+        },
+        {
+          "id": "MS", "name": "MS", "status": "NOT STARTED", "previousLevel": "HM", "nextLevel": "MS1",
+          "stations": [
+            { "sequence": 1, "name": "INITIALIZE", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null },
+            { "sequence": 2, "name": "CHOKE VALIDATION", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null },
+            { "sequence": 3, "name": "ASSEMBLY VALIDATION", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null }
+          ]
+        },
+        {
+          "id": "MS1", "name": "MS1", "status": "NOT STARTED", "previousLevel": "MS", "nextLevel": "FINISHED",
+          "stations": [
+            { "sequence": 1, "name": "FINAL ASSEMBLY", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null },
+            { "sequence": 2, "name": "FINAL TEST", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null },
+            { "sequence": 3, "name": "PACKING", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null },
+            { "sequence": 4, "name": "DIGITAL CONTAINER", "status": "NOT STARTED", "startTime": null, "endTime": null, "duration": null }
+          ]
+        }
+      ]
+    }
+  ]
+}
