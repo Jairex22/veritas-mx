@@ -1,0 +1,5 @@
+# Company data: the workbook stays local (this repository is public)
+data/*.xlsm
+data/*.xlsx
+logs/*.log*
+__pycache__/

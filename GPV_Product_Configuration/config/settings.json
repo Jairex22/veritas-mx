@@ -1,0 +1,10 @@
+{
+  "excel_file": "data/EMX-KA661_Rev.0 Validacion de marcado SMT (1).xlsm",
+  "default_mode": "ENGINEERING",
+  "window_width": 850,
+  "window_height": 850,
+  "reader": "auto",
+  "max_tree_items": 150,
+  "details_max_rows": 5000,
+  "extra_column_aliases": {}
+}
