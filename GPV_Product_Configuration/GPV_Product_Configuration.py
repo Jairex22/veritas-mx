@@ -733,7 +733,7 @@ class ExcelDataProvider:
     def _build_indexes(self):
         item_idx, item_compact, field_idx, search_rows = {}, {}, {}, []
         nz = self.normalizer
-        searchable = ("item_number", "parent", "mpn")
+        searchable = ("item_number", "parent", "mpn", "manufacturer", "alternative", "text")
         for rec in self.records:
             item = rec.get("item_number")
             if item:
@@ -853,6 +853,8 @@ def natural_key(text):
 # ============================================================================
 
 class SearchResult:
+    """BOM search result, grouped by item number."""
+
     def __init__(self, query: str):
         self.query = query
         self.items: "OrderedDict[str, dict]" = OrderedDict()  # item key -> info
@@ -865,44 +867,60 @@ class SearchResult:
         return bool(self.items)
 
     def matched_uids(self) -> set:
-        """Rows to highlight: only those found through MPN / Assembly columns."""
+        """Rows to highlight: only those found through a non item-number column."""
         return {r.uid for info in self.items.values() if info["field"] != "item_number" for r in info["matched"]}
 
 
-class SearchEngine:
-    FIELD_LABELS = {"item_number": "Item number", "parent": "Assembly", "mpn": "MPN"}
+class RowSearchResult:
+    """RAW MATERIALS search result: one entry per Excel row."""
 
-    def __init__(self, provider: ExcelDataProvider, max_items: int = 150):
+    def __init__(self, query: str):
+        self.query = query
+        self.rows: list[tuple[Record, str]] = []   # (record, field that matched)
+        self.match_kind = ""
+        self.total = 0
+        self.elapsed_ms = 0.0
+
+
+class SearchEngine:
+    """Independent searches over different column sets (they are never mixed)."""
+
+    BOM_FIELDS = ("item_number", "parent")
+    RAW_FIELDS = ("item_number", "mpn", "manufacturer", "alternative", "text")
+    FIELD_LABELS = {"item_number": "Item number", "parent": "Assembly", "mpn": "MPN",
+                    "manufacturer": "Manufacturer", "alternative": "Alternative", "text": "Description"}
+
+    def __init__(self, provider: ExcelDataProvider, max_items: int = 150, max_rows: int = 500):
         self.provider = provider
         self.max_items = max_items
+        self.max_rows = max_rows
 
-    def search(self, query: str) -> SearchResult:
+    def _ranked(self, query: str, fields) -> tuple[list, str]:
+        """Exact (case/space insensitive) > starts with > contains."""
+        nz = self.provider.normalizer
+        key, compact = nz.search_key(query), nz.compact_key(query)
+        if not key:
+            return [], "none"
+        rows = [r for r in self.provider._search_rows if r[0] in fields]
+        hits = [(0, f, rec) for f, k, c, rec in rows if k == key or c == compact]
+        kind = "exact"
+        if not hits and len(compact) >= 2:
+            hits = [(1, f, rec) for f, k, c, rec in rows if c.startswith(compact)]
+            kind = "prefix"
+        if not hits and len(compact) >= 3:
+            hits = [(2, f, rec) for f, k, c, rec in rows if compact in c]
+            kind = "contains"
+        order = {f: i for i, f in enumerate(fields)}
+        hits.sort(key=lambda h: (h[0], order.get(h[1], 9), not h[2].has_detail,
+                                 len(h[2].get(h[1]) or ""), h[2].order))
+        return hits, (kind if hits else "none")
+
+    def search(self, query: str, fields=BOM_FIELDS) -> SearchResult:
+        """BOM / ASSEMBLY search (Item number / Assembly columns only)."""
         t0 = time.perf_counter()
         nz = self.provider.normalizer
         res = SearchResult(query)
-        key, compact = nz.search_key(query), nz.compact_key(query)
-        if not key:
-            res.match_kind = "none"
-            return res
-        hits: list[tuple[int, str, Record]] = []
-        # 1) exact (case/space insensitive) - has absolute priority
-        for rank, (field, k, c, rec) in enumerate(self.provider._search_rows):
-            if k == key or c == compact:
-                hits.append((0, field, rec))
-        kind = "exact"
-        if not hits and len(compact) >= 2:
-            for field, k, c, rec in self.provider._search_rows:
-                if c.startswith(compact):
-                    hits.append((1, field, rec))
-            kind = "prefix"
-        if not hits and len(compact) >= 3:
-            for field, k, c, rec in self.provider._search_rows:
-                if compact in c:
-                    hits.append((2, field, rec))
-            kind = "contains"
-        res.match_kind = kind if hits else "none"
-        field_order = {"item_number": 0, "parent": 1, "mpn": 2}
-        hits.sort(key=lambda h: (h[0], field_order.get(h[1], 9), len(h[2].get(h[1]) or ""), h[2].order))
+        hits, res.match_kind = self._ranked(query, fields)
         for _rank, field, rec in hits:
             item = rec.get("item_number") or "(no item number)"
             if field == "parent" and rec.get("parent"):
@@ -915,6 +933,108 @@ class SearchEngine:
                 res.items[ikey] = {"item": item, "field": field, "matched": []}
             if rec not in res.items[ikey]["matched"]:
                 res.items[ikey]["matched"].append(rec)
+        res.elapsed_ms = (time.perf_counter() - t0) * 1000
+        return res
+
+    def search_rows(self, query: str, fields=RAW_FIELDS) -> RowSearchResult:
+        """RAW MATERIALS search (Item / MPN / Manufacturer / Alternative / Description)."""
+        t0 = time.perf_counter()
+        res = RowSearchResult(query)
+        hits, res.match_kind = self._ranked(query, fields)
+        seen = set()
+        for _rank, field, rec in hits:
+            if rec.uid in seen:
+                continue
+            seen.add(rec.uid)
+            res.total += 1
+            if len(res.rows) < self.max_rows:
+                res.rows.append((rec, field))
+        res.elapsed_ms = (time.perf_counter() - t0) * 1000
+        return res
+
+
+class MarkingMatch:
+    __slots__ = ("record", "token", "kind")
+
+    def __init__(self, record: Record, token: str, kind: str):
+        self.record, self.token, self.kind = record, token, kind
+
+
+class MarkingResult:
+    def __init__(self, scan: str):
+        self.scan = scan
+        self.exact: list[MarkingMatch] = []
+        self.partial: list[MarkingMatch] = []
+        self.has_column = True
+        self.elapsed_ms = 0.0
+
+    @property
+    def status(self) -> str:
+        if not self.has_column:
+            return "NO_COLUMN"
+        if not RecordNormalizer.search_key(self.scan):
+            return "EMPTY"
+        if self.exact:
+            usable = [m for m in self.exact if m.record.status_flag() != "YES"]
+            return "FOUND" if usable else "FOUND_DONT_USE"
+        return "PARTIAL" if self.partial else "NOT_FOUND"
+
+    @property
+    def matches(self) -> list[MarkingMatch]:
+        return self.exact + self.partial
+
+
+class MarkingValidator:
+    """Reverse lookup: physical marking -> every Excel row whose 'Marking' column has it.
+
+    A marking cell may hold several options (one per line, or separated by ; , |):
+    each option is compared on its own, and the whole cell as well.
+    Exact = case-insensitive with collapsed spaces, or identical ignoring all spaces.
+    Partial matches are never reported as FOUND (operator must verify).
+    """
+
+    SPLIT_RE = re.compile(r"\s*(?:\n|;|\||,)\s*")
+    MIN_PARTIAL = 2
+
+    def __init__(self, provider: ExcelDataProvider):
+        self.provider = provider
+        nz = provider.normalizer
+        self.entries: list[tuple[Record, list[tuple[str, str, str]]]] = []
+        for rec in provider.records:
+            marking = rec.get("marking")
+            if marking is None:
+                continue
+            options = [marking] + [t for t in self.SPLIT_RE.split(marking) if t.strip() and t != marking]
+            self.entries.append((rec, [(nz.search_key(t), nz.compact_key(t), t) for t in options]))
+
+    @property
+    def marking_rows(self) -> int:
+        return len(self.entries)
+
+    def validate(self, scan: str) -> MarkingResult:
+        t0 = time.perf_counter()
+        nz = self.provider.normalizer
+        res = MarkingResult(scan)
+        res.has_column = self.provider.has_field("marking")
+        key, compact = nz.search_key(scan), nz.compact_key(scan)
+        if not key or not res.has_column:
+            return res
+        for rec, options in self.entries:
+            exact = next((t for k, c, t in options if k == key or c == compact), None)
+            if exact is not None:
+                res.exact.append(MarkingMatch(rec, exact, "exact"))
+                continue
+            if len(compact) >= self.MIN_PARTIAL:
+                part = next((t for k, c, t in options
+                             if compact in c or (len(c) >= 3 and c in compact)), None)
+                if part is not None:
+                    res.partial.append(MarkingMatch(rec, part, "partial"))
+
+        def order(m):
+            return (m.record.status_flag() == "YES", natural_key(m.record.get("item_number") or ""),
+                    natural_key(m.record.get("alternative") or ""), m.record.order)
+        res.exact.sort(key=order)
+        res.partial.sort(key=order)
         res.elapsed_ms = (time.perf_counter() - t0) * 1000
         return res
 
@@ -1083,7 +1203,9 @@ class InfoPanel(tk.Frame if tk else object):
         super().__init__(master, bg=C_PANEL, highlightthickness=1, highlightbackground=C_BORDER,
                          highlightcolor=C_BORDER, bd=0)
         self.fonts = fonts
+        self.max_columns = columns
         self.columns = columns
+        self._rows = []
         self.title_lbl = tk.Label(self, text=title, bg=C_PANEL, fg=title_color, font=fonts["panel"], anchor="w")
         self.title_lbl.pack(fill="x", padx=10, pady=(7, 3))
         self.body = tk.Frame(self, bg=C_PANEL)
@@ -1094,9 +1216,12 @@ class InfoPanel(tk.Frame if tk else object):
 
     def set_rows(self, rows):
         """rows: list of (label, value, style). style in None|good|bad|warn|muted|strong."""
+        self._rows = list(rows)
         for w in self.body.winfo_children():
             w.destroy()
         self._values = []
+        for c in range(self.max_columns * 2):
+            self.body.columnconfigure(c, weight=0, uniform="")
         for c in range(self.columns * 2):
             self.body.columnconfigure(c, weight=1 if c % 2 else 0, uniform="" if c % 2 else f"lbl{c}")
         if not rows:
@@ -1117,8 +1242,13 @@ class InfoPanel(tk.Frame if tk else object):
             self._values.append(v)
 
     def _on_resize(self, event):
-        wrap = max(140, int(event.width / self.columns) - 190)
-        if abs(wrap - self._wrap) > 8:
+        # Multi-column panels fall back to one column when they are narrow.
+        columns = self.max_columns if event.width >= 300 * self.max_columns else 1
+        wrap = max(120, int(event.width / columns) - 200)
+        if columns != self.columns:
+            self.columns, self._wrap = columns, wrap
+            self.set_rows(self._rows)
+        elif abs(wrap - self._wrap) > 8:
             self._wrap = wrap
             for v in self._values:
                 v.configure(wraplength=wrap)
@@ -1132,7 +1262,7 @@ class MarkingPanel(tk.Frame if tk else object):
         self.fonts = fonts
         head = tk.Frame(self, bg=C_PANEL)
         head.pack(fill="x", padx=10, pady=(7, 2))
-        tk.Label(head, text="MARKING INFORMATION", bg=C_PANEL, fg=C_NAVY, font=fonts["panel"]).pack(side="left")
+        tk.Label(head, text="MARKING INFORMATION (BOM SELECTION)", bg=C_PANEL, fg=C_NAVY, font=fonts["panel"]).pack(side="left")
         self.source_lbl = tk.Label(head, text="", bg=C_PANEL, fg=C_MUTED, font=fonts["small"])
         self.source_lbl.pack(side="right")
         tk.Label(self, text="EXPECTED MARKING", bg=C_PANEL, fg=C_GREEN, font=fonts["label"], anchor="w").pack(
@@ -1386,6 +1516,7 @@ class DetailsWindow(tk.Toplevel if tk else object):
 
 class GPVProductConfigurationApp(tk.Tk if tk else object):
     MODES = ("ENGINEERING", "PRODUCTION")
+    WIDE_LAYOUT = 1180  # px: from this width the page uses two columns
 
     def __init__(self, settings: dict, logger: logging.Logger):
         super().__init__()
@@ -1396,6 +1527,7 @@ class GPVProductConfigurationApp(tk.Tk if tk else object):
         self.provider = ExcelDataProvider(self.excel_path, self.normalizer, settings.get("reader", "auto"), logger)
         self.search_engine = SearchEngine(self.provider, int(settings.get("max_tree_items", 150)))
         self.bom = BomBuilder(self.provider)
+        self.marking = MarkingValidator(self.provider)
         mode = str(settings.get("default_mode", "ENGINEERING")).upper()
         self.mode = mode if mode in self.MODES else "ENGINEERING"
         self.node_map: dict[str, TreeNode] = {}
@@ -1452,6 +1584,11 @@ class GPVProductConfigurationApp(tk.Tk if tk else object):
             "button": (fam, 10, "bold"),
             "tree": (fam, 10),
             "marking": (mono, 15, "bold"),
+            "section": (fam, 13, "bold"),
+            "assembly": (fam, 15, "bold"),
+            "mark_entry": (mono, 16, "bold"),
+            "mark_state": (fam, 14, "bold"),
+            "mark_dot": (fam, 18),
             "logo": (fam, 15, "bold"),
         }
         st = ttk.Style(self)
@@ -1473,13 +1610,30 @@ class GPVProductConfigurationApp(tk.Tk if tk else object):
         st.configure("TCombobox", fieldbackground=C_PANEL, bordercolor=C_BORDER)
         st.configure("Vertical.TScrollbar", background=C_SOFT, troughcolor=C_BG, bordercolor=C_BG, arrowcolor=C_NAVY)
         st.configure("Horizontal.TScrollbar", background=C_SOFT, troughcolor=C_BG, bordercolor=C_BG, arrowcolor=C_NAVY)
-        st.configure("TPanedwindow", background=C_BG)
-        st.configure("Sash", sashthickness=6, gripcount=0)
 
     # -- UI ----------------------------------------------------------------------
+    def _search_entry(self, master, var, font=None):
+        return tk.Entry(master, textvariable=var, font=font or self.fonts["entry"], relief="solid", bd=1,
+                        highlightthickness=1, highlightcolor=C_BLUE, highlightbackground=C_BORDER,
+                        fg=C_TEXT, insertbackground=C_TEXT)
+
+    def _action_button(self, master, text, command, bg=C_BLUE, active=C_BLUE_DARK):
+        return tk.Button(master, text=text, command=command, bg=bg, fg="white", activebackground=active,
+                         activeforeground="white", relief="flat", font=self.fonts["button"], padx=16, pady=4,
+                         cursor="hand2", bd=0, disabledforeground="#DDE3E7")
+
+    def _section_title(self, master, text, subtitle=""):
+        head = tk.Frame(master, bg=C_PANEL)
+        head.pack(fill="x", padx=10, pady=(8, 2))
+        tk.Label(head, text=text, bg=C_PANEL, fg=C_NAVY, font=self.fonts["section"]).pack(side="left", anchor="w")
+        if subtitle:
+            tk.Label(head, text=subtitle, bg=C_PANEL, fg=C_MUTED, font=self.fonts["small"]).pack(
+                side="left", anchor="s", padx=(10, 0), pady=(0, 2))
+        return head
+
     def _build_ui(self):
         f = self.fonts
-        # Header -----------------------------------------------------------------
+        # Header: title + BOM / ASSEMBLY search ------------------------------------
         header = tk.Frame(self, bg=C_PANEL, highlightthickness=1, highlightbackground=C_BORDER)
         header.pack(fill="x", padx=10, pady=(10, 6))
         title_row = tk.Frame(header, bg=C_PANEL)
@@ -1493,19 +1647,27 @@ class GPVProductConfigurationApp(tk.Tk if tk else object):
 
         search_row = tk.Frame(header, bg=C_PANEL)
         search_row.pack(fill="x", padx=14, pady=(0, 4))
-        tk.Label(search_row, text="Assembly (Top level):", bg=C_PANEL, fg=C_TEXT, font=f["value"]).pack(side="left")
+        tk.Label(search_row, text="Assembly / Top Level:", bg=C_PANEL, fg=C_TEXT, font=f["value_b"]).pack(side="left")
         self.search_var = tk.StringVar()
-        self.entry = tk.Entry(search_row, textvariable=self.search_var, font=f["entry"], relief="solid", bd=1,
-                              highlightthickness=1, highlightcolor=C_BLUE, highlightbackground=C_BORDER,
-                              fg=C_TEXT, insertbackground=C_TEXT)
+        self.entry = self._search_entry(search_row, self.search_var)
         self.entry.pack(side="left", fill="x", expand=True, padx=(8, 8), ipady=4)
-        self.search_btn = tk.Button(search_row, text="SEARCH", command=self.do_search, bg=C_BLUE, fg="white",
-                                    activebackground=C_BLUE_DARK, activeforeground="white", relief="flat",
-                                    font=f["button"], padx=18, pady=4, cursor="hand2", bd=0)
+        self.search_btn = self._action_button(search_row, "SEARCH BOM", self.do_search)
         self.search_btn.pack(side="left")
-        self.status_lbl = tk.Label(header, text="Item number / Assembly / Part number / MPN  -  Enter to search",
-                                   bg=C_PANEL, fg=C_MUTED, font=f["small"], anchor="w")
-        self.status_lbl.pack(fill="x", padx=14, pady=(0, 8))
+
+        status_row = tk.Frame(header, bg=C_PANEL)
+        status_row.pack(fill="x", padx=14, pady=(0, 8))
+        nav = tk.Frame(status_row, bg=C_PANEL)
+        nav.pack(side="right")
+        for text, target, key in (("RAW MATERIALS", "raw", "F3"), ("MARKING VALIDATION", "mark", "F2")):
+            chip = tk.Label(nav, text=f"▸ {text}  {key}", bg=C_SOFT if target == "raw" else C_GREEN,
+                            fg=C_NAVY if target == "raw" else "white", font=f["small_b"], padx=8, pady=2,
+                            cursor="hand2")
+            chip.pack(side="left", padx=(6, 0))
+            chip.bind("<Button-1>", lambda e, t=target: self.go_to_section(t))
+        self.status_lbl = tk.Label(status_row, text="BOM search: Item number / Assembly  -  Enter to search",
+                                   bg=C_PANEL, fg=C_MUTED, font=f["small"], anchor="w", justify="left")
+        self.status_lbl.pack(side="left", fill="x", expand=True)
+        self.status_lbl.bind("<Configure>", lambda e: self.status_lbl.configure(wraplength=max(200, e.width)))
 
         # Footer (packed before the body so it always stays visible) -------------
         footer = tk.Frame(self, bg=C_BG)
@@ -1519,19 +1681,79 @@ class GPVProductConfigurationApp(tk.Tk if tk else object):
         tk.Label(brand, text="V", bg=C_BG, fg=C_GREEN, font=(f["logo"][0], 12, "bold")).pack(side="left")
         self.footer_lbl.bind("<Configure>", lambda e: self.footer_lbl.configure(wraplength=max(200, e.width)))
 
-        # Body: BOM (top) / information (bottom, scrollable) --------------------------
-        self.paned = ttk.Panedwindow(self, orient="vertical")
-        self.paned.pack(fill="both", expand=True, padx=10, pady=(0, 6))
-        self.paned.add(self._build_bom_panel(self.paned), weight=3)
-        self.paned.add(self._build_info_area(self.paned), weight=4)
-        self.after(120, self._init_sash)
+        # Scrollable page with the independent sections ------------------------------
+        body = tk.Frame(self, bg=C_BG)
+        body.pack(fill="both", expand=True, padx=(10, 4), pady=(0, 6))
+        body.rowconfigure(0, weight=1)
+        body.columnconfigure(0, weight=1)
+        self.page_canvas = tk.Canvas(body, bg=C_BG, highlightthickness=0, bd=0)
+        page_scroll = ttk.Scrollbar(body, orient="vertical", command=self.page_canvas.yview)
+        self.page_canvas.configure(yscrollcommand=page_scroll.set)
+        self.page_canvas.grid(row=0, column=0, sticky="nsew")
+        page_scroll.grid(row=0, column=1, sticky="ns")
+        self.page = tk.Frame(self.page_canvas, bg=C_BG)
+        self._page_id = self.page_canvas.create_window((0, 0), window=self.page, anchor="nw")
+        self.page.bind("<Configure>", lambda e: self.page_canvas.configure(scrollregion=self.page_canvas.bbox("all")))
+        self.page_canvas.bind("<Configure>", self._on_page_resize)
+        # Column frames are created first so the sections (gridded into them) stay on top.
+        self.col_left = tk.Frame(self.page, bg=C_BG)
+        self.col_right = tk.Frame(self.page, bg=C_BG)
+        self.sec_bom = self._build_bom_panel(self.page)
+        self.sec_info = self._build_info_area(self.page)
+        self.sec_raw = self._build_raw_panel(self.page)
+        self.sec_mark = self._build_marking_panel(self.page)
+        self._page_wide = None
+        self._layout_page(False)
         self.entry.focus_set()
 
-    def _init_sash(self):
+    def _on_page_resize(self, event):
+        self.page_canvas.itemconfigure(self._page_id, width=event.width - 6)
+        self._layout_page(event.width >= self.WIDE_LAYOUT)
+
+    def _layout_page(self, wide: bool):
+        """Wide: BOM + BOM details on the left, MARKING VALIDATION + RAW MATERIALS on the right.
+        Narrow: one column - BOM, BOM details, RAW MATERIALS, MARKING VALIDATION."""
+        if wide == self._page_wide:
+            return
+        self._page_wide = wide
+        sections = (self.sec_bom, self.sec_info, self.sec_raw, self.sec_mark)
+        for s in sections:
+            s.grid_forget()
+        self.col_left.grid_forget()
+        self.col_right.grid_forget()
+        if wide:
+            self.page.columnconfigure(0, weight=5, uniform="page")
+            self.page.columnconfigure(1, weight=4, uniform="page")
+            self.col_left.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
+            self.col_right.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
+            placement = ((self.col_left, (self.sec_bom, self.sec_info)),
+                         (self.col_right, (self.sec_mark, self.sec_raw)))
+        else:
+            self.page.columnconfigure(0, weight=1, uniform="")
+            self.page.columnconfigure(1, weight=0, uniform="")
+            self.col_left.grid(row=0, column=0, sticky="nsew")
+            placement = ((self.col_left, (self.sec_bom, self.sec_info, self.sec_raw, self.sec_mark)),)
+        for col, secs in placement:
+            col.columnconfigure(0, weight=1)
+            for i, s in enumerate(secs):
+                s.grid(in_=col, row=i, column=0, sticky="nsew", pady=(0, 8))
+                s.lift()
+
+    def go_to_section(self, name: str):
+        target = {"bom": (self.sec_bom, self.entry), "raw": (self.sec_raw, self.raw_entry),
+                  "mark": (self.sec_mark, self.mark_entry)}[name]
+        section, entry = target
         self.update_idletasks()
-        total = self.paned.winfo_height()
-        if total > 100:
-            self.paned.sashpos(0, int(total * 0.46))
+        total = max(1, self.page.winfo_height())
+        y = section.winfo_rooty() - self.page.winfo_rooty()
+        self.page_canvas.yview_moveto(max(0.0, (y - 4) / total))
+        self._focus_entry(entry)
+
+    @staticmethod
+    def _focus_entry(entry):
+        entry.focus_set()
+        entry.select_range(0, "end")
+        entry.icursor("end")
 
     def _build_bom_panel(self, master):
         f = self.fonts
@@ -1541,12 +1763,7 @@ class GPVProductConfigurationApp(tk.Tk if tk else object):
         # MODE is packed first so it keeps its space when the window is narrow.
         modes = tk.Frame(head, bg=C_PANEL)
         modes.pack(side="right", anchor="n")
-        tk.Label(head, text="BOM STRUCTURE", bg=C_PANEL, fg=C_NAVY,
-                 font=(f["panel"][0], 13, "bold")).pack(side="left", anchor="nw")
-        self.view_lbl = tk.Label(panel, text="", bg=C_PANEL, fg=C_AMBER, font=f["small_b"], anchor="w",
-                                 justify="left")
-        self.view_lbl.pack(fill="x", padx=10)
-        self.view_lbl.bind("<Configure>", lambda e: self.view_lbl.configure(wraplength=max(200, e.width)))
+        tk.Label(head, text="BOM STRUCTURE", bg=C_PANEL, fg=C_NAVY, font=f["section"]).pack(side="left", anchor="nw")
         tk.Label(modes, text="MODE", bg=C_PANEL, fg=C_NAVY, font=f["label"]).grid(row=0, column=0, padx=(0, 8), sticky="n", pady=(5, 0))
         self.mode_widgets = {}
         for i, m in enumerate(self.MODES):
@@ -1558,15 +1775,25 @@ class GPVProductConfigurationApp(tk.Tk if tk else object):
             self.mode_widgets[m] = (btn, cap)
         self._paint_mode()
 
+        # Assembly header: item number + description of the BOM search result
+        self.bom_item_lbl = tk.Label(panel, text="", bg=C_PANEL, fg=C_NAVY, font=f["assembly"], anchor="w")
+        self.bom_item_lbl.pack(fill="x", padx=10)
+        self.bom_desc_lbl = tk.Label(panel, text="", bg=C_PANEL, fg=C_MUTED, font=f["value"], anchor="w")
+        self.bom_desc_lbl.pack(fill="x", padx=10)
+        self.view_lbl = tk.Label(panel, text="", bg=C_PANEL, fg=C_AMBER, font=f["small_b"], anchor="w",
+                                 justify="left")
+        self.view_lbl.pack(fill="x", padx=10, pady=(2, 0))
+        self.view_lbl.bind("<Configure>", lambda e: self.view_lbl.configure(wraplength=max(200, e.width)))
+
         tree_box = tk.Frame(panel, bg=C_PANEL)
         tree_box.pack(fill="both", expand=True, padx=10, pady=(4, 4))
         tree_box.rowconfigure(0, weight=1)
         tree_box.columnconfigure(0, weight=1)
-        self.tree = ttk.Treeview(tree_box, columns=("info",), show="tree headings", selectmode="browse")
+        self.tree = ttk.Treeview(tree_box, columns=("info",), show="tree headings", selectmode="browse", height=10)
         self.tree.heading("#0", text="Item / Alternative / Attribute", anchor="w")
         self.tree.heading("info", text="Status / Source", anchor="w")
-        self.tree.column("#0", width=470, minwidth=260, stretch=True)
-        self.tree.column("info", width=190, minwidth=120, stretch=False)
+        self.tree.column("#0", width=430, minwidth=260, stretch=True)
+        self.tree.column("info", width=170, minwidth=110, stretch=False)
         vs = ttk.Scrollbar(tree_box, orient="vertical", command=self.tree.yview)
         hs = ttk.Scrollbar(tree_box, orient="horizontal", command=self.tree.xview)
         self.tree.configure(yscrollcommand=vs.set, xscrollcommand=hs.set)
@@ -1597,37 +1824,20 @@ class GPVProductConfigurationApp(tk.Tk if tk else object):
         return panel
 
     def _build_info_area(self, master):
-        outer = tk.Frame(master, bg=C_BG)
-        outer.rowconfigure(0, weight=1)
-        outer.columnconfigure(0, weight=1)
-        self.info_canvas = tk.Canvas(outer, bg=C_BG, highlightthickness=0, bd=0)
-        vs = ttk.Scrollbar(outer, orient="vertical", command=self.info_canvas.yview)
-        self.info_canvas.configure(yscrollcommand=vs.set)
-        self.info_canvas.grid(row=0, column=0, sticky="nsew")
-        vs.grid(row=0, column=1, sticky="ns")
-        self.info_inner = tk.Frame(self.info_canvas, bg=C_BG)
-        self._inner_id = self.info_canvas.create_window((0, 0), window=self.info_inner, anchor="nw")
-        self.info_inner.bind("<Configure>", lambda e: self.info_canvas.configure(
-            scrollregion=self.info_canvas.bbox("all")))
-        self.info_canvas.bind("<Configure>", self._on_info_resize)
-        for w in (self.info_canvas, self.info_inner):
-            w.bind("<Enter>", lambda e: self._wheel(True))
-            w.bind("<Leave>", lambda e: self._wheel(False))
-
+        """Information of the node selected in BOM STRUCTURE."""
+        frame = tk.Frame(master, bg=C_BG)
+        self.info_inner = frame
         f = self.fonts
-        self.p_assembly = InfoPanel(self.info_inner, "ASSEMBLY INFORMATION", f)
-        self.p_component = InfoPanel(self.info_inner, "PCB / COMPONENT INFORMATION", f)
-        self.p_marking = MarkingPanel(self.info_inner, f)
-        self.p_material = InfoPanel(self.info_inner, "MATERIAL INFORMATION", f, columns=2)
-        self.p_alts = InfoPanel(self.info_inner, "ALTERNATIVES / COMPONENT INFORMATION", f)
-        self.p_extra = InfoPanel(self.info_inner, "ADDITIONAL FIELDS (EXCEL)", f)
+        self.p_assembly = InfoPanel(frame, "ASSEMBLY INFORMATION", f)
+        self.p_component = InfoPanel(frame, "PCB / COMPONENT INFORMATION", f)
+        self.p_marking = MarkingPanel(frame, f)
+        self.p_material = InfoPanel(frame, "MATERIAL INFORMATION", f, columns=2)
+        self.p_alts = InfoPanel(frame, "ALTERNATIVES / COMPONENT INFORMATION", f)
+        self.p_extra = InfoPanel(frame, "ADDITIONAL FIELDS (EXCEL)", f)
+        frame.bind("<Configure>", lambda e: self._layout_panels(2 if e.width >= 900 else 1))
         self._layout_panels(1)
         self._clear_panels()
-        return outer
-
-    def _on_info_resize(self, event):
-        self.info_canvas.itemconfigure(self._inner_id, width=event.width)
-        self._layout_panels(2 if event.width >= 980 else 1)
+        return frame
 
     def _layout_panels(self, cols):
         if cols == self._layout_cols:
@@ -1650,35 +1860,391 @@ class GPVProductConfigurationApp(tk.Tk if tk else object):
             self._layout_cols = 0
             self._layout_panels(cols)
 
-    def _wheel(self, on: bool):
-        if on:
-            self.bind_all("<MouseWheel>", self._on_wheel)
-            self.bind_all("<Button-4>", self._on_wheel)
-            self.bind_all("<Button-5>", self._on_wheel)
+    def _results_table(self, master, columns, height):
+        """columns: list of (id, heading, width, stretch)."""
+        box = tk.Frame(master, bg=C_PANEL)
+        box.rowconfigure(0, weight=1)
+        box.columnconfigure(0, weight=1)
+        tree = ttk.Treeview(box, columns=[c[0] for c in columns], show="headings", selectmode="browse",
+                            height=height, style="Details.Treeview")
+        for cid, heading, width, stretch in columns:
+            tree.heading(cid, text=heading, anchor="w", command=lambda t=tree, c=cid: self._sort_table(t, c))
+            tree.column(cid, width=width, minwidth=50, stretch=stretch, anchor="w")
+        vs = ttk.Scrollbar(box, orient="vertical", command=tree.yview)
+        hs = ttk.Scrollbar(box, orient="horizontal", command=tree.xview)
+        tree.configure(yscrollcommand=vs.set, xscrollcommand=hs.set)
+        tree.grid(row=0, column=0, sticky="nsew")
+        vs.grid(row=0, column=1, sticky="ns")
+        hs.grid(row=1, column=0, sticky="ew")
+        tree.tag_configure("dontuse", foreground=C_RED)
+        tree.tag_configure("use", foreground=C_OK)
+        tree.tag_configure("nodetail", foreground=C_MUTED)
+        tree.tag_configure("partial", foreground=C_AMBER)
+        tree.tag_configure("obsolete", background="#FFF4E0")
+        return box, tree
+
+    def _sort_table(self, tree, cid):
+        rev = getattr(tree, "_sort_state", (None, False))
+        reverse = not rev[1] if rev[0] == cid else False
+        tree._sort_state = (cid, reverse)
+        rows = [(tree.set(iid, cid), iid) for iid in tree.get_children("")]
+        filled = sorted([r for r in rows if r[0] != EMPTY], key=lambda r: natural_key(r[0]), reverse=reverse)
+        empty = [r for r in rows if r[0] == EMPTY]
+        for idx, (_v, iid) in enumerate(filled + empty):
+            tree.move(iid, "", idx)
+
+    # -- RAW MATERIALS -------------------------------------------------------------------
+    RAW_COLUMNS = [("item", "ITEM", 120, False), ("mpn", "MPN", 150, False), ("mfr", "MANUFACTURER", 120, False),
+                   ("alt", "ALT", 50, False), ("status", "STATUS", 95, False), ("match", "MATCHED BY", 95, False),
+                   ("source", "SOURCE", 85, False)]
+
+    def _build_raw_panel(self, master):
+        f = self.fonts
+        panel = tk.Frame(master, bg=C_PANEL, highlightthickness=1, highlightbackground=C_BORDER)
+        tk.Frame(panel, bg=C_BLUE, height=3).pack(fill="x")
+        self._section_title(panel, "RAW MATERIALS", "Item · MPN · Manufacturer · Alternative · Description")
+        row = tk.Frame(panel, bg=C_PANEL)
+        row.pack(fill="x", padx=10, pady=(4, 2))
+        tk.Label(row, text="Search Raw Material:", bg=C_PANEL, fg=C_TEXT, font=f["value_b"]).pack(side="left")
+        self.raw_var = tk.StringVar()
+        self.raw_entry = self._search_entry(row, self.raw_var)
+        self.raw_entry.pack(side="left", fill="x", expand=True, padx=(8, 8), ipady=3)
+        self.raw_btn = self._action_button(row, "SEARCH", self.do_raw_search)
+        self.raw_btn.pack(side="left")
+        self.raw_status = tk.Label(panel, text="Independent search - does not change the BOM above.", bg=C_PANEL,
+                                   fg=C_MUTED, font=f["small"], anchor="w")
+        self.raw_status.pack(fill="x", padx=10, pady=(0, 2))
+        box, self.raw_tree = self._results_table(panel, self.RAW_COLUMNS, height=7)
+        box.pack(fill="both", expand=True, padx=10, pady=(0, 4))
+        self.raw_tree.bind("<<TreeviewSelect>>", self._on_raw_select)
+        self.raw_tree.bind("<Double-1>", lambda e: self._raw_to_bom())
+        self.raw_map: dict[str, Record] = {}
+        self.p_raw = InfoPanel(panel, "SELECTED MATERIAL", f, columns=2)
+        self.p_raw.pack(fill="x", padx=10, pady=(2, 4))
+        self.p_raw.set_rows([])
+        tools = tk.Frame(panel, bg=C_PANEL)
+        tools.pack(fill="x", padx=10, pady=(0, 8))
+        ttk.Button(tools, text="SHOW ITEM IN BOM", style="Tool.TButton", command=self._raw_to_bom).pack(side="left")
+        ttk.Button(tools, text="CLEAR", style="Tool.TButton", command=self.clear_raw).pack(side="left", padx=6)
+        return panel
+
+    def do_raw_search(self, log_reason: str = "search"):
+        query = self._clean_input(self.raw_var)
+        if self._loading:
+            self.raw_status.configure(text="Excel is loading - the search will run automatically.", fg=C_BLUE)
+            return self._focus_entry(self.raw_entry)
+        if not query:
+            self.raw_status.configure(text="Type an Item / MPN / Manufacturer / Alternative / Description.", fg=C_MUTED)
+            return self._focus_entry(self.raw_entry)
+        res = self.search_engine.search_rows(query)
+        self.log.info("Raw material search (%s) '%s' -> %s match, %d row(s), %.1f ms",
+                      log_reason, query, res.match_kind, res.total, res.elapsed_ms)
+        self.raw_tree.delete(*self.raw_tree.get_children())
+        self.raw_map = {}
+        nz = RecordNormalizer
+        for rec, field in res.rows:
+            flag = rec.status_flag()
+            tags = ["dontuse" if flag == "YES" else ("use" if flag == "NO" else "nodetail")]
+            if nz.flag(rec.get("obsolete")) == "YES":
+                tags.append("obsolete")
+            self.raw_tree.insert("", "end", iid=rec.uid, tags=tags, values=(
+                nz.display(rec.get("item_number")), nz.display(rec.get("mpn")), nz.display(rec.get("manufacturer")),
+                nz.display(rec.get("alternative")), self._use_short(rec),
+                SearchEngine.FIELD_LABELS.get(field, field), f"{rec.sheet}!{rec.row}"))
+            self.raw_map[rec.uid] = rec
+        if res.rows:
+            kind = {"exact": "Exact", "prefix": "Starts with", "contains": "Contains"}[res.match_kind]
+            shown = f" (showing {len(res.rows)})" if res.total > len(res.rows) else ""
+            self.raw_status.configure(text=f"Results: {res.total:,}{shown}  ·  {kind} match  "
+                                           f"[{res.elapsed_ms:.0f} ms]",
+                                      fg=C_OK if res.match_kind == "exact" else C_AMBER)
+            first = res.rows[0][0].uid
+            self.raw_tree.selection_set(first)
+            self.raw_tree.see(first)
         else:
-            self.unbind_all("<MouseWheel>")
-            self.unbind_all("<Button-4>")
-            self.unbind_all("<Button-5>")
+            self.p_raw.set_rows([])
+            self.raw_status.configure(text=f"Results: 0  ·  '{query}' not found in Item / MPN / Manufacturer / "
+                                           "Alternative / Description.", fg=C_RED)
+            self.bell()
+        self._focus_entry(self.raw_entry)
+
+    def _on_raw_select(self, _event=None):
+        sel = self.raw_tree.selection()
+        rec = self.raw_map.get(sel[0]) if sel else None
+        if rec is None:
+            return
+        rows = [(h, v, "strong" if rec.headers_by_key.get("item_number") == h or
+                 rec.headers_by_key.get("mpn") == h else None) for h, v in rec.values.items()]
+        if "status" in rec.headers_by_key:
+            txt, style = self._use_text(rec)
+            rows.append(("USE", txt, style))
+        rows.append(("SOURCE", f"Sheet '{rec.sheet}', row {rec.row}", "muted"))
+        if not rec.has_detail:
+            rows.append(("NOTE", "Only the Item number is filled in this Excel row.", "warn"))
+        self.p_raw.set_rows(rows)
+
+    def _raw_to_bom(self):
+        sel = self.raw_tree.selection()
+        rec = self.raw_map.get(sel[0]) if sel else None
+        if rec is not None and rec.get("item_number"):
+            self.show_in_bom(rec.get("item_number"))
+
+    def clear_raw(self):
+        self.raw_var.set("")
+        self.raw_tree.delete(*self.raw_tree.get_children())
+        self.raw_map = {}
+        self.p_raw.set_rows([])
+        self.raw_status.configure(text="Independent search - does not change the BOM above.", fg=C_MUTED)
+        self._focus_entry(self.raw_entry)
+
+    # -- MARKING VALIDATION ------------------------------------------------------------
+    MARK_COLUMNS = [("item", "ITEM NUMBER", 115, False), ("mpn", "MPN", 150, False), ("mfr", "MANUFACTURER", 110, False),
+                    ("alt", "ALT", 45, False), ("marking", "MARKING (EXCEL)", 150, False),
+                    ("status", "STATUS", 95, False), ("obsolete", "OBSOLETE", 70, False),
+                    ("desc", "DESCRIPTION", 150, False), ("match", "MATCH", 70, False), ("source", "SOURCE", 80, False)]
+    MARK_STATES = {
+        "READY": ("READY FOR SCAN", C_BLUE, "#EAF2F7"),
+        "LOADING": ("LOADING EXCEL...", C_BLUE, "#EAF2F7"),
+        "FOUND": ("MARKING FOUND", C_OK, "#E6F4E4"),
+        "FOUND_DONT_USE": ("MARKING FOUND — DON'T USE (Status = Yes)", C_RED, "#FDECEA"),
+        "PARTIAL": ("NO EXACT MATCH — PARTIAL MATCHES, VERIFY", C_AMBER, "#FFF4E0"),
+        "NOT_FOUND": ("MARKING NOT FOUND", C_RED, "#FDECEA"),
+        "NO_COLUMN": ("NO 'MARKING' COLUMN IN EXCEL", C_RED, "#FDECEA"),
+        "EMPTY": ("READY FOR SCAN", C_BLUE, "#EAF2F7"),
+    }
+
+    def _build_marking_panel(self, master):
+        f = self.fonts
+        panel = tk.Frame(master, bg=C_PANEL, highlightthickness=2, highlightbackground=C_GREEN)
+        band = tk.Frame(panel, bg=C_NAVY)
+        band.pack(fill="x")
+        tk.Label(band, text="MARKING VALIDATION", bg=C_NAVY, fg="white", font=f["section"], anchor="w").pack(
+            fill="x", padx=10, pady=(6, 0))
+        self.mark_info_lbl = tk.Label(band, text="Reverse lookup · Excel column 'Marking'", bg=C_NAVY,
+                                      fg="#B9C4CC", font=f["small"], anchor="w")
+        self.mark_info_lbl.pack(fill="x", padx=10, pady=(0, 6))
+        tk.Frame(panel, bg=C_GREEN, height=3).pack(fill="x")
+
+        body = tk.Frame(panel, bg=C_PANEL)
+        body.pack(fill="both", expand=True, padx=10, pady=(8, 8))
+        tk.Label(body, text="Scan / Enter Marking", bg=C_PANEL, fg=C_NAVY, font=f["value_b"], anchor="w").pack(fill="x")
+        row = tk.Frame(body, bg=C_PANEL)
+        row.pack(fill="x", pady=(2, 6))
+        self.mark_var = tk.StringVar()
+        self.mark_entry = self._search_entry(row, self.mark_var, font=f["mark_entry"])
+        self.mark_entry.configure(highlightcolor=C_GREEN, highlightthickness=2)
+        self.mark_entry.pack(side="left", fill="x", expand=True, padx=(0, 8), ipady=5)
+        self.mark_btn = self._action_button(row, "VALIDATE MARKING", self.validate_marking, bg=C_GREEN, active="#579C26")
+        self.mark_btn.pack(side="left", fill="y")
+
+        tk.Label(body, text="Status", bg=C_PANEL, fg=C_MUTED, font=f["small_b"], anchor="w").pack(fill="x")
+        self.mark_status_box = tk.Frame(body, bg="#EAF2F7")
+        self.mark_status_box.pack(fill="x", pady=(1, 4))
+        self.mark_dot = tk.Label(self.mark_status_box, text="●", bg="#EAF2F7", fg=C_BLUE, font=f["mark_dot"])
+        self.mark_dot.pack(side="left", padx=(10, 6), pady=4)
+        self.mark_state_lbl = tk.Label(self.mark_status_box, text="READY FOR SCAN", bg="#EAF2F7", fg=C_BLUE,
+                                       font=f["mark_state"], anchor="w", justify="left")
+        self.mark_state_lbl.pack(side="left", fill="x", expand=True, pady=4)
+        self.mark_state_lbl.bind("<Configure>", lambda e: self.mark_state_lbl.configure(wraplength=max(150, e.width)))
+        self.mark_sub_lbl = tk.Label(body, text="", bg=C_PANEL, fg=C_TEXT, font=f["value"], anchor="w", justify="left")
+        self.mark_sub_lbl.pack(fill="x", pady=(0, 4))
+        self.mark_sub_lbl.bind("<Configure>", lambda e: self.mark_sub_lbl.configure(wraplength=max(150, e.width)))
+
+        box, self.mark_tree = self._results_table(body, self.MARK_COLUMNS, height=5)
+        box.pack(fill="both", expand=True, pady=(0, 4))
+        self.mark_tree.bind("<<TreeviewSelect>>", self._on_mark_select)
+        self.mark_tree.bind("<Double-1>", lambda e: self._mark_to_bom())
+        self.mark_map: dict[str, MarkingMatch] = {}
+        self.p_mark_card = InfoPanel(body, "MATCH DETAIL", f, columns=2, title_color=C_GREEN)
+        self.p_mark_card.pack(fill="x", pady=(2, 4))
+        self.p_mark_card.set_rows([])
+        tools = tk.Frame(body, bg=C_PANEL)
+        tools.pack(fill="x")
+        ttk.Button(tools, text="SHOW ITEM IN BOM", style="Tool.TButton", command=self._mark_to_bom).pack(side="left")
+        ttk.Button(tools, text="CLEAR (Esc)", style="Tool.TButton", command=self.clear_marking).pack(side="left", padx=6)
+        self.current_marking: MarkingResult | None = None
+        return panel
+
+    def _set_mark_state(self, state: str, text: str | None = None):
+        label, fg, bg = self.MARK_STATES[state]
+        for w in (self.mark_status_box, self.mark_dot, self.mark_state_lbl):
+            w.configure(bg=bg)
+        self.mark_dot.configure(fg=fg)
+        self.mark_state_lbl.configure(text=text or label, fg=fg)
+
+    def validate_marking(self, log_reason: str = "scan"):
+        scan = self._clean_input(self.mark_var)
+        if self._loading:
+            self._set_mark_state("LOADING")
+            return self._focus_entry(self.mark_entry)
+        if not scan:
+            self._set_mark_state("READY")
+            self.mark_sub_lbl.configure(text="")
+            return self._focus_entry(self.mark_entry)
+        res = self.marking.validate(scan)
+        self.current_marking = res
+        status = res.status
+        items = sorted({m.record.get("item_number") or EMPTY for m in res.exact})
+        self.log.info("Marking validation (%s) '%s' -> %s | exact=%d partial=%d | items=%s | %.1f ms",
+                      log_reason, scan, status, len(res.exact), len(res.partial), items[:20], res.elapsed_ms)
+        self._set_mark_state(status)
+        nz = RecordNormalizer
+        self.mark_tree.delete(*self.mark_tree.get_children())
+        self.mark_map = {}
+        for i, m in enumerate(res.matches):
+            rec = m.record
+            flag = rec.status_flag()
+            tags = ["partial"] if m.kind == "partial" else ["dontuse" if flag == "YES" else "use"]
+            if nz.flag(rec.get("obsolete")) == "YES":
+                tags.append("obsolete")
+            iid = f"m{i}"
+            self.mark_tree.insert("", "end", iid=iid, tags=tags, values=(
+                nz.display(rec.get("item_number")), nz.display(rec.get("mpn")), nz.display(rec.get("manufacturer")),
+                nz.display(rec.get("alternative")), nz.display(rec.get("marking")).replace("\n", " ⏎ "),
+                self._use_short(rec), nz.display(rec.get("obsolete")), nz.display(rec.get("text")),
+                m.kind.upper(), f"{rec.sheet}!{rec.row}"))
+            self.mark_map[iid] = m
+        if status in ("FOUND", "FOUND_DONT_USE"):
+            n_items = len(items)
+            self.mark_sub_lbl.configure(
+                text=f"Scanned: “{scan}”   ·   Matches: {len(res.exact)}   ·   "
+                     f"Item numbers: {n_items}" + ("   ·   several items share this marking - check the MPN"
+                                                   if n_items > 1 else ""))
+        elif status == "PARTIAL":
+            self.mark_sub_lbl.configure(text=f"Scanned: “{scan}”   ·   Exact matches: 0   ·   "
+                                             f"Partial: {len(res.partial)} (NOT validated)")
+        elif status == "NOT_FOUND":
+            self.mark_sub_lbl.configure(text=f"Scanned: “{scan}”   ·   0 rows in the 'Marking' column "
+                                             f"({self.marking.marking_rows:,} rows have a marking in this Excel).")
+        else:
+            self.mark_sub_lbl.configure(text="")
+        if status in ("NOT_FOUND", "FOUND_DONT_USE", "PARTIAL"):
+            self.bell()
+        if self.mark_map:
+            self.mark_tree.selection_set("m0")
+            self.mark_tree.see("m0")
+        else:
+            self.p_mark_card.set_rows([])
+        self._focus_entry(self.mark_entry)
+
+    def _on_mark_select(self, _event=None):
+        sel = self.mark_tree.selection()
+        m = self.mark_map.get(sel[0]) if sel else None
+        if m is None:
+            return
+        rec = m.record
+        rows = [("EXPECTED MARKING", rec.get("marking"), "strong"),
+                ("MATCH", "EXACT" if m.kind == "exact" else f"PARTIAL (“{m.token}”) - verify", 
+                 "good" if m.kind == "exact" else "warn")]
+        rows += self._rec_rows(rec, ["item_number", "mpn", "manufacturer", "alternative", "text"],
+                               {"item_number": "strong", "mpn": "strong"})
+        if "status" in rec.headers_by_key:
+            txt, style = self._use_text(rec)
+            rows.append((self._field_label(rec.headers_by_key, "status"), txt, style))
+        rows += self._rec_rows(rec, ["obsolete", "lead_free"],
+                               {"obsolete": "warn" if RecordNormalizer.flag(rec.get("obsolete")) == "YES" else None})
+        rows.append(self._in_bom_row(rec))
+        rows.append(("SOURCE", f"Sheet '{rec.sheet}', row {rec.row}", "muted"))
+        self.p_mark_card.set_rows(rows)
+
+    def _in_bom_row(self, rec: Record):
+        """Is the matched component the item currently shown in BOM STRUCTURE?"""
+        res = self.current_result
+        if res is None or not res.found:
+            return ("IN CURRENT BOM", "(no BOM searched)", "muted")
+        key = self.normalizer.search_key(rec.get("item_number"))
+        names = ", ".join(i["item"] for i in list(res.items.values())[:3])
+        if key in res.items:
+            return ("IN CURRENT BOM", f"YES — {names}", "good")
+        return ("IN CURRENT BOM", f"NO — BOM shows {names}", "bad")
+
+    def _mark_to_bom(self):
+        sel = self.mark_tree.selection()
+        m = self.mark_map.get(sel[0]) if sel else None
+        if m is not None and m.record.get("item_number"):
+            self.show_in_bom(m.record.get("item_number"))
+
+    def clear_marking(self):
+        self.mark_var.set("")
+        self.current_marking = None
+        self.mark_tree.delete(*self.mark_tree.get_children())
+        self.mark_map = {}
+        self.p_mark_card.set_rows([])
+        self.mark_sub_lbl.configure(text="")
+        self._set_mark_state("READY")
+        self._focus_entry(self.mark_entry)
+
+    # -- shared helpers ------------------------------------------------------------------
+    @staticmethod
+    def _clean_input(var) -> str:
+        """Scanner friendly: drop control characters, trim outer spaces."""
+        raw = var.get()
+        value = "".join(ch for ch in raw if ch.isprintable()).strip()
+        if value != raw:
+            var.set(value)
+        return value
+
+    @staticmethod
+    def _use_short(rec: Record) -> str:
+        flag = rec.status_flag()
+        if flag == "YES":
+            return "DON'T USE"
+        if flag == "NO":
+            return "USE"
+        return RecordNormalizer.display(rec.get("status"))
+
+    def show_in_bom(self, item: str):
+        """Explicit operator action: load an item in the BOM search."""
+        self.search_var.set(item)
+        self.do_search(log_reason="from section")
+        self.go_to_section("bom")
 
     def _on_wheel(self, event):
+        try:
+            w = self.winfo_containing(event.x_root, event.y_root)
+        except (KeyError, tk.TclError):
+            return
+        if w is None or w.winfo_toplevel() is not self:
+            return
         if getattr(event, "num", None) == 4:
             step = -2
         elif getattr(event, "num", None) == 5:
             step = 2
         else:
             step = -1 * int(event.delta / 120) if abs(event.delta) >= 120 else (-1 if event.delta > 0 else 1)
-        if self.info_canvas.yview() != (0.0, 1.0):
-            self.info_canvas.yview_scroll(step, "units")
+        if isinstance(w, (ttk.Treeview, tk.Text)):
+            if w is not event.widget:  # Windows may deliver the wheel to the focused widget
+                w.yview_scroll(step, "units")
+            return
+        if self.page_canvas.yview() != (0.0, 1.0):
+            self.page_canvas.yview_scroll(step, "units")
 
     def _bind_keys(self):
-        self.entry.bind("<Return>", lambda e: self.do_search())
-        self.entry.bind("<KP_Enter>", lambda e: self.do_search())
+        for widget, action in ((self.entry, self.do_search), (self.raw_entry, self.do_raw_search),
+                               (self.mark_entry, self.validate_marking)):
+            widget.bind("<Return>", lambda e, a=action: a())
+            widget.bind("<KP_Enter>", lambda e, a=action: a())
+        self.bind_all("<MouseWheel>", self._on_wheel)
+        self.bind_all("<Button-4>", self._on_wheel)
+        self.bind_all("<Button-5>", self._on_wheel)
         self.bind("<F5>", lambda e: self.load_excel("F5"))
-        self.bind("<Escape>", lambda e: self.clear_search())
-        self.bind("<Control-f>", lambda e: self.focus_search())
-        self.bind("<Control-F>", lambda e: self.focus_search())
+        self.bind("<F2>", lambda e: self.go_to_section("mark"))
+        self.bind("<F3>", lambda e: self.go_to_section("raw"))
+        self.bind("<Escape>", self._on_escape)
+        self.bind("<Control-f>", lambda e: self.go_to_section("bom"))
+        self.bind("<Control-F>", lambda e: self.go_to_section("bom"))
         self.bind("<Control-q>", lambda e: self.quit_app())
         self.bind("<Control-Q>", lambda e: self.quit_app())
+
+    def _on_escape(self, _event=None):
+        """Escape clears the section whose search box (or table) has the focus."""
+        focus = self.focus_get()
+        if focus in (self.mark_entry, self.mark_tree):
+            self.clear_marking()
+        elif focus in (self.raw_entry, self.raw_tree):
+            self.clear_raw()
+        else:
+            self.clear_search()
 
     # -- mode ----------------------------------------------------------------------
     def _paint_mode(self):
@@ -1705,7 +2271,9 @@ class GPVProductConfigurationApp(tk.Tk if tk else object):
             return
         self._loading = True
         self.reload_btn.state(["disabled"])
-        self.search_btn.configure(state="disabled")
+        for b in (self.search_btn, self.raw_btn, self.mark_btn):
+            b.configure(state="disabled")
+        self._set_mark_state("LOADING")
         self.status_lbl.configure(text="Reading Excel from disk...", fg=C_BLUE)
         self.footer_lbl.configure(text=f"Loading {self.excel_path.name} ...")
         self.configure(cursor="watch")
@@ -1736,30 +2304,56 @@ class GPVProductConfigurationApp(tk.Tk if tk else object):
         self._loading = False
         self.configure(cursor="")
         self.reload_btn.state(["!disabled"])
-        self.search_btn.configure(state="normal")
+        for b in (self.search_btn, self.raw_btn, self.mark_btn):
+            b.configure(state="normal")
+        focus = self.focus_get()
         if status == "ok":
             self.provider = payload
             self.search_engine.provider = payload
             self.bom.provider = payload
+            self.marking = MarkingValidator(payload)
             self._update_footer()
             self.view_lbl.configure(
-                text=self.bom.view_name + ("  -  Item → Alternatives (not a FactoryLogix genealogy)"
+                text=self.bom.view_name + ("  -  Item → Alternatives (the Excel has no Parent/Level columns; "
+                                           "not a FactoryLogix genealogy)"
                                            if self.provider.hierarchy_mode == "logical" else ""),
                 fg=C_AMBER if self.provider.hierarchy_mode == "logical" else C_OK)
+            self.mark_info_lbl.configure(
+                text=f"Reverse lookup · column '{self._marking_headers()}' · "
+                     f"{self.marking.marking_rows:,} rows with marking")
+            # Re-run every section that has a query (the data may have changed on disk)
             if self.search_var.get().strip():
                 self.do_search(log_reason="reload")
             else:
                 self._show_welcome()
                 self.status_lbl.configure(
                     text=f"Excel loaded: {len(self.provider.records):,} rows, "
-                         f"{self.provider.item_count():,} item numbers. Scan or type a number and press Enter.",
+                         f"{self.provider.item_count():,} item numbers. Scan or type an assembly and press Enter.",
                     fg=C_OK)
+            if self.raw_var.get().strip():
+                self.do_raw_search(log_reason="reload")
+            if self.mark_var.get().strip():
+                self.validate_marking(log_reason="reload")
+            else:
+                self._set_mark_state("NO_COLUMN" if not self.provider.has_field("marking") else "READY")
         else:
             self.footer_lbl.configure(text=f"Source: {self.excel_path.name}  ·  NOT LOADED  ·  "
                                            f"{dt.datetime.now():%H:%M:%S}")
             self.status_lbl.configure(text=payload.replace("\n", " "), fg=C_RED)
+            self._set_mark_state("NOT_FOUND", "EXCEL NOT LOADED")
             messagebox.showerror(APP_TITLE, payload, parent=self)
-        self.focus_search()
+        if focus in (self.raw_entry, self.mark_entry):
+            self._focus_entry(focus)
+        else:
+            self.focus_search()
+
+    def _marking_headers(self) -> str:
+        names = []
+        for t in self.provider.tables.values():
+            h = t.header_by_key.get("marking")
+            if h and h not in names:
+                names.append(h)
+        return " / ".join(names) or "Marking"
 
     def _update_footer(self):
         p = self.provider
@@ -1770,31 +2364,47 @@ class GPVProductConfigurationApp(tk.Tk if tk else object):
                  f"Rows loaded: {len(p.records):,}   ·   Last reload: {loaded}   ·   "
                  f"File saved: {mtime}   ·   Reader: {p.reader_used}   ·   Read-only")
 
-    # -- search --------------------------------------------------------------------
+    # -- BOM search ------------------------------------------------------------------
     def focus_search(self):
-        self.entry.focus_set()
-        self.entry.select_range(0, "end")
-        self.entry.icursor("end")
+        self._focus_entry(self.entry)
 
     def clear_search(self):
         self.search_var.set("")
         self.current_result = None
         self._show_welcome()
-        self.status_lbl.configure(text="Search cleared.", fg=C_MUTED)
+        self.status_lbl.configure(text="BOM search cleared.", fg=C_MUTED)
+        self._refresh_mark_card()
         self.focus_search()
 
+    def _refresh_mark_card(self):
+        if self.mark_tree.selection():
+            self._on_mark_select()
+
+    def _set_bom_header(self, res: SearchResult | None):
+        if res is None or not res.found:
+            self.bom_item_lbl.configure(text="")
+            self.bom_desc_lbl.configure(text="")
+            return
+        if len(res.items) == 1:
+            info = next(iter(res.items.values()))
+            recs = self.provider.get_alternatives(info["item"])
+            desc = next((r.get("text") for r in recs if r.get("text")), None)
+            self.bom_item_lbl.configure(text=info["item"])
+            self.bom_desc_lbl.configure(text=desc or f"{EMPTY}  (no description / Text in the Excel)")
+        else:
+            self.bom_item_lbl.configure(text=f"{len(res.items)} items match “{res.query}”")
+            self.bom_desc_lbl.configure(text="Select an item in the tree")
+
     def do_search(self, log_reason: str = "search"):
+        """BOM / ASSEMBLY search - Item number / Assembly columns only."""
         if self._loading:
             # The text stays in the box; _poll_load runs the search when loading ends.
             self.status_lbl.configure(text="Excel is loading - the search will run automatically.", fg=C_BLUE)
             self.focus_search()
             return
-        raw = self.search_var.get()
-        query = "".join(ch for ch in raw if ch.isprintable()).strip()
-        if query != raw:
-            self.search_var.set(query)
+        query = self._clean_input(self.search_var)
         if not query:
-            self.status_lbl.configure(text="Type or scan an Item number / Assembly / Part number / MPN.", fg=C_MUTED)
+            self.status_lbl.configure(text="Type or scan an Item number / Assembly.", fg=C_MUTED)
             self.focus_search()
             return
         if not self.provider.records:
@@ -1805,12 +2415,14 @@ class GPVProductConfigurationApp(tk.Tk if tk else object):
         self.current_result = res
         n_items = len(res.items)
         n_rows = sum(len(i["matched"]) for i in res.items.values())
-        self.log.info("Search (%s) '%s' mode=%s -> %s match, %d item(s), %d row(s), %.1f ms",
+        self.log.info("BOM search (%s) '%s' mode=%s -> %s match, %d item(s), %d row(s), %.1f ms",
                       log_reason, query, self.mode, res.match_kind, n_items, n_rows, res.elapsed_ms)
+        self._set_bom_header(res)
         if not res.found:
-            self._show_message_tree(f"No match for '{query}'")
+            self._show_message_tree(f"No assembly / item number '{query}'")
             self._clear_panels()
-            self.status_lbl.configure(text=f"'{query}' was not found in Item number / MPN.", fg=C_RED)
+            self.status_lbl.configure(text=f"'{query}' is not an Item number / Assembly in the Excel."
+                                           + self._other_section_hint(query), fg=C_RED)
             self.bell()
         else:
             self._render_result(res)
@@ -1821,7 +2433,17 @@ class GPVProductConfigurationApp(tk.Tk if tk else object):
                 text=f"{kind}: {n_items} item(s), {n_rows} row(s) by {', '.join(fields)}{more}   "
                      f"[{res.elapsed_ms:.0f} ms]",
                 fg=C_OK if res.match_kind == "exact" else C_AMBER)
+        self._refresh_mark_card()
         self.focus_search()
+
+    def _other_section_hint(self, query: str) -> str:
+        """Only a hint - the searches are never mixed."""
+        raw = self.search_engine.search_rows(query, fields=("mpn", "manufacturer"))
+        if raw.total and raw.match_kind == "exact":
+            return "  It exists as MPN/Manufacturer: use RAW MATERIALS (F3)."
+        if self.marking.validate(query).exact:
+            return "  It exists as a Marking: use MARKING VALIDATION (F2)."
+        return ""
 
     # -- tree ------------------------------------------------------------------------
     def _render_result(self, res: SearchResult, keep_selection=False):
@@ -1880,7 +2502,8 @@ class GPVProductConfigurationApp(tk.Tk if tk else object):
         self.tree.insert("", "end", iid="msg", text=text, values=("",), tags=("muted",))
 
     def _show_welcome(self):
-        self._show_message_tree("Scan or type an Item number / Assembly / MPN and press Enter")
+        self._show_message_tree("Scan or type an Assembly / Item number above and press Enter")
+        self._set_bom_header(None)
         self._clear_panels()
 
     def _expand_all(self, expand: bool):
@@ -2144,7 +2767,8 @@ class GPVProductConfigurationApp(tk.Tk if tk else object):
 # Console check (python GPV_Product_Configuration.py --check)
 # ============================================================================
 
-def run_check(settings: dict, logger: logging.Logger, reader: str | None = None, queries=None) -> int:
+def run_check(settings: dict, logger: logging.Logger, reader: str | None = None, queries=None,
+              raw_queries=None, mark_queries=None) -> int:
     nz = RecordNormalizer(settings.get("extra_column_aliases") or {})
     path = resolve_path(settings.get("excel_file", ""))
     prov = ExcelDataProvider(path, nz, reader or settings.get("reader", "auto"), logger)
@@ -2171,10 +2795,24 @@ def run_check(settings: dict, logger: logging.Logger, reader: str | None = None,
     eng = SearchEngine(prov)
     for q in queries or []:
         res = eng.search(q)
-        print(f"\nSEARCH {q!r}: {res.match_kind}, items={len(res.items)}")
+        print(f"\nBOM SEARCH {q!r}: {res.match_kind}, items={len(res.items)}")
         for info in list(res.items.values())[:5]:
             for r in prov.get_alternatives(info["item"]):
                 print("   ", r.uid, {k: v for k, v in r.fields.items() if v is not None})
+    for q in raw_queries or []:
+        res = eng.search_rows(q)
+        print(f"\nRAW MATERIAL {q!r}: {res.match_kind}, rows={res.total}")
+        for r, field in res.rows[:10]:
+            print(f"    [{field}]", r.uid, {k: v for k, v in r.fields.items() if v is not None})
+    validator = MarkingValidator(prov)
+    if mark_queries:
+        print(f"\nRows with marking: {validator.marking_rows}")
+    for q in mark_queries or []:
+        res = validator.validate(q)
+        print(f"\nMARKING {q!r}: {res.status}, exact={len(res.exact)}, partial={len(res.partial)}")
+        for m in res.matches[:10]:
+            print(f"    [{m.kind}] {m.record.uid} item={m.record.get('item_number')} "
+                  f"mpn={m.record.get('mpn')} marking={m.record.get('marking')!r}")
     return 0
 
 
@@ -2182,14 +2820,16 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=APP_TITLE)
     parser.add_argument("--check", action="store_true", help="print a data report and exit")
     parser.add_argument("--reader", choices=["auto", "openpyxl", "builtin"], help="override reader")
-    parser.add_argument("queries", nargs="*", help="queries to test with --check")
+    parser.add_argument("queries", nargs="*", help="BOM queries to test with --check")
+    parser.add_argument("--raw", action="append", default=[], help="raw material query (with --check)")
+    parser.add_argument("--mark", action="append", default=[], help="marking to validate (with --check)")
     args = parser.parse_args(argv)
     logger = setup_logging()
     settings = load_settings()
     if args.reader:
         settings["reader"] = args.reader
     if args.check:
-        return run_check(settings, logger, args.reader, args.queries)
+        return run_check(settings, logger, args.reader, args.queries, args.raw, args.mark)
     if tk is None:
         print("tkinter is not available in this Python installation.\n"
               "Install Python from python.org (tkinter is included by default).")

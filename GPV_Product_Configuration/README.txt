@@ -9,7 +9,7 @@ marcado SMT "EMX-KA661_Rev.0 Validacion de marcado SMT (1).xlsm".
 -----------
 - Doble clic en START.bat   (usa "py" y, si no existe, "python").
 - O desde consola:          python GPV_Product_Configuration.py
-- Reporte de datos sin GUI: python GPV_Product_Configuration.py --check MR01400000V
+- Reporte de datos sin GUI: python GPV_Product_Configuration.py --check MR01400000V --raw ROHM --mark 0
 
 Requisitos: Python 3.8+ de python.org (tkinter viene incluido).
 openpyxl es OPCIONAL: si no esta instalado, la app usa su lector interno
@@ -42,19 +42,44 @@ Path(__file__).resolve().parent.
 
 4. ATAJOS
 ---------
-Enter    Buscar (compatible con escaner de codigo de barras)
-F5       Recargar Excel desde disco
-Escape   Limpiar busqueda
-Ctrl+F   Ir al buscador
+Enter    Ejecuta la busqueda de la barra que tiene el foco (compatible con escaner)
+F2       Ir a MARKING VALIDATION
+F3       Ir a RAW MATERIALS
+Ctrl+F   Ir a la busqueda BOM
+F5       Recargar Excel desde disco (re-ejecuta las 3 busquedas activas)
+Escape   Limpia solo la seccion que tiene el foco
 Ctrl+Q   Cerrar
-Doble clic en alternativa -> VIEW DETAILS filtrado por ese Item number
 
 
-5. BUSQUEDA
------------
-Campos: Item number (Part number), Assembly/Parent (si existiera) y MPN.
-No distingue mayusculas/minusculas e ignora espacios sobrantes.
-Prioridad: coincidencia exacta > "empieza con" > "contiene" (min. 3 caracteres).
+5. TRES BUSQUEDAS INDEPENDIENTES (no se mezclan)
+------------------------------------------------
+Todas: sin distinguir mayusculas, ignoran espacios sobrantes,
+prioridad exacta > "empieza con" > "contiene" (min. 3 caracteres).
+
+a) BOM / ASSEMBLY (arriba, "Assembly / Top Level" + SEARCH BOM)
+   Solo columnas Item number / Assembly. Construye BOM STRUCTURE.
+   Si el valor es un MPN o un marking, solo muestra una sugerencia.
+
+b) RAW MATERIALS (barra propia)
+   Item number, MPN, Manufacturer, Alternative, Description/Text.
+   Tabla de resultados (una fila por fila del Excel) + detalle completo.
+   No cambia el BOM; el boton SHOW ITEM IN BOM lo hace solo si se pide.
+
+c) MARKING VALIDATION (segmento propio, borde verde)
+   Busqueda INVERSA en la columna "Marking": el operador escanea o escribe
+   lo que lee en el componente y la app lista TODAS las filas con ese marking.
+   Estados:
+     READY FOR SCAN
+     MARKING FOUND                  coincidencia exacta, alternativa utilizable
+     MARKING FOUND - DON'T USE      todas las coincidencias tienen Status = Yes
+     NO EXACT MATCH - PARTIAL       solo coincidencias parciales: VERIFICAR
+     MARKING NOT FOUND
+   Exacta = igual sin mayusculas/espacios extra, o igual sin ningun espacio.
+   Si una celda Marking tiene varias opciones (una por linea o separadas por
+   ; , |) cada opcion se compara por separado.
+   MATCH DETAIL muestra Expected marking, Item, MPN, Manufacturer,
+   Alternative, Description, Status, Obsolete y si pertenece al BOM buscado.
+   Cada validacion queda registrada en logs/app.log.
 
 
 6. MODOS
@@ -93,5 +118,6 @@ extra_column_aliases  aliases adicionales, ej. {"mpn": ["mfr part"]}
   A1-A4 con datos completos).
 - Segun la macro Fetch_Details, AVL "Type" = MPN y AVL "Stopped" = Status.
   Status "Yes" = NO USAR (G2 = O); ninguna alternativa en "Yes" = USAR (G2 = P).
+- Solo 2 filas tienen Marking: "0" (A1 MCR10EZHJ000) y "RC0805JR-070RL  YAGE" (A2).
 Cuando se use un Excel con la hoja AVL completa, la app mostrara todas las
 alternativas, fabricantes, MPN y marcados sin cambiar el codigo.
