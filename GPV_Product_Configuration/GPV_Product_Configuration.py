@@ -2764,6 +2764,466 @@ class GPVProductConfigurationApp(tk.Tk if tk else object):
 
 
 # ============================================================================
+# SIMPLE screen (default): one task at a time, big text, big colors
+# ============================================================================
+
+class SimpleApp(tk.Tk if tk else object):
+    """Very simple operator screen.
+
+    Three big tabs (MARCADO / ENSAMBLE / MATERIAL), one big box, one big button
+    and one big coloured answer. The full engineering screen is still available
+    with the small "Vista avanzada" button (python GPV_Product_Configuration.py --advanced).
+    """
+
+    TABS = OrderedDict([
+        ("mark", {"title": "MARCADO", "icon": "\U0001F50D", "button": "VALIDAR",
+                  "prompt": "Escribe o escanea lo que dice la pieza"}),
+        ("bom", {"title": "ENSAMBLE", "icon": "\U0001F4E6", "button": "BUSCAR",
+                 "prompt": "Escribe o escanea el número de ensamble"}),
+        ("raw", {"title": "MATERIAL", "icon": "\U0001F9E9", "button": "BUSCAR",
+                 "prompt": "Escribe número de parte, MPN o fabricante"}),
+    ])
+    # state -> (icon, big text, small text, text colour, background)
+    STATES = {
+        "wait": ("\U0001F449", "ESPERANDO", "Escanea o escribe y presiona ENTER", C_MUTED, "#F2F4F6"),
+        "loading": ("⏳", "CARGANDO EXCEL...", "Espera un momento", C_BLUE, "#EAF2F7"),
+        "ok": ("✔", "CORRECTO", "Se puede usar", "white", "#2E9E3E"),
+        "found": ("✔", "ENCONTRADO", "", "white", "#2E9E3E"),
+        "dont": ("✖", "NO USAR", "Esta pieza tiene Status = Yes en el Excel", "white", "#D32F2F"),
+        "notfound": ("✖", "NO ENCONTRADO", "No existe en el Excel. Revisa y vuelve a intentar", "white", "#D32F2F"),
+        "check": ("⚠", "REVISAR", "Se parece, pero NO es igual", "#1A1F24", "#FFC940"),
+        "choose": ("☝", "¿CUÁL ES?", "Toca uno de los botones", "white", C_BLUE),
+        "error": ("✖", "EXCEL NO CARGADO", "", "white", "#D32F2F"),
+    }
+    MAX_CARDS = 40
+
+    def __init__(self, settings: dict, logger: logging.Logger):
+        super().__init__()
+        self.settings = settings
+        self.log = logger
+        self.normalizer = RecordNormalizer(settings.get("extra_column_aliases") or {})
+        self.excel_path = GPVProductConfigurationApp._resolve_excel(self, settings.get("excel_file", ""))
+        self.provider = ExcelDataProvider(self.excel_path, self.normalizer, settings.get("reader", "auto"), logger)
+        self.search_engine = SearchEngine(self.provider, int(settings.get("max_tree_items", 150)))
+        self.marking = MarkingValidator(self.provider)
+        self.tab = "mark"
+        self.queries = {k: "" for k in self.TABS}
+        self._loading = False
+        self._queue: "queue.Queue" = queue.Queue()
+
+        self.title(APP_TITLE)
+        self.configure(bg=C_BG)
+        sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
+        w, h = min(900, sw - 40), min(760, sh - 80)
+        self.geometry(f"{w}x{h}+{max(0, (sw - w) // 2)}+{max(0, (sh - h) // 2 - 20)}")
+        self.minsize(660, 520)
+        fam = pick_font(["Segoe UI", "Helvetica Neue", "Arial", "DejaVu Sans"])
+        mono = pick_font(["Consolas", "Cascadia Mono", "Lucida Console", "DejaVu Sans Mono"])
+        self.f = {"logo": (fam, 20, "bold"), "tab": (fam, 16, "bold"), "prompt": (fam, 15),
+                  "entry": (mono, 26, "bold"), "button": (fam, 20, "bold"), "state_icon": (fam, 40, "bold"),
+                  "state": (fam, 30, "bold"), "state_sub": (fam, 14), "card_title": (fam, 15, "bold"),
+                  "label": (fam, 13), "value": (fam, 15, "bold"), "mark": (mono, 18, "bold"),
+                  "small": (fam, 9), "link": (fam, 10, "underline"), "choice": (fam, 15, "bold")}
+        self._build()
+        self.bind("<F5>", lambda e: self.load_excel("F5"))
+        self.bind("<Escape>", lambda e: self.clear())
+        self.bind("<Control-q>", lambda e: self.quit_app())
+        self.bind("<F2>", lambda e: self.select_tab("mark"))
+        self.bind("<F3>", lambda e: self.select_tab("raw"))
+        self.bind("<F4>", lambda e: self.select_tab("bom"))
+        self.bind_all("<MouseWheel>", self._on_wheel)
+        self.bind_all("<Button-4>", self._on_wheel)
+        self.bind_all("<Button-5>", self._on_wheel)
+        self.report_callback_exception = self._on_tk_error
+        self.protocol("WM_DELETE_WINDOW", self.quit_app)
+        self.select_tab("mark")
+        self.after(50, lambda: self.load_excel("startup"))
+
+    # -- layout --------------------------------------------------------------------
+    def _build(self):
+        f = self.f
+        top = tk.Frame(self, bg=C_NAVY)
+        top.pack(fill="x")
+        # Links are packed first so they never get cut when the window is narrow.
+        adv = tk.Label(top, text="Vista avanzada", bg=C_NAVY, fg="#9FB0BD", font=f["link"], cursor="hand2")
+        adv.pack(side="right", padx=(8, 16))
+        adv.bind("<Button-1>", lambda e: self.open_advanced())
+        rel = tk.Label(top, text="↻ Recargar (F5)", bg=C_NAVY, fg="#9FB0BD", font=f["link"], cursor="hand2")
+        rel.pack(side="right", padx=8)
+        rel.bind("<Button-1>", lambda e: self.load_excel("button"))
+        tk.Label(top, text="GP", bg=C_NAVY, fg="white", font=f["logo"]).pack(side="left", padx=(16, 0), pady=8)
+        tk.Label(top, text="V", bg=C_NAVY, fg=C_GREEN, font=f["logo"]).pack(side="left", pady=8)
+        tk.Label(top, text="  PRODUCT CONFIGURATION", bg=C_NAVY, fg="#C9D2D9",
+                 font=(f["logo"][0], 12, "bold")).pack(side="left", pady=8)
+
+        # Big tabs
+        tabs = tk.Frame(self, bg=C_BG)
+        tabs.pack(fill="x", padx=16, pady=(14, 0))
+        self.tab_buttons = {}
+        for i, (key, t) in enumerate(self.TABS.items()):
+            tabs.columnconfigure(i, weight=1, uniform="tabs")
+            b = tk.Label(tabs, text=f"{t['icon']}  {t['title']}", font=f["tab"], pady=12, cursor="hand2")
+            b.grid(row=0, column=i, sticky="ew", padx=4)
+            b.bind("<Button-1>", lambda e, k=key: self.select_tab(k))
+            self.tab_buttons[key] = b
+
+        card = tk.Frame(self, bg=C_PANEL, highlightthickness=1, highlightbackground=C_BORDER)
+        card.pack(fill="both", expand=True, padx=20, pady=(0, 8))
+        self.prompt_lbl = tk.Label(card, text="", bg=C_PANEL, fg=C_TEXT, font=f["prompt"], anchor="w")
+        self.prompt_lbl.pack(fill="x", padx=20, pady=(16, 6))
+        row = tk.Frame(card, bg=C_PANEL)
+        row.pack(fill="x", padx=20)
+        self.var = tk.StringVar()
+        self.entry = tk.Entry(row, textvariable=self.var, font=f["entry"], relief="solid", bd=1, fg=C_TEXT,
+                              highlightthickness=3, highlightcolor=C_BLUE, highlightbackground=C_BORDER,
+                              insertbackground=C_TEXT, insertwidth=3)
+        self.entry.bind("<Return>", lambda e: self.run())
+        self.entry.bind("<KP_Enter>", lambda e: self.run())
+        self.go_btn = tk.Button(row, text="", command=self.run, font=f["button"], bg=C_GREEN, fg="white",
+                                activebackground="#579C26", activeforeground="white", relief="flat", bd=0,
+                                padx=26, cursor="hand2", disabledforeground="#DDE3E7")
+        self.go_btn.pack(side="right", fill="y", padx=(10, 0))  # button first: it keeps its size
+        self.entry.pack(side="left", fill="x", expand=True, ipady=8)
+
+        # Big answer
+        self.state_box = tk.Frame(card, bg="#F2F4F6")
+        self.state_box.pack(fill="x", padx=20, pady=(14, 8))
+        self.state_icon = tk.Label(self.state_box, font=f["state_icon"], bg="#F2F4F6")
+        self.state_icon.pack(side="left", padx=(20, 14), pady=10)
+        texts = tk.Frame(self.state_box, bg="#F2F4F6")
+        texts.pack(side="left", fill="x", expand=True, pady=10)
+        self.state_lbl = tk.Label(texts, font=f["state"], bg="#F2F4F6", anchor="w")
+        self.state_lbl.pack(fill="x")
+        self.state_sub = tk.Label(texts, font=f["state_sub"], bg="#F2F4F6", anchor="w", justify="left")
+        self.state_sub.pack(fill="x")
+        self.state_sub.bind("<Configure>", lambda e: self.state_sub.configure(wraplength=max(200, e.width)))
+        self._state_widgets = (self.state_box, self.state_icon, texts, self.state_lbl, self.state_sub)
+
+        # Results (scrollable list of big cards)
+        res = tk.Frame(card, bg=C_PANEL)
+        res.pack(fill="both", expand=True, padx=20, pady=(0, 14))
+        res.rowconfigure(0, weight=1)
+        res.columnconfigure(0, weight=1)
+        self.canvas = tk.Canvas(res, bg=C_PANEL, highlightthickness=0, bd=0)
+        sb = ttk.Scrollbar(res, orient="vertical", command=self.canvas.yview)
+        self.canvas.configure(yscrollcommand=sb.set)
+        self.canvas.grid(row=0, column=0, sticky="nsew")
+        sb.grid(row=0, column=1, sticky="ns")
+        self.cards = tk.Frame(self.canvas, bg=C_PANEL)
+        self._cards_id = self.canvas.create_window((0, 0), window=self.cards, anchor="nw")
+        self.cards.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfigure(self._cards_id, width=e.width))
+
+        self.footer = tk.Label(self, text="", bg=C_BG, fg=C_MUTED, font=f["small"], anchor="w")
+        self.footer.pack(fill="x", padx=20, pady=(0, 6))
+
+    def _on_wheel(self, event):
+        if getattr(event, "num", None) == 4:
+            step = -2
+        elif getattr(event, "num", None) == 5:
+            step = 2
+        else:
+            step = -1 * int(event.delta / 120) if abs(event.delta) >= 120 else (-1 if event.delta > 0 else 1)
+        if self.canvas.yview() != (0.0, 1.0):
+            self.canvas.yview_scroll(step, "units")
+
+    # -- tabs / state ----------------------------------------------------------------
+    def select_tab(self, key: str):
+        self.queries[self.tab] = self.var.get()
+        self.tab = key
+        for k, b in self.tab_buttons.items():
+            active = k == key
+            b.configure(bg=C_NAVY if active else C_SOFT, fg="white" if active else C_MUTED)
+        t = self.TABS[key]
+        self.prompt_lbl.configure(text=f"{t['icon']}  {t['prompt']}")
+        self.go_btn.configure(text=t["button"])
+        self.var.set(self.queries.get(key, ""))
+        if self.var.get().strip() and not self._loading:
+            self.run(log_reason="tab")
+        else:
+            self._reset_result()
+        self._focus()
+
+    def _focus(self):
+        self.entry.focus_set()
+        self.entry.select_range(0, "end")
+        self.entry.icursor("end")
+
+    def set_state(self, state: str, sub: str | None = None, big: str | None = None):
+        icon, text, default_sub, fg, bg = self.STATES[state]
+        for w in self._state_widgets:
+            w.configure(bg=bg)
+        self.state_icon.configure(text=icon, fg=fg)
+        self.state_lbl.configure(text=big or text, fg=fg)
+        self.state_sub.configure(text=default_sub if sub is None else sub, fg=fg)
+
+    def _reset_result(self):
+        self._clear_cards()
+        self.set_state("loading" if self._loading else "wait")
+
+    def _clear_cards(self):
+        for w in self.cards.winfo_children():
+            w.destroy()
+        self.canvas.yview_moveto(0)
+
+    def clear(self):
+        self.var.set("")
+        self.queries[self.tab] = ""
+        self._reset_result()
+        self._focus()
+
+    # -- cards -----------------------------------------------------------------------
+    def _card(self, title: str, rows, color: str, badge: str = ""):
+        """Big card: coloured band with title + simple 'label  value' lines."""
+        box = tk.Frame(self.cards, bg=C_PANEL, highlightthickness=2, highlightbackground=color)
+        box.pack(fill="x", pady=(0, 10))
+        band = tk.Frame(box, bg=color)
+        band.pack(fill="x")
+        tk.Label(band, text=title, bg=color, fg="white", font=self.f["card_title"], anchor="w").pack(
+            side="left", padx=12, pady=5)
+        if badge:
+            tk.Label(band, text=badge, bg=color, fg="white", font=self.f["card_title"]).pack(side="right", padx=12)
+        body = tk.Frame(box, bg=C_PANEL)
+        body.pack(fill="x", padx=12, pady=8)
+        body.columnconfigure(1, weight=1)
+        for r, (label, value, big) in enumerate(rows):
+            tk.Label(body, text=label, bg=C_PANEL, fg=C_MUTED, font=self.f["label"], anchor="w").grid(
+                row=r, column=0, sticky="nw", padx=(0, 14), pady=2)
+            text = RecordNormalizer.display(value)
+            tk.Label(body, text=text, bg=C_PANEL, fg=C_TEXT if text != EMPTY else C_MUTED,
+                     font=self.f["mark"] if big else self.f["value"], anchor="w", justify="left",
+                     wraplength=600).grid(row=r, column=1, sticky="w", pady=2)
+        return box
+
+    def _record_card(self, rec: Record, show_marking=True, title=None, show_item=True):
+        nz = RecordNormalizer
+        flag = rec.status_flag()
+        obsolete = nz.flag(rec.get("obsolete")) == "YES"
+        if flag == "YES":
+            color, badge = "#D32F2F", "✖ NO USAR"
+        elif flag == "NO":
+            color, badge = ("#E08A00", "⚠ OBSOLETO") if obsolete else ("#2E9E3E", "✔ USAR")
+        else:
+            color, badge = "#8A96A0", ""
+        rows = []
+        if show_marking and "marking" in rec.headers_by_key:
+            rows.append(("Marcado", rec.get("marking"), True))
+        for key, label in (("item_number", "Número de parte"), ("mpn", "MPN"), ("manufacturer", "Fabricante"),
+                           ("alternative", "Alternativa"), ("text", "Descripción")):
+            if key == "item_number" and not show_item:
+                continue
+            if key in rec.headers_by_key and (key != "text" or rec.get(key)):
+                rows.append((label, rec.get(key), False))
+        if obsolete:
+            rows.append(("Obsoleto", rec.get("obsolete"), False))
+        alt = rec.get("alternative")
+        self._card(title or (f"Alternativa {alt}" if alt else rec.get("item_number") or EMPTY), rows, color, badge)
+
+    def _no_detail_card(self, recs):
+        sheets = OrderedDict()
+        for r in recs:
+            sheets.setdefault(r.sheet, 0)
+            sheets[r.sheet] += 1
+        where = ", ".join(f"hoja {s}" for s in sheets)
+        self._card(f"{len(recs)} fila(s) sin datos", [
+            ("Qué pasa", f"El Excel solo tiene el número de parte ({where}).", False),
+            ("Falta", "Fabricante, MPN, alternativa y marcado están vacíos.", False)], "#8A96A0")
+
+    def _choice_buttons(self, items):
+        box = tk.Frame(self.cards, bg=C_PANEL)
+        box.pack(fill="x")
+        for i, item in enumerate(items[:24]):
+            box.columnconfigure(i % 3, weight=1, uniform="choice")
+            tk.Button(box, text=item, font=self.f["choice"], bg=C_SOFT, fg=C_NAVY, relief="flat", bd=0, pady=10,
+                      cursor="hand2", activebackground=C_SELECT,
+                      command=lambda it=item: self._pick(it)).grid(row=i // 3, column=i % 3, sticky="ew",
+                                                                   padx=4, pady=4)
+        if len(items) > 24:
+            tk.Label(self.cards, text=f"... y {len(items) - 24} más. Escribe más letras.",
+                     bg=C_PANEL, fg=C_MUTED, font=self.f["label"]).pack(anchor="w", pady=4)
+
+    def _pick(self, item):
+        self.var.set(item)
+        self.run(log_reason="choice")
+
+    # -- actions ---------------------------------------------------------------------
+    def run(self, log_reason: str = "scan"):
+        raw = self.var.get()
+        text = "".join(ch for ch in raw if ch.isprintable()).strip()
+        if text != raw:
+            self.var.set(text)
+        self.queries[self.tab] = text
+        self._clear_cards()
+        if self._loading:
+            self.set_state("loading", "Tu búsqueda se hará cuando termine de cargar")
+            return self._focus()
+        if not self.provider.records:
+            self.set_state("error", "Presiona F5 para intentar de nuevo")
+            return self._focus()
+        if not text:
+            self.set_state("wait")
+            return self._focus()
+        {"mark": self._run_marking, "bom": self._run_bom, "raw": self._run_raw}[self.tab](text, log_reason)
+        self._focus()
+
+    def _run_marking(self, text, log_reason):
+        res = self.marking.validate(text)
+        self.log.info("[simple] Marking (%s) '%s' -> %s | exact=%d partial=%d | items=%s", log_reason, text,
+                      res.status, len(res.exact), len(res.partial),
+                      sorted({m.record.get("item_number") or EMPTY for m in res.exact})[:20])
+        status = res.status
+        if status == "FOUND":
+            n = len(res.exact)
+            self.set_state("ok", "Se puede usar" + (f"  ·  {n} piezas tienen este marcado" if n > 1 else ""))
+        elif status == "FOUND_DONT_USE":
+            self.set_state("dont")
+        elif status == "PARTIAL":
+            self.set_state("check", f"“{text}” se parece a {len(res.partial)} marcado(s), pero NO es igual")
+        elif status == "NO_COLUMN":
+            self.set_state("error", "El Excel no tiene columna Marking")
+        else:
+            self.set_state("notfound", f"“{text}” no está en la columna Marking del Excel")
+        if status in ("FOUND_DONT_USE", "PARTIAL", "NOT_FOUND", "NO_COLUMN"):
+            self.bell()
+        for m in res.matches[:self.MAX_CARDS]:
+            title = f"{m.record.get('item_number') or EMPTY}"
+            if m.kind == "partial":
+                title += "   (parecido, verificar)"
+            self._record_card(m.record, title=title)
+
+    def _run_bom(self, text, log_reason):
+        res = self.search_engine.search(text)
+        self.log.info("[simple] Ensamble (%s) '%s' -> %s, %d item(s)", log_reason, text, res.match_kind,
+                      len(res.items))
+        if not res.found:
+            hint = ""
+            if self.marking.validate(text).exact:
+                hint = "  →  Es un marcado: usa la pestaña MARCADO"
+            elif self.search_engine.search_rows(text, fields=("mpn", "manufacturer")).total:
+                hint = "  →  Es un MPN/fabricante: usa la pestaña MATERIAL"
+            self.set_state("notfound", f"“{text}” no es un número de ensamble del Excel{hint}")
+            self.bell()
+            return
+        if len(res.items) > 1:
+            self.set_state("choose", f"Encontré {len(res.items)} números que empiezan o contienen "
+                                     f"“{text}”. Toca el correcto.")
+            return self._choice_buttons([i["item"] for i in res.items.values()])
+        item = next(iter(res.items.values()))["item"]
+        recs = self.provider.get_alternatives(item)
+        details = [r for r in recs if r.has_detail]
+        refs = [r for r in recs if not r.has_detail]
+        desc = next((r.get("text") for r in details if r.get("text")), None)
+        sub = f"{len(details)} alternativa(s)" if details else "Sin datos de alternativas en el Excel"
+        if any(r.status_flag() == "YES" for r in details):
+            self.set_state("dont", f"{item}  ·  {sub}  ·  hay alternativas que NO se deben usar",
+                           big=item)
+        else:
+            self.set_state("found", f"{sub}" + (f"  ·  {desc}" if desc else ""), big=item)
+        for r in details[:self.MAX_CARDS]:
+            self._record_card(r, show_item=False)
+        if refs:
+            self._no_detail_card(refs)
+
+    def _run_raw(self, text, log_reason):
+        res = self.search_engine.search_rows(text)
+        self.log.info("[simple] Material (%s) '%s' -> %s, %d row(s)", log_reason, text, res.match_kind, res.total)
+        if not res.total:
+            self.set_state("notfound", f"“{text}” no está en número de parte, MPN, fabricante, "
+                                       "alternativa ni descripción")
+            self.bell()
+            return
+        recs = [r for r, _f in res.rows]
+        details = [r for r in recs if r.has_detail]
+        refs = [r for r in recs if not r.has_detail]
+        self.set_state("found", f"{res.total} resultado(s)" + ("" if res.match_kind == "exact" else
+                                                              "  ·  coincidencia parcial"))
+        for r in details[:self.MAX_CARDS]:
+            self._record_card(r, title=f"{r.get('item_number') or EMPTY}   ·   Alt. {r.get('alternative') or EMPTY}")
+        if refs:
+            items = sorted({r.get("item_number") for r in refs if r.get("item_number")}, key=natural_key)
+            if len(items) == 1:
+                self._card(items[0], [("Qué pasa", f"Aparece {len(refs)} vez/veces en el Excel, pero solo "
+                                                        "con el número de parte (sin fabricante, MPN ni marcado).",
+                                       False)], "#8A96A0")
+            else:
+                self._card(f"{len(items)} números sin datos", [
+                    ("Números", ", ".join(items[:30]) + (" ..." if len(items) > 30 else ""), False),
+                    ("Qué pasa", "El Excel solo tiene el número de parte.", False)], "#8A96A0")
+
+    # -- loading -----------------------------------------------------------------------
+    def load_excel(self, reason: str = ""):
+        if self._loading:
+            return
+        self._loading = True
+        self.go_btn.configure(state="disabled")
+        self.set_state("loading")
+        self.footer.configure(text=f"Cargando {self.excel_path.name} ...")
+        self.configure(cursor="watch")
+        self.log.info("[simple] Loading Excel (%s): %s", reason, self.excel_path)
+
+        def worker():
+            try:
+                fresh = ExcelDataProvider(self.excel_path, self.normalizer,
+                                          self.settings.get("reader", "auto"), self.log).load_workbook()
+                self._queue.put(("ok", fresh))
+            except ExcelLoadError as exc:
+                self.log.error("Load failed: %s", str(exc).replace("\n", " "))
+                self._queue.put(("error", str(exc)))
+            except Exception as exc:
+                self.log.exception("Unexpected error while reading the Excel")
+                self._queue.put(("error", f"No se pudo leer el Excel ({exc.__class__.__name__}). "
+                                          "Detalles en logs/app.log"))
+
+        threading.Thread(target=worker, daemon=True).start()
+        self.after(100, self._poll_load)
+
+    def _poll_load(self):
+        try:
+            status, payload = self._queue.get_nowait()
+        except queue.Empty:
+            self.after(100, self._poll_load)
+            return
+        self._loading = False
+        self.configure(cursor="")
+        self.go_btn.configure(state="normal")
+        if status == "ok":
+            self.provider = payload
+            self.search_engine.provider = payload
+            self.marking = MarkingValidator(payload)
+            p = payload
+            self.footer.configure(text=f"Excel: {self.excel_path.name}   ·   {len(p.records):,} filas   ·   "
+                                       f"cargado {p.loaded_at:%H:%M:%S}   ·   solo lectura")
+            if self.var.get().strip():
+                self.run(log_reason="reload")
+            else:
+                self.set_state("wait")
+        else:
+            self.footer.configure(text=f"Excel: {self.excel_path.name}   ·   NO CARGADO")
+            self.set_state("error", payload.replace("\n", " "))
+        self._focus()
+
+    # -- misc ----------------------------------------------------------------------------
+    def open_advanced(self):
+        """Opens the full engineering screen in a separate window/process."""
+        import subprocess
+        try:
+            subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "--advanced"], cwd=str(BASE_DIR))
+            self.log.info("[simple] Advanced view opened")
+        except OSError as exc:
+            self.log.error("Advanced view could not be opened: %s", exc)
+            messagebox.showerror(APP_TITLE, "No se pudo abrir la vista avanzada.", parent=self)
+
+    def _on_tk_error(self, exc, val, tb):
+        self.log.error("UI error", exc_info=(exc, val, tb))
+        if self.winfo_exists():
+            self.footer.configure(text="Ocurrió un error interno. Detalles en logs/app.log", fg=C_RED)
+
+    def quit_app(self):
+        self.log.info("Application closed (simple)")
+        self.destroy()
+
+
+# ============================================================================
 # Console check (python GPV_Product_Configuration.py --check)
 # ============================================================================
 
@@ -2823,6 +3283,7 @@ def main(argv=None) -> int:
     parser.add_argument("queries", nargs="*", help="BOM queries to test with --check")
     parser.add_argument("--raw", action="append", default=[], help="raw material query (with --check)")
     parser.add_argument("--mark", action="append", default=[], help="marking to validate (with --check)")
+    parser.add_argument("--advanced", action="store_true", help="open the full engineering screen")
     args = parser.parse_args(argv)
     logger = setup_logging()
     settings = load_settings()
@@ -2837,7 +3298,8 @@ def main(argv=None) -> int:
     logger.info("Application start v%s | Python %s | openpyxl=%s", APP_VERSION, sys.version.split()[0],
                 getattr(openpyxl, "__version__", "not installed"))
     try:
-        app = GPVProductConfigurationApp(settings, logger)
+        advanced = args.advanced or str(settings.get("ui", "simple")).lower() == "advanced"
+        app = (GPVProductConfigurationApp if advanced else SimpleApp)(settings, logger)
     except tk.TclError as exc:
         logger.error("Could not start the window: %s", exc)
         print("The window could not be opened (no display available).")

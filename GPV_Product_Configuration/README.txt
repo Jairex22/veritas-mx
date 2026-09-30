@@ -5,6 +5,30 @@ Visor de escritorio (Python 3 + tkinter/ttk) para el libro de validacion de
 marcado SMT "EMX-KA661_Rev.0 Validacion de marcado SMT (1).xlsm".
 
 
+0. PANTALLA SIMPLE (la que abre START.bat)
+------------------------------------------
+Tres botones grandes arriba. Solo se usa uno a la vez:
+
+  MARCADO   escribe/escanea lo que dice la pieza  -> VALIDAR
+  ENSAMBLE  escribe/escanea el numero de ensamble -> BUSCAR
+  MATERIAL  numero de parte, MPN o fabricante     -> BUSCAR
+
+La respuesta sale en un cuadro grande de color:
+  VERDE    CORRECTO / ENCONTRADO   se puede usar
+  ROJO     NO USAR / NO ENCONTRADO
+  AMARILLO REVISAR                 se parece, pero NO es igual
+  AZUL     CUAL ES?                toca el numero correcto
+
+Enter = buscar   Escape = borrar   F2 Marcado   F4 Ensamble   F3 Material
+F5 = recargar Excel.
+
+La pantalla completa de ingenieria (arbol BOM, modos, tabla con todas las
+columnas) sigue disponible con el enlace "Vista avanzada", o con:
+  python GPV_Product_Configuration.py --advanced
+Para que START.bat abra siempre la avanzada: en config/settings.json poner
+"ui": "advanced".
+
+
 1. EJECUTAR
 -----------
 - Doble clic en START.bat   (usa "py" y, si no existe, "python").
@@ -40,8 +64,8 @@ Path(__file__).resolve().parent.
   .xlsm/.xlsx, se usa ese.
 
 
-4. ATAJOS
----------
+4. ATAJOS (VISTA AVANZADA)
+--------------------------
 Enter    Ejecuta la busqueda de la barra que tiene el foco (compatible con escaner)
 F2       Ir a MARKING VALIDATION
 F3       Ir a RAW MATERIALS
@@ -100,6 +124,7 @@ columnas Parent o Level con datos, la app arma el arbol real automaticamente.
 8. SETTINGS.JSON
 ----------------
 excel_file            ruta relativa del Excel
+ui                    simple (defecto) | advanced
 default_mode          ENGINEERING | PRODUCTION
 window_width/height   tamano inicial (se ajusta a la pantalla)
 reader                auto | openpyxl | builtin
