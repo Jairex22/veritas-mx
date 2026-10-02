@@ -1,0 +1,86 @@
+# Reglas editables (ver docs/GUIA_ACTUALIZAR_REGLAS.md).
+# Cambios aquí requieren reiniciar la aplicación y ejecutar la evaluación RAG.
+
+# Grupos de sinónimos bilingües para expansión de consultas (no cambian documentos).
+glossary:
+  - ["work order", "orden de trabajo", "wo", "orden de produccion"]
+  - ["process flow", "flujo de proceso", "ruta", "routing"]
+  - ["genealogy", "genealogia", "assembly genealogy"]
+  - ["serial", "numero de serie", "serie", "serialization", "serializacion"]
+  - ["certification", "certificacion", "certificado", "certified", "operator certification"]
+  - ["defect", "defecto"]
+  - ["symptom", "sintoma"]
+  - ["repair", "reparacion", "reparar", "debug"]
+  - ["reroute", "re-ruteo", "reruteo", "redireccionar"]
+  - ["unproceed", "des-avanzar", "deshacer avance"]
+  - ["proceed", "avanzar", "avance"]
+  - ["wip", "work in process", "trabajo en proceso", "inventario en proceso"]
+  - ["pass", "aprobado", "pasa"]
+  - ["fail", "falla", "fallo", "rechazo"]
+  - ["packing", "empaque", "packout", "empacar"]
+  - ["shipping", "embarque", "envio", "embarcar"]
+  - ["label", "etiqueta", "barcode", "codigo de barras"]
+  - ["traceability", "trazabilidad", "product tracking", "rastreo"]
+  - ["bom", "bill of materials", "lista de materiales"]
+  - ["station", "estacion"]
+  - ["operation", "operacion", "next operation", "siguiente operacion"]
+  - ["unit", "unidad", "pieza", "ensamble", "assembly"]
+  - ["installed component", "componente instalado", "componentes instalados"]
+  - ["incident", "incidente", "problema", "issue"]
+  - ["escalate", "escalar", "escalamiento", "escalation"]
+  - ["advance", "avanzar", "move forward", "no avanza", "cannot advance"]
+  - ["status", "estado", "estatus"]
+  - ["in process", "en proceso"]
+  - ["connectivity", "conectividad", "conexion", "connection"]
+  - ["retest", "reintento", "re-prueba", "retry"]
+  - ["quality", "calidad"]
+  - ["supervisor", "lider de linea"]
+
+# Señales de prompt injection (en documentos o preguntas). Se tratan como datos, nunca como instrucciones.
+injection_patterns:
+  - "ignore (all |the )?(previous|prior|above) (instructions|rules)"
+  - "ignora (todas )?(las )?instrucciones (anteriores|previas)"
+  - "olvida (todas )?(las )?(instrucciones|reglas)"
+  - "disregard (the )?(system|previous) (prompt|instructions)"
+  - "you are now"
+  - "ahora eres"
+  - "system prompt"
+  - "prompt del sistema"
+  - "reveal (the )?(password|secret|api key|token)"
+  - "revela (la |el )?(contrasena|password|secreto|token)"
+  - "act as (an? )?(admin|administrator|root)"
+  - "actua como (un )?(administrador|admin)"
+  - "<script"
+  - "javascript:"
+  - "do not cite"
+  - "no cites (las )?fuentes"
+  - "respond only with"
+  - "aprueba automaticamente"
+
+# Solicitudes de ejecutar transacciones de producción: el asistente NUNCA las ejecuta.
+production_action_patterns:
+  - "\\b(haz|has|ejecuta|realiza|aplica|da)\\b.*\\b(proceed|unproceed|reroute|avance)\\b"
+  - "\\b(cierra|cerrar|close)\\b.*\\b(defecto|defect)\\b"
+  - "\\b(do|run|execute|perform)\\b.*\\b(proceed|unproceed|reroute)\\b"
+  - "\\b(modifica|cambia|borra|elimina)\\b.*\\b(work order|orden de trabajo|serial)\\b"
+
+# Situaciones de seguridad física: se detiene y escala de inmediato.
+safety_patterns:
+  - "\\b(humo|fuego|incendio|chispa|quemadura|descarga electrica|electrocut|lesion|herido|sangre)\\b"
+  - "\\b(smoke|fire|spark|burn|electric shock|injur|bleeding)\\w*"
+
+# Respuestas de "acción" que detectan necesidad de escalamiento.
+escalation_keywords: ["linea parada", "line down", "paro de linea", "cliente", "auditoria", "embarque detenido", "shipment on hold"]
+
+sentiment:
+  es:
+    confused: ["no entiendo", "no se", "confundido", "confusa", "como le hago", "que significa", "no me queda claro", "no comprendo", "perdido", "duda"]
+    frustrated: ["otra vez", "de nuevo", "sigue sin", "no funciona", "ya intente", "harto", "molesto", "frustrado", "nunca funciona", "siempre falla", "pesimo", "ridiculo"]
+    urgent: ["urgente", "urge", "inmediato", "ya mismo", "linea parada", "paro de linea", "cliente esperando", "embarque", "critico", "asap", "emergencia", "rapido"]
+    satisfied: ["gracias", "funciono", "perfecto", "excelente", "listo", "resuelto", "muy bien", "genial", "me sirvio"]
+  en:
+    confused: ["don't understand", "dont understand", "confused", "not sure", "what does", "unclear", "lost", "how do i", "no idea"]
+    frustrated: ["again", "still not", "doesn't work", "doesnt work", "not working", "already tried", "annoyed", "frustrated", "never works", "always fails", "ridiculous", "useless"]
+    urgent: ["urgent", "asap", "immediately", "line down", "line stopped", "customer waiting", "critical", "emergency", "right now", "shipment"]
+    satisfied: ["thanks", "thank you", "worked", "perfect", "great", "excellent", "solved", "resolved", "helpful"]
+  negations: ["no", "not", "nunca", "never", "sin"]

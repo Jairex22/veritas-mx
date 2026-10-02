@@ -1,0 +1,19 @@
+<!doctype html>
+<html><head><title>DEMO OData</title><script>alert('esto no debe ejecutarse ni indexarse')</script></head>
+<body>
+<h1>DEMO - Diagnóstico básico de conectividad OData de FactoryLogix Analytics</h1>
+<p>DOCUMENTO DEMO. No es una guía oficial.</p>
+<h2>Diagnóstico básico de conectividad OData</h2>
+<p>Palabras clave: OData, conectividad, Analytics, error 401, error 500, timeout</p>
+<h3>Respuesta breve</h3>
+<p>Los errores de conectividad OData suelen deberse a credenciales inválidas (HTTP 401), permisos insuficientes (HTTP 403), errores del servidor (HTTP 500) o tiempo de espera agotado.</p>
+<h3>Pasos</h3>
+<ol>
+<li>Verifica que la URL del servicio OData de Analytics sea la URL interna aprobada.</li>
+<li>Prueba el acceso al documento de metadata del servicio desde el navegador del equipo autorizado.</li>
+<li>Si recibes 401, solicita a MES validar la cuenta de servicio.</li>
+<li>Si recibes 500 o timeout, registra la hora y escala a Soporte MES.</li>
+</ol>
+<h3>Cuándo escalar</h3>
+<p>Escala a Soporte MES e IT si el servicio OData no responde para ningún usuario.</p>
+</body></html>

@@ -1,0 +1,30 @@
+[project]
+name = "factorylogix-knowledge-copilot"
+version = "1.0.0"
+description = "Asistente interno RAG local y gobernado para FactoryLogix (operadores, supervisores, Producto, Calidad, NPI y MES)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Propietario - uso interno" }
+dependencies = [
+    "streamlit>=1.40,<2",
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "pypdf>=4.2,<7",
+    "python-docx>=1.1,<2",
+    "openpyxl>=3.1,<4",
+    "PyYAML>=6.0,<7",
+    "requests>=2.31,<3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+semantic = ["sentence-transformers>=2.7"]
+ocr = ["pytesseract>=0.3.10"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 120

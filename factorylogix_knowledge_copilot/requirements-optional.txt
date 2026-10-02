@@ -1,0 +1,5 @@
+# OPCIONALES - no requeridas para arrancar. Instalar solo con aprobación de TI.
+# Embeddings semánticos multilingües (requiere copiar el modelo a models_local/ manualmente; ~500 MB con torch):
+# sentence-transformers>=2.7
+# OCR de imágenes escaneadas (requiere además instalar Tesseract OCR con idiomas spa/eng):
+# pytesseract>=0.3.10

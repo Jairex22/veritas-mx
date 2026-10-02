@@ -1,0 +1,3 @@
+# Dependencias para pruebas automatizadas (no necesarias en producción).
+-r requirements.txt
+pytest>=8.0

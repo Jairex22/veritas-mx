@@ -1,0 +1,10 @@
+# FactoryLogix Knowledge Copilot - dependencias de ejecución (todas con wheels para Windows x64).
+# Verificadas con: pip download --platform win_amd64 --only-binary=:all: (Python 3.10-3.13).
+streamlit>=1.40,<2
+numpy>=1.26
+pandas>=2.1
+pypdf>=4.2,<7
+python-docx>=1.1,<2
+openpyxl>=3.1,<4
+PyYAML>=6.0,<7
+requests>=2.31,<3

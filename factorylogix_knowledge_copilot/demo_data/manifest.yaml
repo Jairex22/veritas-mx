@@ -1,0 +1,155 @@
+# Manifiesto de datos DEMO. TODO el contenido es ilustrativo y está marcado como DEMO.
+# target: published | under_review | expired | draft
+# Las fechas relativas se calculan desde la fecha de carga (days_from_today).
+documents:
+  - file: DEMO-PROC-001_work_orders.md
+    doc_code: DEMO-PROC-001
+    title: "DEMO - Consulta de Work Orders y avance de unidades"
+    description: "Procedimiento DEMO para consultar Work Orders, avance de unidades, siguiente operación e In Process."
+    source_type: Procedure
+    area: Production
+    fl_module: Operations
+    classification: Internal
+    tags: "work order,avance,process flow"
+    target: published
+  - file: DEMO-WI-002_certificaciones.md
+    doc_code: DEMO-WI-002
+    title: "DEMO - Certificaciones de operador"
+    description: "Instrucción DEMO sobre certificación de operadores y validación de estación."
+    source_type: Work Instruction
+    area: Quality
+    fl_module: Production
+    classification: Internal
+    tags: "certificación,operador"
+    target: published
+  - file: DEMO-KB-003_defectos_repair.md
+    doc_code: DEMO-KB-003
+    title: "DEMO - Defects, Symptoms, Repair y Reroute"
+    description: "Base de conocimiento DEMO sobre defectos, síntomas, Repair, reroute, Proceed y Unproceed."
+    source_type: Knowledge Base
+    area: Quality
+    fl_module: Quality
+    classification: Internal
+    tags: "defect,symptom,repair,reroute"
+    target: published
+  - file: DEMO-WI-004_etiquetas_shipping.md
+    doc_code: DEMO-WI-004
+    title: "DEMO - Etiquetas, Packing y Shipping"
+    description: "Instrucción DEMO para validar etiquetas, packout y embarque."
+    source_type: Work Instruction
+    area: Shipping
+    fl_module: Shipping
+    classification: Internal
+    tags: "etiqueta,packing,shipping"
+    target: published
+  - file: DEMO-MAN-005_genealogia_wip.docx
+    doc_code: DEMO-MAN-005
+    title: "DEMO - Manual de genealogía, trazabilidad y WIP"
+    description: "Manual DEMO (DOCX) sobre genealogía, WIP y componentes instalados."
+    source_type: Official Manual
+    area: MES
+    fl_module: Analytics
+    classification: Internal
+    tags: "genealogía,wip,trazabilidad"
+    target: published
+  - file: DEMO-PROC-006_escalamiento.md
+    doc_code: DEMO-PROC-006
+    title: "DEMO - Escalamiento de incidentes de FactoryLogix"
+    description: "Procedimiento DEMO de escalamiento e información requerida por MES."
+    source_type: Procedure
+    area: MES
+    fl_module: General
+    classification: Public
+    tags: "escalamiento,incidente,mes"
+    target: published
+  - file: DEMO-KB-007_odata.html
+    doc_code: DEMO-KB-007
+    title: "DEMO - Diagnóstico básico de OData"
+    description: "Guía DEMO (HTML) de diagnóstico de conectividad OData."
+    source_type: Knowledge Base
+    area: MES
+    fl_module: Analytics
+    classification: Confidential
+    tags: "odata,conectividad"
+    target: published
+  - file: DEMO-RES-008_correccion_genealogia.md
+    doc_code: DEMO-RES-008
+    title: "DEMO - Corrección administrativa de genealogía (restringido)"
+    description: "Procedimiento DEMO restringido a Soporte MES."
+    source_type: Procedure
+    area: MES
+    fl_module: Analytics
+    classification: Restricted
+    tags: "genealogía,restringido"
+    target: published
+  - file: DEMO-WI-009_reintentos_ict.md
+    doc_code: DEMO-WI-009
+    title: "DEMO - Reintentos de prueba ICT (WI)"
+    description: "Ejemplo DEMO de conflicto: indica 3 reintentos."
+    source_type: Work Instruction
+    area: Test
+    fl_module: Production
+    classification: Internal
+    tags: "ict,retest,conflicto-demo"
+    target: published
+  - file: DEMO-KB-010_reintentos_ict_kb.md
+    doc_code: DEMO-KB-010
+    title: "DEMO - Reintentos de prueba ICT (KB)"
+    description: "Ejemplo DEMO de conflicto: indica 5 reintentos."
+    source_type: Knowledge Base
+    area: Test
+    fl_module: Production
+    classification: Internal
+    tags: "ict,retest,conflicto-demo"
+    target: published
+  - file: DEMO-EXP-011_impresora_antigua.md
+    doc_code: DEMO-EXP-011
+    title: "DEMO - Calibración de impresora antigua (expirado)"
+    description: "Ejemplo DEMO de documento expirado que nunca debe usarse."
+    source_type: Procedure
+    area: Shipping
+    fl_module: Shipping
+    classification: Internal
+    tags: "expirado-demo"
+    target: expired
+  - file: DEMO-KB-012_cambio_turno.md
+    doc_code: DEMO-KB-012
+    title: "DEMO - Cambio de turno (con prompt injection de prueba)"
+    description: "Ejemplo DEMO con instrucción maliciosa reconocida en la revisión; la oración se omite en respuestas."
+    source_type: Knowledge Base
+    area: Production
+    fl_module: Operations
+    classification: Internal
+    tags: "turno,injection-demo"
+    target: published
+  - file: DEMO-FAQ-013_preguntas_frecuentes.csv
+    doc_code: DEMO-FAQ-013
+    title: "DEMO - Preguntas frecuentes (CSV)"
+    description: "FAQ DEMO sobre BOM, ECAD, Pass/Fail, serialización y WIP."
+    source_type: FAQ
+    area: Knowledge Management
+    fl_module: General
+    classification: Internal
+    tags: "faq"
+    target: published
+  - file: DEMO-MAN-014_production_quick_reference.pdf
+    doc_code: DEMO-MAN-014
+    title: "DEMO - FactoryLogix Production quick reference (EN)"
+    description: "DEMO manual in English (PDF): serialization and Pass/Fail."
+    source_type: Official Manual
+    area: Production
+    fl_module: Production
+    classification: Internal
+    language: en
+    tags: "serialization,pass,fail"
+    target: published
+  - file: DEMO-REV-015_npi_borrador.md
+    doc_code: DEMO-REV-015
+    title: "DEMO - Liberación NPI (en revisión)"
+    description: "Ejemplo DEMO de contenido en revisión que nunca debe usarse para responder."
+    source_type: Procedure
+    area: NPI
+    fl_module: NPI
+    classification: Internal
+    tags: "npi,borrador"
+    target: under_review

@@ -1,0 +1,28 @@
+# Configuración de Streamlit para uso interno y sin Internet.
+[browser]
+gatherUsageStats = false          # no enviar telemetría
+
+[server]
+headless = true
+enableCORS = true                 # solo mismo origen
+enableXsrfProtection = true       # protección CSRF en formularios y cargas
+maxUploadSize = 25                # MB (coincide con ingestion.max_file_mb)
+maxMessageSize = 200
+fileWatcherType = "none"
+runOnSave = false
+
+[client]
+showErrorDetails = false          # no mostrar trazas al usuario
+toolbarMode = "minimal"
+showSidebarNavigation = true
+
+[global]
+developmentMode = false
+
+[theme]
+base = "light"
+primaryColor = "#0B5CAD"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F2F5F8"
+textColor = "#14212B"
+font = "sans serif"

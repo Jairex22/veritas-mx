@@ -1,0 +1,64 @@
+# Entidades OData de FactoryLogix Analytics (EJEMPLOS CONFIGURABLES).
+# Los nombres de campos son ilustrativos: valide contra el $metadata real de su instalación
+# antes de habilitar el conector. Solo lectura (GET). Ver docs/GUIA_ODATA_SEGURO.md.
+entities:
+  AssemblyGenealogy:
+    description: "Genealogía de ensambles (padre/hijo)."
+    key_fields: ["SerialNumber"]
+    select: ["SerialNumber", "ParentSerialNumber", "AssemblyNumber", "Revision", "InstalledDate"]
+  InstalledComponentRecord:
+    description: "Componentes instalados por unidad."
+    key_fields: ["SerialNumber"]
+    select: ["SerialNumber", "PartNumber", "ReferenceDesignator", "LotCode", "InstalledDate"]
+  PartRelationships:
+    description: "Relaciones de partes."
+    key_fields: ["PartNumber"]
+    select: ["PartNumber", "RelatedPartNumber", "RelationshipType"]
+  Packout:
+    description: "Registros de empaque."
+    key_fields: ["SerialNumber", "ContainerId"]
+    select: ["SerialNumber", "ContainerId", "PackoutDate", "Station"]
+  ShippingOrders:
+    description: "Órdenes de embarque."
+    key_fields: ["ShippingOrderNumber"]
+    select: ["ShippingOrderNumber", "Customer", "Status", "ShipDate"]
+  ActiveProductTracking:
+    description: "Seguimiento activo de unidades."
+    key_fields: ["SerialNumber", "WorkOrderNumber"]
+    select: ["SerialNumber", "WorkOrderNumber", "CurrentOperation", "Status", "LastStation", "LastUpdate"]
+  ActiveProductTrackingDetail:
+    description: "Detalle del seguimiento activo."
+    key_fields: ["SerialNumber"]
+    select: ["SerialNumber", "Operation", "Station", "Result", "Timestamp"]
+  WIP:
+    description: "Trabajo en proceso por orden/operación."
+    key_fields: ["WorkOrderNumber"]
+    select: ["WorkOrderNumber", "Operation", "Quantity", "Status"]
+  Quality:
+    description: "Indicadores de calidad."
+    key_fields: ["WorkOrderNumber"]
+    select: ["WorkOrderNumber", "Operation", "PassCount", "FailCount"]
+  Faults:
+    description: "Fallas / defectos registrados."
+    key_fields: ["SerialNumber"]
+    select: ["SerialNumber", "DefectCode", "Symptom", "Station", "Status", "Timestamp"]
+  ValidationExceptions:
+    description: "Excepciones de validación."
+    key_fields: ["SerialNumber"]
+    select: ["SerialNumber", "ExceptionType", "Message", "Station", "Timestamp"]
+  UserCertification:
+    description: "Certificaciones de operadores (consulta autorizada)."
+    key_fields: ["UserName"]
+    select: ["UserName", "Certification", "Station", "ExpirationDate", "Status"]
+  TestAndMeasurement:
+    description: "Resultados de prueba y medición."
+    key_fields: ["SerialNumber"]
+    select: ["SerialNumber", "TestName", "Result", "Value", "Timestamp"]
+  ProductivityOverTime:
+    description: "Productividad agregada por periodo (no por empleado)."
+    key_fields: ["Line"]
+    select: ["Line", "Period", "UnitsCompleted"]
+  WhereFound:
+    description: "Dónde se encontraron defectos."
+    key_fields: ["DefectCode"]
+    select: ["DefectCode", "WhereFound", "Count"]

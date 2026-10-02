@@ -1,0 +1,135 @@
+# FactoryLogix Knowledge Copilot - configuración principal
+# Los valores sensibles (contraseñas, tokens) NUNCA van aquí: usar variables de entorno / .env
+# Cualquier valor puede sobrescribirse con variables FLKC_* (ver .env.example).
+
+app:
+  name: "FactoryLogix Knowledge Copilot"
+  version: "1.0.0"
+  environment: "DEMO"          # DEMO | PILOT | PRODUCTION
+  default_language: "es"       # es | en
+
+branding:
+  product_name: "FactoryLogix Knowledge Copilot"
+  company_name: "Empresa DEMO S.A. de C.V."
+  site: "Planta DEMO"
+  primary_color: "#0B5CAD"
+  accent_color: "#F2A900"
+  support_contact: "Soporte MES (DEMO) - extensión 0000"
+  logo_path: ""                # ruta relativa a data/ (se carga desde Settings)
+
+server:
+  bind: "local"                # local = 127.0.0.1 | network = 0.0.0.0 (red interna)
+  preferred_port: 8501
+  port_range_end: 8599
+  open_browser: true
+
+paths:
+  data_dir: "data"
+  database: "data/copilot.db"
+  files_dir: "knowledge_base/files"
+  attachments_dir: "data/attachments"
+  reports_dir: "reports"
+  logs_dir: "logs"
+  demo_dir: "demo_data/documents"
+  local_models_dir: "models_local"
+
+security:
+  session_idle_minutes: 30
+  max_failed_logins: 5
+  lockout_minutes: 15
+  password_min_length: 12
+  chat_rate_limit_per_minute: 30
+  login_rate_limit_per_minute: 10
+  max_question_chars: 1500
+
+ingestion:
+  max_file_mb: 25
+  max_pdf_pages: 400
+  max_spreadsheet_rows: 20000
+  extraction_timeout_seconds: 60
+  allowed_extensions: [".pdf", ".docx", ".xlsx", ".csv", ".txt", ".md", ".html", ".htm", ".png", ".jpg", ".jpeg", ".tif", ".tiff"]
+  chunk_max_chars: 1800
+  chunk_overlap_chars: 200
+  near_duplicate_threshold: 0.95
+
+rag:
+  embedding_provider: "hashing"          # hashing (incluido) | sentence_transformers (opcional, offline)
+  embedding_model_dir: "models_local/paraphrase-multilingual-MiniLM-L12-v2"
+  embedding_dim: 768
+  top_k: 6
+  candidate_pool: 40
+  rrf_k: 60
+  rerank: true
+  min_relevance: 0.40                    # por debajo: "No encontré información aprobada suficiente..."
+  high_confidence: 0.75
+  medium_confidence: 0.55
+  conflict_similarity: 0.30
+  review_soon_days: 30
+
+llm:
+  provider: "none"                       # none | ollama | llamacpp
+  base_url: "http://127.0.0.1:11434"     # solo hosts locales / red privada
+  model: "llama3.1:8b"
+  timeout_seconds: 60
+  temperature: 0.1
+  max_tokens: 700
+  min_grounding: 0.6
+
+sentiment:
+  enabled: true
+  retention_days: 30
+
+governance:
+  require_four_eyes: true                # quien sube no puede aprobar su propia versión
+  default_retention_policy: "standard-3y"
+  retention_policies:
+    standard-3y: {archive_after_expiration_days: 0, delete_after_days: 1095}
+    quality-10y: {archive_after_expiration_days: 0, delete_after_days: 3650}
+    temporary-1y: {archive_after_expiration_days: 0, delete_after_days: 365}
+    demo: {archive_after_expiration_days: 0, delete_after_days: 30}
+
+# Matriz de acceso por clasificación (rol -> clasificaciones permitidas)
+access_matrix:
+  Operator: [Public, Internal]
+  Supervisor: [Public, Internal, Confidential]
+  Product Engineer: [Public, Internal, Confidential]
+  Quality: [Public, Internal, Confidential]
+  NPI: [Public, Internal, Confidential]
+  MES Support: [Public, Internal, Confidential, Restricted]
+  Knowledge Manager: [Public, Internal, Confidential]
+  Data Steward: [Public, Internal, Confidential, Restricted]
+  Administrator: [Public, Internal, Confidential, Restricted]
+  Auditor: [Public, Internal, Confidential, Restricted]
+
+escalation:
+  default_route_es: "1) Supervisor de línea  2) Soporte MES  3) Ingeniería de Producto / Calidad según el caso."
+  default_route_en: "1) Line supervisor  2) MES Support  3) Product Engineering / Quality as applicable."
+  areas: ["MES Support", "Product Engineering", "Quality", "NPI", "Manufacturing Engineering", "Supervisor", "IT"]
+
+connectors:
+  odata:
+    enabled: false                       # feature flag - desactivado por defecto
+    base_url: ""                         # ej. https://factorylogix.intranet.local/Analytics/odata
+    allowed_hosts: []                    # ej. [factorylogix.intranet.local]; vacío = solo red privada
+    timeout_seconds: 10
+    max_retries: 2
+    backoff_seconds: 1.0
+    circuit_failure_threshold: 3
+    circuit_reset_seconds: 60
+    cache_ttl_seconds: 120
+    max_rows: 200
+    verify_tls: true
+  xtend:
+    enabled: false
+
+email:
+  enabled: false                         # nunca envía sin configuración y confirmación explícita
+  smtp_host: ""
+  smtp_port: 25
+  use_tls: true
+  sender: ""
+  allowed_domains: []
+
+demo:
+  load_demo_data: true
+  create_demo_users: true

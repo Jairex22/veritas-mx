@@ -1,0 +1,6 @@
+pregunta,respuesta,modulo
+¿Qué es la BOM en FactoryLogix?,La BOM (lista de materiales) define los componentes y cantidades que requiere un ensamble; en NPI se importa y valida junto con los datos ECAD.,NPI
+¿Qué son los datos ECAD?,Los datos ECAD son los archivos de diseño electrónico (posiciones y designadores de referencia) que se usan en NPI para preparar el ensamble.,NPI
+¿Qué significa Pass y Fail?,Pass indica que la unidad aprobó la prueba o inspección; Fail indica que no la aprobó y debe registrarse el síntoma para Repair.,Production
+¿Qué es la serialización?,La serialización asigna un número de serie único a cada unidad para permitir trazabilidad durante toda la producción.,Production
+¿Cómo consulto el WIP de mi línea?,El WIP (trabajo en proceso) se consulta en los reportes de Analytics filtrando por línea y Work Order para ver cuántas unidades hay en cada operación.,Analytics

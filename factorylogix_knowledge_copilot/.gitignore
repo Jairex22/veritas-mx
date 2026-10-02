@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+data/*
+!data/README.md
+logs/*.log*
+reports/*.csv
+reports/*.html
+knowledge_base/files/*/
+models_local/
+wheelhouse/
+dist/
+.pytest_cache/
+scratch_*.py
