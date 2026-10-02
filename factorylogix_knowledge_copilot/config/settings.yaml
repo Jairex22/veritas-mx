@@ -4,7 +4,7 @@
 
 app:
   name: "FactoryLogix Knowledge Copilot"
-  version: "1.0.0"
+  version: "1.0.1"
   environment: "DEMO"          # DEMO | PILOT | PRODUCTION
   default_language: "es"       # es | en
 

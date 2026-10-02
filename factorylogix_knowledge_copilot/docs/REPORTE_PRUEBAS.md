@@ -1,6 +1,6 @@
 # Reporte de resultados de pruebas
 
-> Generado automáticamente por `scripts/run_checks.py` el 2026-10-02 03:54:47. Resultados reales de esta ejecución.
+> Generado automáticamente por `scripts/run_checks.py` el 2026-10-02 12:21:45. Resultados reales de esta ejecución.
 
 ## Entorno de ejecución
 
@@ -14,7 +14,7 @@
 | Verificación | Resultado |
 |---|---|
 | Compilación de Python | 119/119 archivos OK |
-| Pruebas automatizadas (pytest) | 135/135 aprobadas en 46.9 s (código 0) |
+| Pruebas automatizadas (pytest) | 136/136 aprobadas en 84.2 s (código 0) |
 | Prueba de arranque | OK — launch.py --check-only: OK |
 | Evaluación RAG (casos) | 28/28 aprobados |
 | Resiliencia (LLM caído, índice vacío, OData sin conexión/401/500/timeout) | 6/6 |
@@ -23,7 +23,7 @@
 
 | Grupo | Total | Aprobadas | Fallidas | Omitidas |
 |---|---|---|---|---|
-| integration | 40 | 40 | 0 | 0 |
+| integration | 41 | 41 | 0 | 0 |
 | rag | 6 | 6 | 0 | 0 |
 | security | 30 | 30 | 0 | 0 |
 | unit | 59 | 59 | 0 | 0 |
@@ -41,8 +41,8 @@
 | Tasa de alucinación | 0.0 |
 | Detección de conflictos | 1.0 |
 | Fugas de control de acceso | 0 |
-| Latencia p50 (ms) | 8.9 |
-| Latencia p95 (ms) | 24.6 |
+| Latencia p50 (ms) | 19.0 |
+| Latencia p95 (ms) | 51.1 |
 
 ### Casos
 
@@ -116,12 +116,18 @@
 ## Compatibilidad con versiones mínimas declaradas
 
 Misma suite ejecutada en un entorno separado con streamlit 1.40.0, numpy 1.26.4, pandas 2.1.4, pypdf 4.2.0,
-python-docx 1.1.0, openpyxl 3.1.2, PyYAML 6.0, requests 2.31.0 (Python 3.11): **135 passed in 39.95s**.
+python-docx 1.1.0, openpyxl 3.1.2, PyYAML 6.0, requests 2.31.0 (Python 3.11): **136 passed**.
 
 Resolución de wheels binarios para Windows x64 (`pip download --platform win_amd64 --only-binary=:all:`):
 Python 3.10, 3.11, 3.12, 3.13 y 3.14 — todas las dependencias disponibles como wheel.
 
 ## Revisión visual
 
-Capturas reales del servidor en ejecución (Chromium headless) en `docs/capturas/`: inicio de sesión, respuesta a
-operador, conflicto entre fuentes, respuesta sin evidencia y respuesta urgente para MES Support.
+Capturas reales del servidor en ejecución (Chromium headless) en `docs/capturas/`.
+
+## Correcciones v1.0.1 (reporte de campo)
+
+- `python app.py` ejecutado directamente (p. ej. desde PowerShell) mostraba solo avisos
+  `missing ScriptRunContext` sin iniciar el servidor. Ahora delega al lanzador oficial. Prueba:
+  `test_python_app_py_delegates_to_launcher`.
+- El lanzador podía esperar hasta 90 s si el servidor se detenía antes de quedar listo; ahora termina de inmediato.

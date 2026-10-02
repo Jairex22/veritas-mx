@@ -11,6 +11,17 @@ ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+if __name__ == "__main__":
+    from streamlit import runtime as _st_runtime
+
+    if not _st_runtime.exists():
+        # Ejecutado como "python app.py": Streamlit necesita su servidor. Se delega al lanzador oficial
+        # (puerto libre, navegador, PID) en lugar de mostrar avisos "missing ScriptRunContext".
+        import subprocess
+
+        print("Iniciando FactoryLogix Knowledge Copilot mediante scripts/launch.py ...")
+        sys.exit(subprocess.call([sys.executable, str(ROOT / "scripts" / "launch.py"), *sys.argv[1:]], cwd=str(ROOT)))
+
 import streamlit as st  # noqa: E402
 
 st.set_page_config(page_title="FactoryLogix Knowledge Copilot", page_icon="🏭", layout="wide",

@@ -50,10 +50,12 @@ def lan_addresses() -> list[str]:
     return sorted({info[4][0] for info in infos if not info[4][0].startswith("127.")})
 
 
-def wait_healthy(port: int, timeout: float = 90) -> bool:
+def wait_healthy(port: int, timeout: float = 90, process: subprocess.Popen | None = None) -> bool:
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))  # nunca usar proxy para localhost
     deadline = time.time() + timeout
     while time.time() < deadline:
+        if process is not None and process.poll() is not None:
+            return False  # el servidor terminó (error o DETENER_WINDOWS.bat) antes de estar listo
         try:
             with opener.open(f"http://127.0.0.1:{port}/_stcore/health", timeout=3) as resp:
                 if resp.status == 200:
@@ -122,8 +124,11 @@ def main() -> int:
     write_pid_file(pid_file, process.pid, port, host)
 
     print("Iniciando servidor...")
-    if not wait_healthy(port):
-        print("ERROR: el servidor no respondió a tiempo. Revisa logs\\app.log.")
+    if not wait_healthy(port, process=process):
+        if process.poll() is not None:
+            print("El servidor se detuvo antes de quedar listo. Si no lo detuviste tú, revisa logs\\app.log.")
+        else:
+            print("ERROR: el servidor no respondió a tiempo. Revisa logs\\app.log.")
         process.terminate()
         remove_pid_file(pid_file)
         return 1

@@ -145,3 +145,11 @@ def test_launcher_start_and_stop_scripts(isolated_env):
     finally:
         if launcher.poll() is None:
             launcher.kill()
+
+
+def test_python_app_py_delegates_to_launcher(isolated_env):
+    """'python app.py' (modo bare) no debe mostrar avisos ScriptRunContext: delega al lanzador."""
+    proc = subprocess.run([sys.executable, "app.py", "--check-only", "--no-browser"], cwd=ROOT, env=dict(os.environ),
+                          capture_output=True, text=True, timeout=300)
+    assert proc.returncode == 0 and "Verificación completada" in proc.stdout
+    assert "ScriptRunContext" not in proc.stdout + proc.stderr

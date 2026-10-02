@@ -1,6 +1,6 @@
 # FactoryLogix Knowledge Copilot
 
-**Versión 1.0.0 · Entorno inicial: DEMO**
+**Versión 1.0.1 · Entorno inicial: DEMO**
 
 Asistente inteligente interno para operadores, supervisores, Producto, Calidad, NPI, Ingeniería de Manufactura y
 MES. Responde **solo con conocimiento aprobado y vigente**, muestra siempre las fuentes (documento, versión,
@@ -45,6 +45,11 @@ El asistente **no ejecuta transacciones** en FactoryLogix (Proceed, Unproceed, R
    Se abre el navegador; la URL se muestra en la ventana.
 5. Inicia sesión como `admin`, cambia la contraseña (obligatorio) y explora.
 6. Para detener: cierra la ventana o ejecuta **`DETENER_WINDOWS.bat`**.
+
+> Desde una consola (cmd o PowerShell) dentro de la carpeta también puedes usar
+> `.venv\Scripts\python.exe app.py` (opcional: `--bind network`). No uses un Python sin el entorno `.venv`.
+> Antes de esta versión, `python app.py` solo mostraba avisos `missing ScriptRunContext` porque Streamlit requiere
+> su servidor; ahora delega automáticamente al lanzador.
 
 Detalles: [docs/MANUAL_INSTALACION.md](docs/MANUAL_INSTALACION.md).
 

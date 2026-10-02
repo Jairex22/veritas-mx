@@ -1,6 +1,6 @@
 [project]
 name = "factorylogix-knowledge-copilot"
-version = "1.0.0"
+version = "1.0.1"
 description = "Asistente interno RAG local y gobernado para FactoryLogix (operadores, supervisores, Producto, Calidad, NPI y MES)."
 readme = "README.md"
 requires-python = ">=3.10"
