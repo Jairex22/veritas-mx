@@ -1,0 +1,12 @@
+var/
+.env
+__pycache__/
+*.pyc
+*.db
+*.db-wal
+*.db-shm
+.pytest_cache/
+wheels/
+# Configuración real de la instalación (puede contener hosts internos)
+config/*.json
+!config/*.example.json

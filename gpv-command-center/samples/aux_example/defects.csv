@@ -1,0 +1,2 @@
+serial,timestamp,station,code,description,symptom,ref_designator,status
+EJEMPLO-0001,2026-10-30T08:40:00Z,FCT,EJ-01,Defecto de ejemplo,Formato de ejemplo,U1,OPEN

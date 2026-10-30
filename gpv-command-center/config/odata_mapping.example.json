@@ -1,0 +1,27 @@
+{
+  "_instrucciones": "Copie como odata_mapping.json. Complete los nombres EXACTOS de EntitySet y propiedades tal como aparecen en $metadata de SU instalación (página Conectores > Probar conexión > EntitySets descubiertos). No use los valores de ejemplo: son marcadores. Marque verified=true sólo cuando el responsable de FactoryLogix haya validado el mapeo.",
+  "verified": false,
+  "verified_by": "",
+  "verified_on": "",
+  "max_rows": 2000,
+  "events": {
+    "entity_set": "<EntitySetDeHistorial>",
+    "fields": {
+      "serial": "<PropiedadSerial>",
+      "ts": "<PropiedadFechaHora>",
+      "station": "<PropiedadEstacion>",
+      "operation": "<PropiedadTipoOperacion>",
+      "result": "<PropiedadResultado>",
+      "work_order": "<PropiedadOrden>",
+      "assembly": "<PropiedadEnsamble>",
+      "revision": "<PropiedadRevision>",
+      "line": "<PropiedadLinea>",
+      "operator": "<PropiedadOperador>"
+    },
+    "value_maps": {
+      "result": { "<ValorPassEnOrigen>": "PASS", "<ValorFailEnOrigen>": "FAIL" }
+    }
+  },
+  "defects": null,
+  "units": null
+}

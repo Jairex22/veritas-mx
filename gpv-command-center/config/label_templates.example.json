@@ -1,0 +1,15 @@
+[
+  {
+    "_nota": "Copie como label_templates.json para agregar plantillas. Los valores se escapan (^ y ~ se eliminan) para evitar inyección ZPL.",
+    "id": "gpv-serial-custom",
+    "name": "Serial GPV personalizado",
+    "language": "ZPL",
+    "width_dots": 406,
+    "height_dots": 203,
+    "fields": [
+      { "name": "serial", "label": "Serial", "pattern": "^[A-Za-z0-9._\\-/]{3,64}$", "required": true }
+    ],
+    "body": "^XA^FO20,30^BCN,90,Y,N,N^FD{{serial}}^FS^XZ",
+    "layout": [ { "type": "barcode", "x": 20, "y": 30, "height": 90, "value": "{{serial}}" } ]
+  }
+]

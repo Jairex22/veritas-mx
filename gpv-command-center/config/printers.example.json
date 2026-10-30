@@ -1,0 +1,12 @@
+[
+  {
+    "_nota": "Copie como printers.json. Sólo impresoras AUTORIZADAS por TI. En v1.0 sólo se comprueba el puerto TCP; la impresión real está deshabilitada.",
+    "id": "ZB-EMPAQUE-01",
+    "name": "Zebra ZT411 – Empaque L1",
+    "vendor": "Zebra",
+    "language": "ZPL",
+    "area": "EMPAQUE",
+    "host": "<ip-o-hostname>",
+    "port": 9100
+  }
+]

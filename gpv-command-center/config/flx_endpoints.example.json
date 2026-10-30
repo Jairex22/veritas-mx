@@ -1,0 +1,15 @@
+{
+  "_instrucciones": "Registro de endpoints de FactoryLogixAPI VERIFICADOS para esta instalación. Cada entrada requiere evidencia documental. En v1.0 este registro no habilita ninguna escritura; sirve como inventario para la fase 2.",
+  "endpoints": [
+    {
+      "name": "<nombre-descriptivo>",
+      "method": "GET",
+      "path": "<ruta-documentada>",
+      "documentation_ref": "<URL o documento oficial de AEGIS>",
+      "verified_by": "<responsable FactoryLogix GPV>",
+      "verified_on": "<AAAA-MM-DD>",
+      "license": "<módulo/licencia requerida>",
+      "notes": ""
+    }
+  ]
+}

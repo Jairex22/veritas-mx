@@ -1,0 +1,9 @@
+{
+  "_instrucciones": "Copie como user_roles.json. Asigna rol a cada cuenta de Windows autenticada por IIS (formato DOMINIO\\usuario, sin distinguir mayúsculas). Roles válidos: operator, engineering, quality, admin. Usuarios no listados no pueden entrar. Mantener aprobado por el responsable del sistema.",
+  "users": {
+    "GPV\\usuario.operador": "operator",
+    "GPV\\usuario.ingenieria": "engineering",
+    "GPV\\usuario.calidad": "quality",
+    "GPV\\usuario.admin": "admin"
+  }
+}
