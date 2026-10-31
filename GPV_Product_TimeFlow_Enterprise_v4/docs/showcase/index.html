@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPV Product TimeFlow · Recorrido visual</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+:root{--brand:#1f4fd8;--bg:#0b1120;--panel:#111a2e;--panel2:#162035;--border:#22304d;--text:#e8edf7;--muted:#8d9ab5;--ok:#4ade80;--warn:#fbbf24}
+*{box-sizing:border-box}html,body{margin:0}
+body{font-family:Inter,"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+a{color:#93b4ff}
+.hero{padding:40px 28px 24px;max-width:1240px;margin:0 auto}
+.hero .eyebrow{color:#93b4ff;font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;font-weight:600}
+.hero h1{margin:6px 0 8px;font-size:clamp(1.5rem,3vw,2.3rem);letter-spacing:-.02em}
+.hero p{color:var(--muted);max-width:70ch;margin:0}
+.facts{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+.fact{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:10px 14px;font-size:.84rem}
+.fact b{display:block;font-size:1.05rem;color:#fff}
+.note{margin-top:14px;font-size:.8rem;color:var(--warn);background:#33260a;border:1px solid #5c4413;border-radius:10px;padding:8px 12px;display:inline-block}
+.app{display:grid;grid-template-columns:270px 1fr;gap:20px;max-width:1240px;margin:16px auto 60px;padding:0 28px}
+nav{position:sticky;top:16px;align-self:start;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:10px;max-height:calc(100vh - 32px);overflow:auto}
+nav h3{font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:12px 10px 4px}
+nav button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--text);font:inherit;font-size:.88rem;padding:8px 10px;border-radius:9px;cursor:pointer}
+nav button:hover{background:var(--panel2)}nav button.active{background:#1b2a52;color:#fff;font-weight:600}
+nav button small{display:block;color:var(--muted);font-size:.74rem;font-weight:400}
+.viewer{background:var(--panel);border:1px solid var(--border);border-radius:16px;overflow:hidden;min-width:0}
+.vhead{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.vhead h2{margin:0;font-size:1.1rem}.vhead p{margin:2px 0 0;color:var(--muted);font-size:.86rem}
+.chip{font-size:.72rem;padding:3px 9px;border-radius:999px;background:#1b2a52;color:#93b4ff;font-weight:600;white-space:nowrap}
+.stage{background:#0f172a;padding:22px;display:flex;justify-content:center;align-items:flex-start;min-height:420px}
+.stage img{max-width:100%;height:auto;border-radius:10px;box-shadow:0 20px 50px rgba(0,0,0,.45);border:1px solid #2a3a5e;background:#fff}
+.stage.phone img{width:min(100%,330px);border-radius:28px;border:10px solid #1e293b;box-shadow:0 30px 60px rgba(0,0,0,.5)}
+.stage.fit img{max-height:78vh;object-fit:contain;object-position:top}
+.ctrls{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 18px;border-top:1px solid var(--border);flex-wrap:wrap}
+.btn{background:var(--panel2);border:1px solid var(--border);color:var(--text);font:inherit;font-weight:600;font-size:.86rem;padding:9px 14px;border-radius:10px;cursor:pointer}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn:disabled{opacity:.4;cursor:default}
+.counter{color:var(--muted);font-size:.84rem}
+.steps{display:flex;gap:6px;flex-wrap:wrap}
+.steps span{width:9px;height:9px;border-radius:50%;background:#2a3a5e}.steps span.on{background:var(--brand)}
+.caption{padding:12px 18px 16px;color:var(--muted);font-size:.9rem;border-top:1px solid var(--border)}
+.caption strong{color:var(--text)}
+footer{max-width:1240px;margin:0 auto 40px;padding:0 28px;color:var(--muted);font-size:.78rem}
+@media(max-width:900px){.app{grid-template-columns:1fr;padding:0 12px}nav{position:static;max-height:none}.hero{padding:26px 12px 16px}.stage{padding:10px}.stage.fit img{max-height:none}}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="eyebrow">GPV Americas · Departamento de Producto</div>
+  <h1>GPV Product TimeFlow Enterprise 4.0 — recorrido visual</h1>
+  <p>Solicitudes de tiempo extra, vacaciones y permisos con autorización de tres filtros (empleado → jefa directa → jefe superior → registro administrativo), firma electrónica, PDF con QR, Excel para el trámite administrativo y notificaciones.</p>
+  <div class="facts">
+    <div class="fact"><b>3 filtros</b>flujo obligatorio</div>
+    <div class="fact"><b>4 tipos</b>tiempo extra · vacaciones · con goce · sin goce</div>
+    <div class="fact"><b>Firma + QR</b>constancia por versión</div>
+    <div class="fact"><b>187 pruebas</b>automatizadas aprobadas</div>
+    <div class="fact"><b>200 usuarios</b>prueba de carga sin errores</div>
+    <div class="fact"><b>Web + móvil</b>responsiva 360 → 1920 px</div>
+  </div>
+  <div class="note">Todas las imágenes son capturas reales de la aplicación en ejecución (ambiente DEMO con datos sintéticos). Esta página es un recorrido guiado; la aplicación completa se ejecuta en un servidor .NET.</div>
+</header>
+
+<div class="app">
+  <nav id="nav" aria-label="Secciones"></nav>
+  <section class="viewer" aria-live="polite">
+    <div class="vhead"><div><h2 id="title"></h2><p id="sub"></p></div><span class="chip" id="chip"></span></div>
+    <div class="stage" id="stage"><img id="img" alt=""></div>
+    <div class="ctrls">
+      <button class="btn" id="prev">← Anterior</button>
+      <div class="steps" id="steps"></div>
+      <span class="counter" id="counter"></span>
+      <button class="btn primary" id="next">Siguiente →</button>
+    </div>
+    <div class="caption" id="cap"></div>
+  </section>
+</div>
+<footer>Flujo: EMPLEADO → JEFA DIRECTA → JEFE SUPERIOR → REGISTRO ADMINISTRATIVO / RH. La administración funcional pertenece a Producto; RH participa como receptor administrativo. Las firmas son electrónicas simples (constancia interna), no firma electrónica avanzada. Use ← → del teclado para navegar.</footer>
+
+<script>
+const S = [
+ {id:'inicio-sesion', t:'Inicio de sesión', items:[
+  ['desktop-login','Bienvenida','Pantalla «Bienvenido a GPV Product TimeFlow». En producción se entra con la cuenta corporativa (Microsoft Entra ID); en DEMO con usuarios sintéticos.','Escritorio']]},
+ {id:'panel', t:'Panel de inicio por rol', items:[
+  ['desktop-1920x1080-inicio','Panel de una jefa directa','«Hola, Laura». Indicadores propios, solicitudes por autorizar con marca de urgencia, equipo asignado, tiempo extra acumulado y próximas ausencias.','Escritorio 1920×1080'],
+  ['desktop-dashboard-empleado','Panel de un empleado','Saldo de vacaciones, tiempo extra del mes, solicitudes en trámite, autorizadas y rechazadas, y últimos movimientos.','Escritorio'],
+  ['extra-inicio-oscuro','Tema oscuro · Administrador de Producto','Mismo panel con tema oscuro y las secciones de administración (empleados, organigrama, configuración, correos, auditoría, salud del sistema).','Tema oscuro']]},
+ {id:'nueva-solicitud', t:'Nueva solicitud (asistente)', items:[
+  ['wizard-01-tipo','Paso 1 · Tipo','Cuatro tipos con explicación: tiempo extra, vacaciones, permiso con goce y permiso sin goce.','Asistente'],
+  ['wizard-02-datos','Paso 2 · Datos de tiempo extra','Fecha, horas y cálculo automático. Detecta cruce de medianoche (22:00 → 01:30 = 3.5 h), topes mensuales y traslapes con otras solicitudes.','Cálculo automático'],
+  ['desktop-1920x1080-nueva','Vacaciones con calendario visual','Selección de días tocando inicio y fin; cuenta solo días hábiles, excluye festivos, muestra saldo antes y después y avisa de ausencias del equipo.','Calendario'],
+  ['extra-nueva-sin-goce','Permiso sin goce de sueldo','Aviso destacado: la aplicación registra y autoriza, pero no aplica descuentos de nómina. Clasificación y justificación obligatorias.','Aviso'],
+  ['wizard-03-revision','Paso 4 · Revisión y envío','Resumen con folio asignado y ruta de autorización. El envío evita duplicados aunque se pulse dos veces.','Revisión']]},
+ {id:'autorizacion', t:'Autorización (filtros 1 y 2)', items:[
+  ['desktop-1920x1080-aprobaciones','Bandeja «Por autorizar»','Solo las solicitudes del filtro de quien inicia sesión, ordenadas por antigüedad, con filtros por tipo y búsqueda.','Jefa directa'],
+  ['firma-jefa-directa','Firmar y aprobar','Firma con dedo, lápiz o mouse y confirmación expresa de la versión y huella revisadas. La solicitud pasa automáticamente al jefe superior.','Firma electrónica'],
+  ['extra-campana','Notificaciones en tiempo real','Campana con contador; los avisos se conservan en base de datos y también se envían por correo (Outlook / Microsoft Graph).','Tiempo real']]},
+ {id:'expediente', t:'Expediente y PDF', items:[
+  ['desktop-expediente-completado','Expediente completado','Tres filtros aprobados, firmas vigentes con huellas SHA-256, registro administrativo e historial íntegro de cada movimiento.','Expediente'],
+  ['pdf-expediente','PDF imprimible (tamaño carta)','Formato con datos del empleado, detalle, autorizaciones, firmas y constancias, registro administrativo, historial y código QR de verificación.','PDF']]},
+ {id:'registro', t:'Registro administrativo (filtro 3) y Excel', items:[
+  ['desktop-registro-administrativo','Bandeja de registro administrativo','Recibe únicamente solicitudes con las dos autorizaciones: pendientes, con observaciones, registradas y procesadas. No modifica decisiones de los jefes.','Filtro 3'],
+  ['extra-reportes','Reportes y exportación a Excel','Excel con hojas de Resumen, Detalle (tabla con filtros) y Metadatos; cada exportación queda en bitácora con su huella.','Excel']]},
+ {id:'seguimiento', t:'Seguimiento del empleado', items:[
+  ['extra-mis-solicitudes','Mis solicitudes','Filtros por situación (en trámite, devueltas, autorizadas, rechazadas, borradores), tipo y búsqueda.','Listado'],
+  ['desktop-1920x1080-calendario','Calendario','Solicitudes propias, ausencias del equipo (sin revelar datos de compañeros) y festivos.','Calendario'],
+  ['extra-vacaciones','Saldo de vacaciones','Disponibles, utilizadas, aprobadas por disfrutar, en trámite, movimientos y planeación de días.','Saldos'],
+  ['extra-tiempo-extra','Resumen mensual de tiempo extra','Horas solicitadas, autorizadas, pendientes y rechazadas frente al máximo mensual configurado.','Tiempo extra'],
+  ['extra-notificaciones','Historial de notificaciones','Avisos de envíos, aprobaciones, devoluciones y registros; marcar como leído.','Avisos']]},
+ {id:'administracion', t:'Administración de Producto', items:[
+  ['desktop-admin-empleados-oscuro','Gestión de empleados','Alta, edición, jerarquía de autorización, roles, ajuste de saldos, desbloqueo e importación controlada desde Excel.','Empleados'],
+  ['extra-admin-organigrama','Organigrama de autorizaciones','Jerarquía vigente: dirección → jefes superiores → jefas directas → equipo.','Organigrama'],
+  ['extra-admin-configuracion','Configuración de políticas','Topes de tiempo extra, calendario laboral, vacaciones, recordatorios, buzón administrativo, color corporativo y leyenda del PDF.','Parámetros'],
+  ['extra-admin-correos','Monitor de correo','Cola con estado, intentos y errores; vista previa del HTML y reintento. En DEMO los correos no salen a ningún buzón.','Outlook'],
+  ['desktop-auditoria-oscuro','Auditoría encadenada','Bitácora inmutable con verificación de integridad por hash («Cadena íntegra»).','Seguridad'],
+  ['extra-admin-sistema','Salud del sistema','Base de datos, colas, memoria, ambiente, autenticación y proveedor de correo.','Operación']]},
+ {id:'celular', t:'En el celular', phone:true, items:[
+  ['extra-movil-login','Inicio de sesión','Diseño adaptado a pantalla táctil (390 px).','Móvil'],
+  ['mobile-360x800-inicio','Panel en 360 px','Barra inferior con acceso rápido y botón de nueva solicitud.','Móvil'],
+  ['extra-movil-aprobaciones','Bandeja de autorización','Tarjetas con folio, estado, tipo y duración.','Móvil'],
+  ['extra-movil-expediente','Expediente con acciones','Botones Devolver, Rechazar y Firmar y aprobar siempre visibles.','Móvil'],
+  ['extra-movil-firma','Firma táctil','Lienzo de firma con el dedo y confirmación.','Móvil'],
+  ['mobile-360x800-nueva','Nueva solicitud','Formulario por pasos en una columna.','Móvil'],
+  ['mobile-390x844-calendario','Calendario','Vista mensual compacta.','Móvil']]}
+];
+const flat=[];S.forEach(s=>s.items.forEach((it,i)=>flat.push({sec:s,file:it[0],title:it[1],cap:it[2],chip:it[3],first:i===0})));
+let idx=0;
+const nav=document.getElementById('nav');
+S.forEach(s=>{const h=document.createElement('h3');h.textContent=s.t;nav.appendChild(h);
+ s.items.forEach(it=>{const b=document.createElement('button');b.innerHTML=it[1];b.dataset.file=it[0];b.onclick=()=>go(flat.findIndex(f=>f.file===it[0]),true);nav.appendChild(b);});});
+function go(i,push){idx=(i+flat.length)%flat.length;const f=flat[idx];
+ document.getElementById('title').textContent=f.title;document.getElementById('sub').textContent=f.sec.t;
+ document.getElementById('chip').textContent=f.chip;document.getElementById('cap').innerHTML='<strong>'+f.title+'.</strong> '+f.cap;
+ const img=document.getElementById('img');img.src='img/'+f.file+'.png';img.alt=f.title;
+ const st=document.getElementById('stage');st.className='stage'+(f.sec.phone?' phone':' fit');
+ document.getElementById('counter').textContent=(idx+1)+' / '+flat.length;
+ document.getElementById('steps').innerHTML=f.sec.items.map(it=>'<span class="'+(it[0]===f.file?'on':'')+'"></span>').join('');
+ nav.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.file===f.file));
+ if(push&&f.first){try{history.replaceState(null,'','#'+f.sec.id)}catch(e){}}
+ window.scrollTo({top:Math.min(window.scrollY,document.querySelector('.app').offsetTop-8),behavior:'smooth'});}
+document.getElementById('prev').onclick=()=>go(idx-1,true);document.getElementById('next').onclick=()=>go(idx+1,true);
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight')go(idx+1,true);if(e.key==='ArrowLeft')go(idx-1,true);});
+function fromHash(){const h=location.hash.replace('#','');const i=flat.findIndex(f=>f.sec.id===h&&f.first);go(i<0?0:i,false);}
+window.addEventListener('hashchange',fromHash);fromHash();
+</script>
+</body>
+</html>
