@@ -13,6 +13,10 @@
 
 Compruebe: `dotnet --list-sdks` debe mostrar `10.0.x`.
 
+## 1.1 Ejecutar SIN instalar .NET (versión portátil)
+
+Para una demostración en un equipo sin SDK: `./scripts/publish-portable.sh win-x64` genera `dist/TimeFlow_Portable_win-x64.zip` con el runtime incluido. En el equipo destino basta descomprimir y ejecutar `Iniciar.cmd` (abre http://localhost:5101 en modo DEMO). También `linux-x64`, `osx-arm64` u `osx-x64` (lanzador `iniciar.sh`). Esta versión usa HTTP solo en localhost; no es para servidores.
+
 ## 2. Abrir en Visual Studio Code
 
 1. `Archivo → Abrir carpeta…` → `GPV_Product_TimeFlow_Enterprise_v4`.

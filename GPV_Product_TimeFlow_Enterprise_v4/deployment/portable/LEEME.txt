@@ -1,0 +1,21 @@
+GPV Product TimeFlow 4.0.0 - version portatil para Windows (x64)
+=================================================================
+No requiere instalar .NET ni nada mas: el runtime viene incluido.
+
+1. Descomprime esta carpeta en cualquier lugar (p. ej. el Escritorio).
+2. Doble clic en Iniciar.cmd. Si Windows SmartScreen pregunta, elige "Ejecutar de todas formas"
+   (el ejecutable no esta firmado digitalmente).
+3. Se abre http://localhost:5101 en tu navegador. La primera vez tarda ~20 s mientras crea
+   la base de datos DEMO con 200 empleados sinteticos.
+4. Cuentas DEMO (contrasena: Demo#TimeFlow2026):
+     Empleado ................ ana.empleada@demo.timeflow.example
+     Jefa directa ............ laura.jefa@demo.timeflow.example
+     Jefe superior ........... carlos.superior@demo.timeflow.example
+     Administrador Producto .. admin.producto@demo.timeflow.example
+     Registro administrativo . registro.admin@demo.timeflow.example
+5. Para detener: cierra la ventana negra. Para reiniciar los datos DEMO: borra la carpeta App_Data.
+
+Notas
+- Esta version usa HTTP en localhost solo para demostracion local; la version instalada en servidor usa HTTPS.
+- Los correos NO se envian: se guardan como HTML en App_Data\mail-drop.
+- Codigo fuente, documentacion y pruebas: GPV_Product_TimeFlow_Enterprise_v4.0.0.zip
