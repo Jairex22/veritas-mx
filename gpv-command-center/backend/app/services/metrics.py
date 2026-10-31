@@ -10,12 +10,12 @@ from datetime import datetime, timedelta, timezone
 from statistics import median
 from typing import Any
 
-from ..data.models import TEST_STATIONS, Unit, WorkOrder
+from ..data.models import Unit, WorkOrder
 
 DEFINITIONS = {
     "units_processed": "Seriales distintos con al menos un evento PASS de COMPLETE/TEST/PACK dentro de la ventana.",
     "units_packed": "Seriales con evento PACK PASS dentro de la ventana.",
-    "fpy": "First Pass Yield por estación de prueba = unidades cuyo PRIMER resultado de prueba en la estación (dentro de la ventana) fue PASS ÷ unidades probadas por primera vez en la ventana.",
+    "fpy": "First Pass Yield por estación con eventos TEST = unidades cuyo PRIMER resultado de prueba en la estación (dentro de la ventana) fue PASS ÷ unidades probadas por primera vez en la ventana.",
     "rty": "Rolled Throughput Yield = producto de FPY de las estaciones de prueba con datos.",
     "failure_rate": "Eventos TEST con resultado FAIL ÷ total de eventos TEST en la ventana.",
     "rework_rate": "Seriales con ≥1 reparación registrada en la ventana ÷ seriales con actividad de cierre (PASS) o reparación en la ventana.",
@@ -56,7 +56,7 @@ def compute_metrics(units: list[Unit], work_orders: list[WorkOrder], window_hour
             if e.operation == "TEST":
                 test_events += 1
                 fail_events += e.result == "FAIL"
-                if e.station in TEST_STATIONS and u.serial not in first_attempts[e.station]:
+                if u.serial not in first_attempts[e.station]:
                     first_attempts[e.station][u.serial] = e.result
             if e.operation in closing_ops and e.result in ("PASS", "FAIL") and e.station in open_start:
                 station_durations[e.station].append((e.ts - open_start.pop(e.station)).total_seconds() / 60)

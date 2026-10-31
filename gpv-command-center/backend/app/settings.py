@@ -60,7 +60,7 @@ class Settings:
 
     # Conectores (sin credenciales por defecto)
     odata_base_url: str = ""
-    odata_auth: str = "basic"  # basic | bearer | none
+    odata_auth: str = "basic"  # basic | bearer | ntlm | none
     odata_username: str = ""
     odata_password: str = field(default="", repr=False)
     odata_token: str = field(default="", repr=False)

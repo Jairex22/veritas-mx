@@ -1,10 +1,11 @@
 import { get, post } from "../api.js";
 import { card, chip, errorAlert, fmtDate, h, icon, loading, mount, pageHead, statusChip, toast } from "../ui.js";
+import { odataWizard } from "./odata_wizard.js";
 
 const INTEGRATIONS = [
   ["Generador DEMO", "Implementado", "ok", "Datos sintéticos deterministas; sólo modo DEMO."],
   ["OData · prueba de conexión", "Implementado", "ok", "GET $metadata, diagnóstico 401/403/404/5xx/TLS/timeout, descubrimiento de EntitySets."],
-  ["OData · lectura de trazabilidad", "Implementado · requiere mapeo", "warn", "Requiere config/odata_mapping.json verificado tras inspeccionar $metadata. No se asumen nombres de entidades."],
+  ["OData · lectura de trazabilidad", "Implementado · asistente de mapeo", "ok", "El asistente lee el $metadata real, muestra propiedades y datos, prueba el mapeo y lo activa sin reiniciar. Los nombres salen de su instalación, no se asumen."],
   ["OData · autenticación Windows (NTLM/Negotiate)", "Pendiente", "neutral", "Requiere aprobación de TI y librería adicional."],
   ["xTend API · transacciones", "Pendiente de verificación", "neutral", "Sin métodos verificados. Documentación oficial no accesible desde el entorno de desarrollo."],
   ["FactoryLogixAPI", "Pendiente de verificación", "neutral", "Sólo endpoints documentados y verificados para esta instalación (ninguno registrado)."],
@@ -48,6 +49,7 @@ export async function render(root, { can, refreshStatus }) {
     return slot;
   };
   const cfg = d.configuration;
+  const wizardSlot = h("div");
   mount(body, h("div", { class: "stack" },
     h("div", { class: "grid g-2" },
       card("Fuente de datos activa", h("div", { class: "stack", style: { gap: "8px" } },
@@ -63,8 +65,10 @@ export async function render(root, { can, refreshStatus }) {
         h("dt", null, "Ejecutores reales"), h("dd", null, cfg.real_executors_registered.length ? cfg.real_executors_registered.join(", ") : "Ninguno registrado (v1.0)"),
         h("dt", null, "Gestión"), h("dd", null, cfg.managed_by)), { iconName: "lock" })),
     h("div", { class: "grid g-2" }, d.connectors.map(connCard)),
+    can("connectors.probe") ? wizardSlot : null,
     card("Integraciones verificadas y pendientes", h("div", { class: "table-wrap" }, h("table", { class: "table" },
       h("thead", null, h("tr", null, h("th", null, "Integración"), h("th", null, "Estado"), h("th", null, "Notas"))),
       h("tbody", null, INTEGRATIONS.map(([n, st, tone, note]) => h("tr", null, h("td", null, h("b", null, n)), h("td", null, chip(st, tone)), h("td", { class: "muted" }, note)))))),
       { iconName: "layers" })));
+  if (can("connectors.probe")) odataWizard(wizardSlot, { can, refreshStatus, onActivated: () => render(root, { can, refreshStatus }) });
 }

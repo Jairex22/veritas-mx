@@ -63,8 +63,9 @@ python -m pip install --no-index --find-links wheels -r requirements.txt
 ## 4. Pasar a modo REAL (sólo lectura)
 
 1. `GPV_MODE=REAL` (desactiva automáticamente el login DEMO y los datos sintéticos).
-2. Elegir fuente: `GPV_REAL_DATA_SOURCE=odata` (ver `docs/INTEGRATIONS.md`) o `aux` con `GPV_AUX_DIR`.
-3. Reiniciar el servicio. En **Conectores**, ejecutar *Probar conexión*. El distintivo **CONECTADO** sólo aparece
+2. Elegir fuente: `GPV_REAL_DATA_SOURCE=odata` (con `GPV_ODATA_BASE_URL` y credenciales) o `aux` con `GPV_AUX_DIR`.
+3. Reiniciar el servicio. En **Conectores**, ejecutar *Probar conexión* y, para OData, el **Asistente de mapeo**
+   (Descubrir → Mapear → Probar → Activar; la activación no requiere reinicio). El distintivo **CONECTADO** sólo aparece
    cuando la fuente activa superó la prueba; **SOLO LECTURA** permanece mientras no existan transacciones verificadas.
 
 ## 5. Operación
@@ -85,6 +86,6 @@ Para correlacionar un error reportado por un usuario, buscar el *ID de correlaci
 scripts\run_tests.bat
 ```
 
-66 pruebas: aislamiento DEMO/producción, operaciones (CSRF, roles, confirmación, token, idempotencia,
+74 pruebas: aislamiento DEMO/producción, operaciones (CSRF, roles, confirmación, token, idempotencia,
 concurrencia, flujo), diagnóstico, conectores (401/500/timeout/TLS/metadata/mapeo), API, etiquetas,
-autenticación corporativa y frontend servido.
+autenticación corporativa, asistente de mapeo OData (v2/v4, guardado y activación) y frontend servido.

@@ -57,10 +57,10 @@ export async function render(root, { navigate }) {
 
     const orders = card("Órdenes de trabajo", dataTable([
       { key: "number", label: "Orden", render: (r) => h("a", { href: `#/trace?q=${encodeURIComponent(r.number)}&field=work_order`, class: "mono" }, r.number) },
-      { key: "assembly", label: "Ensamble", render: (r) => [r.assembly, h("span", { class: "faint" }, ` rev ${r.revision}`)] },
+      { key: "assembly", label: "Ensamble", render: (r) => [r.assembly || "—", r.revision ? h("span", { class: "faint" }, ` rev ${r.revision}`) : null] },
       { key: "line", label: "Línea" },
       { key: "quantity", label: "Cantidad", num: true },
-      { key: "status", label: "Estado", render: (r) => statusChip(r.status === "ACTIVE" ? "IN_PROCESS" : r.status === "CLOSED" ? "COMPLETE" : r.status) },
+      { key: "status", label: "Estado", render: (r) => r.status === "ACTIVE" ? statusChip("IN_PROCESS") : r.status === "CLOSED" ? statusChip("COMPLETE") : h("span", { class: "chip neutral", title: "La fuente no reporta estado de orden; cantidad = unidades observadas" }, "Derivada del historial") },
     ], metrics.work_orders), { iconName: "file" });
 
     mount(body, h("div", { class: "stack" }, kpis,

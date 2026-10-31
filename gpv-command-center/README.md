@@ -8,9 +8,10 @@ operaciones controladas, packing, control de etiquetas y Production Intelligence
   Sin npm, Docker, CDN ni instalación en estaciones: se usa desde cualquier navegador corporativo.
 * **Modos:** `DEMO` (datos sintéticos, operaciones simuladas) y `REAL` (sólo fuentes reales, solo lectura).
 
-> ⚠️ **Estado de integración:** ninguna transacción de escritura en FactoryLogix está habilitada en v1.0.
-> No se verificaron métodos xTend (la documentación oficial no fue accesible desde el entorno de desarrollo)
-> y no se inventaron endpoints. Ver [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md).
+> ⚠️ **Estado de integración:** la **lectura** real de FactoryLogix se hace vía OData con un **asistente de mapeo**
+> que descubre las entidades y propiedades de su instalación (Conectores → Asistente de mapeo OData). Ninguna
+> transacción de **escritura** está habilitada: no se verificaron métodos xTend (documentación oficial no accesible
+> desde el entorno de desarrollo) y no se inventaron endpoints. Ver [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md).
 
 ## Inicio rápido (DEMO)
 
@@ -53,8 +54,16 @@ Linux/macOS: `pip install -r requirements-dev.txt && scripts/run_tests.sh && scr
 | Centro de Operaciones | Flujo completo **simulado** en DEMO; **NO DISPONIBLE** en REAL |
 | Packing Intelligence | Validación funcional; empaque simulado en DEMO |
 | Label Control | Previsualización y control de reimpresión funcionales; impresión **simulada** |
-| Conectores (OData, xTend, FactoryLogixAPI, archivos) | Pruebas de conexión y diagnóstico funcionales; lectura OData requiere mapeo |
+| Conectores (OData, xTend, FactoryLogixAPI, archivos) | Pruebas de conexión y diagnóstico; **asistente de mapeo OData** (descubrir → mapear → probar → activar) |
 | Auditoría | Funcional (cadena SHA-256 verificable) |
+
+## Conectar a FactoryLogix (modo REAL, sólo lectura)
+
+1. En `.env`: `GPV_MODE=REAL`, `GPV_REAL_DATA_SOURCE=odata`, `GPV_ODATA_BASE_URL=https://<servidor>/<ruta-odata>`,
+   `GPV_ODATA_AUTH=basic|bearer|ntlm|none` y credenciales. Para entrar sin DEMO: `GPV_PROXY_AUTH_HEADER` + IIS
+   (ver `docs/DEPLOYMENT.md`) o, para una prueba local, un `config/user_roles.json` y el encabezado del proxy.
+2. Conectores → **Asistente de mapeo OData** → Descubrir → Mapear → Probar → Activar.
+3. Alternativa CLI: `py scripts\odata_discover.py --report inventario.json`.
 
 ## Documentación
 

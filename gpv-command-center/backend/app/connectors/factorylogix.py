@@ -8,6 +8,7 @@ sistema mapea explícitamente tras inspeccionar `$metadata`.
 from __future__ import annotations
 
 import json
+import re
 import socket
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -22,20 +23,72 @@ from .base import ConnectorState, ConnectorStatus, HttpClientFactory, now_iso
 def _odata_auth(settings: Settings) -> tuple[httpx.Auth | None, dict[str, str], str]:
     if settings.odata_auth == "bearer" and settings.odata_token:
         return None, {"Authorization": f"Bearer {settings.odata_token}"}, "token Bearer configurado (env GPV_ODATA_TOKEN)"
+    if settings.odata_auth == "ntlm" and settings.odata_username:
+        try:
+            from httpx_ntlm import HttpNtlmAuth  # dependencia opcional aprobada por TI
+        except ImportError:
+            return None, {}, ("NTLM solicitado pero el paquete opcional 'httpx-ntlm' no está instalado "
+                              "(pip install httpx-ntlm); se conecta sin credenciales")
+        return (HttpNtlmAuth(settings.odata_username, settings.odata_password), {},
+                f"NTLM usuario '{settings.odata_username}' (env GPV_ODATA_USERNAME / GPV_ODATA_PASSWORD)")
     if settings.odata_auth == "basic" and settings.odata_username:
         return (httpx.BasicAuth(settings.odata_username, settings.odata_password), {},
                 f"usuario '{settings.odata_username}' (env GPV_ODATA_USERNAME / GPV_ODATA_PASSWORD)")
     return None, {}, "sin credenciales configuradas"
 
 
-def parse_entity_sets(xml_text: str) -> list[str]:
-    """Extrae nombres de EntitySet de un documento $metadata (EDMX)."""
+def _local(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1]
+
+
+def parse_metadata(xml_text: str) -> dict[str, Any]:
+    """Interpreta un documento $metadata (EDMX, OData v2/v3/v4).
+
+    Devuelve los EntitySets con el tipo de entidad y sus propiedades (nombre,
+    tipo EDM, nulabilidad, clave). No asume ningún nombre: todo se lee del XML.
+    """
     try:
         root = ET.fromstring(xml_text)
     except ET.ParseError:
-        return []
-    names = [el.attrib["Name"] for el in root.iter() if el.tag.endswith("EntitySet") and "Name" in el.attrib]
-    return sorted(set(names))
+        return {"version": None, "entity_sets": [], "error": "El documento $metadata no es XML válido."}
+    version = root.attrib.get("Version")
+    types: dict[str, dict] = {}
+    for schema in (el for el in root.iter() if _local(el.tag) == "Schema"):
+        ns = schema.attrib.get("Namespace", "")
+        alias = schema.attrib.get("Alias")
+        for et in (el for el in schema if _local(el.tag) == "EntityType"):
+            keys = [pr.attrib.get("Name") for k in et if _local(k.tag) == "Key" for pr in k if _local(pr.tag) == "PropertyRef"]
+            props = [{"name": pe.attrib.get("Name"), "type": pe.attrib.get("Type", ""),
+                      "nullable": pe.attrib.get("Nullable", "true").lower() != "false",
+                      "key": pe.attrib.get("Name") in keys}
+                     for pe in et if _local(pe.tag) == "Property"]
+            navs = [pe.attrib.get("Name") for pe in et if _local(pe.tag) == "NavigationProperty"]
+            info = {"name": et.attrib.get("Name"), "namespace": ns, "properties": props, "navigation": navs,
+                    "base_type": et.attrib.get("BaseType")}
+            types[f"{ns}.{info['name']}"] = info
+            if alias:
+                types[f"{alias}.{info['name']}"] = info
+
+    def all_props(type_name: str, depth: int = 0) -> list[dict]:
+        t = types.get(type_name)
+        if not t or depth > 8:
+            return []
+        base = all_props(t["base_type"], depth + 1) if t.get("base_type") else []
+        return base + t["properties"]
+
+    sets = []
+    for es in (el for el in root.iter() if _local(el.tag) == "EntitySet" and "Name" in el.attrib):
+        tn = es.attrib.get("EntityType", "")
+        t = types.get(tn)
+        sets.append({"name": es.attrib["Name"], "entity_type": tn, "properties": all_props(tn),
+                     "navigation": t["navigation"] if t else []})
+    sets.sort(key=lambda x: x["name"].lower())
+    return {"version": version, "entity_sets": sets, "entity_type_count": len({id(v) for v in types.values()})}
+
+
+def parse_entity_sets(xml_text: str) -> list[str]:
+    """Extrae nombres de EntitySet de un documento $metadata (EDMX)."""
+    return [s["name"] for s in parse_metadata(xml_text)["entity_sets"]]
 
 
 class ODataConnector:
@@ -88,6 +141,71 @@ class ODataConnector:
                              capabilities={"read": r.state == ConnectorState.OK, "write": False}, discovered=discovered)
         self.last = st
         return st
+
+    # ------------------------------------------------------------------
+    # Descubrimiento (sólo GET) para el asistente de mapeo
+    # ------------------------------------------------------------------
+    def _check(self, resp: httpx.Response, what: str) -> None:
+        from .base import diagnose_http
+        from ..core.errors import DataSourceUnavailable
+        if resp.status_code != 200:
+            state, msg, diag = diagnose_http(resp, what)
+            raise DataSourceUnavailable(msg, code=f"ODATA_{state.value}",
+                                        details={"http_status": resp.status_code, "diagnosis": diag})
+
+    def _request(self, path: str, params: dict | None = None, accept: str = "application/json") -> httpx.Response:
+        from ..core.errors import DataSourceUnavailable, NotAvailable
+        if not self.configured:
+            raise NotAvailable("OData no configurado (GPV_ODATA_BASE_URL).", code="ODATA_NOT_CONFIGURED")
+        try:
+            with self.client() as c:
+                return c.get(path, params=params, headers={"Accept": accept})
+        except httpx.HTTPError as exc:
+            raise DataSourceUnavailable(f"OData no accesible: {type(exc).__name__}.", code="ODATA_UNREACHABLE")
+
+    def metadata(self, refresh: bool = False) -> dict[str, Any]:
+        cached = getattr(self, "_metadata", None)
+        if cached and not refresh:
+            return cached
+        resp = self._request("$metadata", accept="application/xml")
+        self._check(resp, "OData $metadata")
+        meta = parse_metadata(resp.text)
+        meta["fetched_at"] = now_iso()
+        self._metadata = meta
+        if self.last is None or self.last.state != ConnectorState.OK:
+            self.probe()
+        return meta
+
+    def sample(self, entity_set: str, top: int = 10, select: list[str] | None = None,
+               orderby: str | None = None, filter_expr: str | None = None) -> list[dict]:
+        """Lee hasta `top` filas (máx. 50) de un EntitySet. Sólo lectura."""
+        from ..core.errors import ValidationFailed
+        if not re.match(r"^[A-Za-z_][A-Za-z0-9_.]{0,127}$", entity_set):
+            raise ValidationFailed("Nombre de EntitySet inválido.")
+        params: dict[str, str] = {"$top": str(max(1, min(int(top), 50)))}
+        if select:
+            params["$select"] = ",".join(select)
+        if orderby:
+            params["$orderby"] = orderby
+        if filter_expr:
+            params["$filter"] = filter_expr
+        resp = self._request(entity_set, params=params)
+        self._check(resp, f"OData {entity_set}")
+        try:
+            payload = resp.json()
+        except ValueError:
+            from ..core.errors import DataSourceUnavailable
+            raise DataSourceUnavailable("La respuesta OData no es JSON (¿servicio v2 en formato Atom? pruebe $format=json).",
+                                        code="ODATA_NOT_JSON")
+        if isinstance(payload, dict):
+            if "value" in payload:
+                return list(payload["value"])
+            d = payload.get("d")  # OData v2
+            if isinstance(d, dict) and "results" in d:
+                return list(d["results"])
+            if isinstance(d, list):
+                return d
+        return list(payload) if isinstance(payload, list) else []
 
 
 class ReachabilityConnector:

@@ -6,9 +6,11 @@ conexión falla, se propaga un error explícito.
 from __future__ import annotations
 
 import csv
+import json
+import re
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -16,7 +18,7 @@ import httpx
 
 from ..connectors.base import diagnose_http
 from ..connectors.factorylogix import ODataConnector
-from ..core.errors import DataSourceUnavailable, NotFound
+from ..core.errors import DataSourceUnavailable, NotFound, ValidationFailed
 from .models import REPAIR_STATIONS, Defect, Event, Unit, WorkOrder
 from .source import ProductionDataSource
 
@@ -54,10 +56,12 @@ def build_units(event_rows: list[dict[str, Any]], defect_rows: list[dict[str, An
                 ts = _parse_ts(str(r.get("ts") or r.get("timestamp") or ""))
             except ValueError:
                 continue
+            result = str(r.get("result") or "INFO").upper()
+            # Sin tipo de operación en la fuente: un PASS/FAIL es una prueba; INFO es un paso completado.
+            operation = str(r.get("operation") or ("TEST" if result in ("PASS", "FAIL") else "HOLD" if result == "HOLD" else "COMPLETE")).upper()
             events.append(Event(id=str(r.get("id") or f"{serial}-{i}"), serial=serial, ts=ts,
                                 station=str(r.get("station") or "").upper(),
-                                operation=str(r.get("operation") or "COMPLETE").upper(),
-                                result=str(r.get("result") or "INFO").upper(), operator=str(r.get("operator") or ""),
+                                operation=operation, result=result, operator=str(r.get("operator") or ""),
                                 line=str(r.get("line") or ""), area=str(r.get("area") or ""),
                                 work_order=str(r.get("work_order") or ""), details=str(r.get("details") or "")))
         events.sort(key=lambda e: e.ts)
@@ -154,6 +158,89 @@ class AuxCsvDataSource(ProductionDataSource):
         return _work_orders_from_units(self.list_units())
 
 
+# ----------------------------------------------------------------------------
+# Esquema del mapeo OData (lo que el asistente ofrece y lo que valida el servidor)
+# ----------------------------------------------------------------------------
+MAPPING_SCHEMA: dict[str, dict[str, Any]] = {
+    "events": {
+        "label": "Historial de operaciones (obligatorio)",
+        "required": True,
+        "fields": {
+            "serial": ("Serial Number", True), "ts": ("Fecha/hora del evento", True), "station": ("Estación", True),
+            "result": ("Resultado (PASS/FAIL/HOLD)", True), "operation": ("Tipo de operación", False),
+            "work_order": ("Work Order", False), "assembly": ("Assembly Name", False), "revision": ("Product Revision", False),
+            "batch": ("Batch", False), "line": ("Line", False), "area": ("Area", False), "operator": ("Operador", False),
+            "panel_id": ("Panel", False), "details": ("Detalle / comentario", False), "id": ("Identificador del evento", False),
+        },
+        "value_maps": {"result": ["PASS", "FAIL", "HOLD", "INFO"],
+                       "operation": ["START", "COMPLETE", "TEST", "DEFECT", "REPAIR", "HOLD", "RELEASE", "PACK", "SCRAP"]},
+    },
+    "defects": {
+        "label": "Defectos (opcional)",
+        "required": False,
+        "fields": {
+            "serial": ("Serial Number", True), "ts": ("Fecha/hora", True), "station": ("Estación", True),
+            "code": ("Código de defecto", True), "description": ("Descripción", False), "symptom": ("Síntoma", False),
+            "ref_designator": ("Ref. designador", False), "status": ("Estado (OPEN/REPAIRED/VERIFIED)", False),
+            "id": ("Identificador del defecto", False),
+        },
+        "value_maps": {"status": ["OPEN", "REPAIRED", "VERIFIED"]},
+    },
+    "units": {
+        "label": "Estado actual de unidades (opcional)",
+        "required": False,
+        "fields": {
+            "serial": ("Serial Number", True), "status": ("Estado reportado", False), "current_station": ("Estación actual", False),
+            "work_order": ("Work Order", False), "assembly": ("Assembly Name", False), "revision": ("Product Revision", False),
+            "batch": ("Batch", False), "line": ("Line", False), "area": ("Area", False), "panel_id": ("Panel", False),
+        },
+        "value_maps": {"status": ["IN_PROCESS", "HOLD", "IN_REPAIR", "COMPLETE", "PACKED", "SCRAPPED"]},
+    },
+}
+_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_./]{0,127}$")
+
+
+def clean_mapping(raw: Any) -> dict:
+    """Normaliza un mapeo enviado por el asistente: elimina campos vacíos,
+    valida identificadores y conserva sólo las claves conocidas."""
+    if not isinstance(raw, dict):
+        raise ValidationFailed("El mapeo debe ser un objeto JSON.")
+    out: dict[str, Any] = {
+        "verified": bool(raw.get("verified")), "verified_by": str(raw.get("verified_by") or "")[:120],
+        "verified_on": str(raw.get("verified_on") or "")[:40], "notes": str(raw.get("notes") or "")[:500],
+        "odata_version": "2" if str(raw.get("odata_version") or "4").startswith("2") else "4",
+        "max_rows": max(50, min(int(raw.get("max_rows") or 2000), 50000)),
+        "window_hours": max(0, min(int(raw.get("window_hours") or 0), 24 * 366)),
+    }
+    for section, schema in MAPPING_SCHEMA.items():
+        sec = raw.get(section)
+        if not isinstance(sec, dict) or not sec.get("entity_set"):
+            out[section] = None
+            continue
+        es = str(sec["entity_set"]).strip()
+        if not _IDENT.match(es):
+            raise ValidationFailed(f"EntitySet inválido en '{section}': {es!r}.")
+        fields = {}
+        for ours, (label, required) in schema["fields"].items():
+            theirs = str((sec.get("fields") or {}).get(ours) or "").strip()
+            if theirs:
+                if not _IDENT.match(theirs):
+                    raise ValidationFailed(f"Propiedad inválida en '{section}.{ours}': {theirs!r}.")
+                fields[ours] = theirs
+            elif required:
+                raise ValidationFailed(f"Falta el campo obligatorio '{label}' en '{schema['label']}'.",
+                                       details={"fields": {f"{section}.{ours}": "Requerido."}})
+        vmaps = {}
+        for key, allowed in schema["value_maps"].items():
+            table = (sec.get("value_maps") or {}).get(key)
+            if isinstance(table, dict):
+                clean = {str(k)[:80]: str(v).upper() for k, v in table.items() if str(v).upper() in allowed}
+                if clean:
+                    vmaps[key] = clean
+        out[section] = {"entity_set": es, "fields": fields, "value_maps": vmaps}
+    return out
+
+
 class ODataDataSource(ProductionDataSource):
     """Lectura OData basada en un mapeo explícito de entidades y campos.
 
@@ -171,6 +258,8 @@ class ODataDataSource(ProductionDataSource):
         self.mapping = mapping
         self.label = "FactoryLogix OData (sólo lectura)"
         self.max_rows = int(mapping.get("max_rows", 2000))
+        self.window_hours = int(mapping.get("window_hours", 0) or 0)
+        self.v2 = str(mapping.get("odata_version", "4")).startswith("2")
         self._cache: tuple[float, list[Unit]] | None = None
         self._lock = threading.Lock()
 
@@ -184,23 +273,47 @@ class ODataDataSource(ProductionDataSource):
             state, msg, diag = diagnose_http(resp, f"OData {entity_set}")
             raise DataSourceUnavailable(msg, code=f"ODATA_{state.value}",
                                         details={"http_status": resp.status_code, "diagnosis": diag})
-        payload = resp.json()
-        return payload.get("value", payload if isinstance(payload, list) else [])
+        try:
+            payload = resp.json()
+        except ValueError:
+            raise DataSourceUnavailable("La respuesta OData no es JSON.", code="ODATA_NOT_JSON")
+        if isinstance(payload, dict):
+            if "value" in payload:
+                return list(payload["value"])
+            d = payload.get("d")
+            if isinstance(d, dict) and "results" in d:
+                return list(d["results"])
+            if isinstance(d, list):
+                return d
+        return list(payload) if isinstance(payload, list) else []
 
-    def _rows(self, section: str, filter_expr: str | None = None) -> list[dict]:
+    def _literal_datetime(self, dt: datetime) -> str:
+        iso = dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+        return f"datetime'{iso}'" if self.v2 else iso + "Z"
+
+    def _window_filter(self, section: str) -> str | None:
+        spec = self.mapping.get(section)
+        if not spec or not self.window_hours or "ts" not in spec["fields"]:
+            return None
+        since = datetime.now(timezone.utc) - timedelta(hours=self.window_hours)
+        return f"{spec['fields']['ts']} ge {self._literal_datetime(since)}"
+
+    def _rows(self, section: str, filter_expr: str | None = None, top: int | None = None) -> list[dict]:
         spec = self.mapping.get(section)
         if not spec:
             return []
         fields: dict[str, str] = spec["fields"]
-        params = {"$top": str(self.max_rows), "$select": ",".join(fields.values())}
+        params = {"$top": str(top or self.max_rows), "$select": ",".join(fields.values())}
+        if self.v2:
+            params["$format"] = "json"
         if filter_expr:
             params["$filter"] = filter_expr
         out = []
         for raw in self._get(spec["entity_set"], params):
-            row = {ours: raw.get(theirs) for ours, theirs in fields.items()}
+            row = {ours: _odata_value(raw.get(theirs)) for ours, theirs in fields.items()}
             for key, table in (spec.get("value_maps") or {}).items():
                 if row.get(key) is not None:
-                    row[key] = table.get(str(row[key]), row[key])
+                    row[key] = table.get(value_key(row[key]), row[key])
             out.append(row)
         return out
 
@@ -208,7 +321,8 @@ class ODataDataSource(ProductionDataSource):
         with self._lock:
             if self._cache and time.time() - self._cache[0] < self.CACHE_SECONDS:
                 return list(self._cache[1])
-            units = build_units(self._rows("events"), self._rows("defects"), self._rows("units"))
+            units = build_units(self._rows("events", self._window_filter("events")),
+                                self._rows("defects", self._window_filter("defects")), self._rows("units"))
             self._cache = (time.time(), units)
             return list(units)
 
@@ -229,6 +343,72 @@ class ODataDataSource(ProductionDataSource):
 
     def work_orders(self) -> list[WorkOrder]:
         return _work_orders_from_units(self.list_units())
+
+
+_V2_DATE = re.compile(r"^/Date\((-?\d+)([+-]\d{4})?\)/$")
+
+
+def value_key(v: Any) -> str:
+    """Clave textual estable para mapas de valores (booleanos en minúsculas, como JSON)."""
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    return str(v)
+
+
+def _odata_value(v: Any) -> Any:
+    """Normaliza valores OData v2 (/Date(ms)/) y objetos anidados a texto."""
+    if isinstance(v, str):
+        m = _V2_DATE.match(v)
+        if m:
+            return datetime.fromtimestamp(int(m.group(1)) / 1000, tz=timezone.utc).isoformat()
+        return v
+    if isinstance(v, dict):
+        return v.get("value") if "value" in v else json.dumps(v, default=str)[:200]
+    return v
+
+
+def preview_mapping(connector: ODataConnector, mapping: dict, top: int = 50) -> dict:
+    """Prueba un mapeo contra OData con pocas filas y devuelve un diagnóstico
+    de calidad: filas leídas, fechas no interpretables, valores de resultado /
+    operación no reconocidos (candidatos a value_maps) y unidades construidas."""
+    src = ODataDataSource(connector, mapping)
+    report: dict[str, Any] = {"sections": {}, "warnings": [], "units_preview": []}
+    rows_by_section: dict[str, list[dict]] = {}
+    for section in ("events", "defects", "units"):
+        if not mapping.get(section):
+            continue
+        rows = src._rows(section, top=max(5, min(top, 200)))
+        rows_by_section[section] = rows
+        info: dict[str, Any] = {"rows": len(rows), "unmapped_values": {}}
+        if not rows:
+            report["warnings"].append(f"'{section}': el EntitySet no devolvió filas (vacío, filtrado o $select rechazado).")
+        if "ts" in mapping[section]["fields"] and rows:
+            bad = 0
+            for r in rows:
+                try:
+                    _parse_ts(str(r.get("ts") or ""))
+                except ValueError:
+                    bad += 1
+            info["unparsable_timestamps"] = bad
+            if bad:
+                report["warnings"].append(f"'{section}': {bad} de {len(rows)} fechas no se pudieron interpretar "
+                                          f"(se esperan ISO-8601 o /Date(ms)/ de OData v2).")
+        for key, allowed in MAPPING_SCHEMA[section]["value_maps"].items():
+            if key in mapping[section]["fields"] and rows:
+                seen = sorted({value_key(r.get(key)) for r in rows if r.get(key) is not None})
+                unknown = [v for v in seen if v.upper() not in allowed]
+                info["unmapped_values"][key] = {"seen": seen[:40], "unknown": unknown[:40], "allowed": allowed}
+                if unknown:
+                    report["warnings"].append(f"'{section}.{key}': valores no reconocidos {unknown[:8]}; "
+                                              f"asígnelos en el mapa de valores ({', '.join(allowed)}).")
+        report["sections"][section] = info
+    units = build_units(rows_by_section.get("events", []), rows_by_section.get("defects"), rows_by_section.get("units"))
+    report["units_built"] = len(units)
+    report["units_preview"] = [u.summary() for u in units[:10]]
+    if mapping.get("events") and rows_by_section.get("events") and not units:
+        report["warnings"].append("No se pudo construir ninguna unidad: revise que 'serial' y 'ts' apunten a propiedades con datos.")
+    report["ok"] = bool(units) and not report["warnings"]
+    return report
 
 
 def validate_odata_mapping(mapping: Any) -> list[str]:

@@ -11,7 +11,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from .api import auth_routes, data_routes, ops_routes, system_routes
+from .api import auth_routes, data_routes, odata_routes, ops_routes, system_routes
 from .api.deps import SESSION_COOKIE
 from .container import Container
 from .core.context import get_correlation_id, new_correlation_id
@@ -93,7 +93,7 @@ def create_app(settings: Settings | None = None, *, db_path: str | Path | None =
         log.exception("Error no controlado", extra={"data": {"path": request.url.path}})
         return _error(500, "INTERNAL_ERROR", "Error interno. Consulte el identificador de correlación.")
 
-    for r in (auth_routes.router, data_routes.router, ops_routes.router, system_routes.router):
+    for r in (auth_routes.router, data_routes.router, ops_routes.router, odata_routes.router, system_routes.router):
         app.include_router(r)
 
     @app.get("/api/health", tags=["sistema"])

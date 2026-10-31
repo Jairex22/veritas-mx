@@ -5,10 +5,12 @@
 1. **Ninguna transacción real de FactoryLogix está implementada.** La documentación oficial de xTend no fue
    accesible desde el entorno de desarrollo; no se inventaron métodos. Todas las acciones reales muestran
    NO DISPONIBLE con requisitos faltantes. En DEMO se simulan en memoria.
-2. **Lectura OData no validada contra un FactoryLogix real.** Está probada con un servidor OData simulado.
-   Requiere mapeo verificado de entidades/campos. Carga hasta `max_rows` (2000 por defecto) para métricas y
-   diagnóstico; instalaciones grandes requerirán consultas agregadas o vistas de sólo lectura.
-3. **Autenticación NTLM/Negotiate hacia OData no soportada.** Si el servidor la exige, el diagnóstico lo indica.
+2. **Lectura OData validada sólo contra un servidor OData simulado (v2 y v4).** El asistente de mapeo obtiene los
+   nombres reales de su instalación, pero la semántica (qué EntitySet es el historial, qué valor significa PASS) la
+   confirma el responsable de FactoryLogix al verificar el mapeo. Carga hasta `max_rows` (2000) dentro de una
+   ventana de horas para métricas y diagnóstico; instalaciones grandes requerirán vistas agregadas.
+3. **Autenticación Negotiate/Kerberos hacia OData no soportada** (NTLM opcional con `httpx-ntlm`). Si el servidor
+   la exige, el diagnóstico lo indica.
 4. **SSO:** disponible sólo vía IIS + Autenticación de Windows; OIDC/Entra ID pendiente.
 5. **Impresión real deshabilitada.** Sólo se comprueba el puerto TCP de impresoras configuradas. La
    previsualización es esquemática (el código de barras no es escaneable). BarTender pendiente.

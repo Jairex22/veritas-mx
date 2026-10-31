@@ -13,8 +13,8 @@
 |-------------|-------------|---------|
 | Generador DEMO | ✅ Implementado | Datos sintéticos deterministas, prefijo `DEMO`. Sólo en `GPV_MODE=DEMO`. |
 | OData – prueba de conexión | ✅ Implementado y probado (con servidor simulado) | `GET <base>/$metadata`. Diagnóstico de 401 (incluye esquemas `WWW-Authenticate`), 403, 404, 5xx, TLS, timeout. Sin reintentos con credenciales alternativas. Descubre EntitySets. |
-| OData – lectura de trazabilidad | ⚠️ Implementado, **no probado contra FactoryLogix real** | Requiere `config/odata_mapping.json` con `verified: true`. Sólo `GET` con `$select`, `$filter`, `$top`. |
-| OData – auth Windows (NTLM/Negotiate) | ⏳ Pendiente | Requiere aprobación de TI y una librería adicional (p. ej. `httpx-ntlm`/SSPI). Se detecta y se informa en el diagnóstico. |
+| OData – lectura de trazabilidad | ✅ Implementado con **asistente de mapeo** (probado con servidor OData simulado v2 y v4) | El asistente (Conectores) lee el `$metadata` real, muestra propiedades y datos de muestra, prueba el mapeo y lo activa sin reiniciar. Sólo `GET` con `$select`, `$filter`, `$top`, `$format`. Pendiente: ejecutarlo contra la instalación de GPV. |
+| OData – auth Windows NTLM | 🟡 Opcional | `GPV_ODATA_AUTH=ntlm` + `pip install httpx-ntlm` (aprobación de TI). Negotiate/Kerberos: pendiente. |
 | xTend API – transacciones | ⏳ Pendiente de verificación | Sólo prueba de alcance de la URL base. Ninguna acción usa xTend. |
 | FactoryLogixAPI | ⏳ Pendiente de verificación | Sólo prueba de alcance. Inventario en `config/flx_endpoints.example.json`. |
 | Archivos auxiliares CSV | ✅ Implementado | `events.csv` (+ `defects.csv`) en `GPV_AUX_DIR`. Sólo lectura. |
@@ -59,13 +59,22 @@ registrarlo en `OperationsService.real_executors`, agregar pruebas con transport
 `GPV_ALLOW_PRODUCTION_WRITES=true` sólo en el servidor autorizado. Nunca usar Change Product,
 modificación de base de datos ni manipulación de estados para eludir controles de proceso.
 
-## Configurar la lectura OData
+## Configurar la lectura OData (asistente)
 
-1. En el servidor, definir `GPV_ODATA_BASE_URL`, `GPV_ODATA_AUTH` y credenciales (variables de entorno).
-2. En **Conectores → FactoryLogix OData → Probar conexión**. Si responde 401/403, seguir el diagnóstico
-   con el administrador; no intentar otras credenciales.
-3. Con estado OK, revisar *EntitySets descubiertos* y, con el responsable del sistema, identificar el conjunto
-   de historial de operaciones y sus propiedades.
-4. Copiar `config/odata_mapping.example.json` a `config/odata_mapping.json`, completar los nombres exactos,
-   `verified: true`, `verified_by`, `verified_on`.
-5. `GPV_MODE=REAL`, `GPV_REAL_DATA_SOURCE=odata` y reiniciar el servicio.
+1. En el servidor, definir `GPV_ODATA_BASE_URL`, `GPV_ODATA_AUTH` (`basic`, `bearer`, `ntlm`, `none`) y las credenciales
+   en variables de entorno / `.env`. `GPV_MODE=REAL`, `GPV_REAL_DATA_SOURCE=odata`.
+2. Entrar con rol Ingeniería o Administrador → **Conectores → Asistente de mapeo OData**:
+   * **Descubrir:** lee `$metadata`; si responde 401/403 se muestra el diagnóstico (no se intentan otras credenciales).
+   * **Mapear:** seleccionar el EntitySet de historial y, con selectores poblados con las propiedades reales, asignar
+     Serial, Fecha/hora, Estación, Resultado (obligatorios) y los opcionales (Work Order, Assembly, Revisión, Lote,
+     Línea, Área, Operador, Panel, tipo de operación). "Ver datos de muestra" lee 10 filas para confirmar el contenido.
+     Los valores de resultado/operación de la instalación (p. ej. `true/false`, `1/0`, `Passed/Failed`) se traducen en
+     el mapa de valores. Las secciones Defectos y Estado de unidades son opcionales.
+   * **Probar:** lee hasta 100 filas, reporta fechas no interpretables, valores no reconocidos y muestra las unidades
+     construidas con datos reales.
+   * **Activar:** sólo Administrador; exige confirmar la verificación. El mapeo se guarda firmado (`verified_by`,
+     `verified_on`) y la fuente se recarga sin reiniciar. La auditoría registra cada paso.
+3. Alternativa por línea de comandos en el servidor: `py scripts\odata_discover.py [--sample EntitySet] [--report inventario.json]`.
+
+Qué debe decidir el responsable de FactoryLogix: qué EntitySet contiene el historial de operaciones por serial,
+qué propiedad distingue PASS/FAIL y, si existe, cuál indica el tipo de operación. Ninguno de esos nombres se asume.

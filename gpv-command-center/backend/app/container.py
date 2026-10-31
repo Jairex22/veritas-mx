@@ -55,6 +55,16 @@ class Container:
         self.operations = OperationsService(settings, self.db, self.audit, self.source, self.secret)
         self.labels = LabelService(settings, self.db, self.audit)
 
+    def reload_source(self) -> ProductionDataSource:
+        """Vuelve a seleccionar la fuente de datos (p. ej. tras guardar un mapeo OData)."""
+        self.source_note = ""
+        self.source = self._select_source(None if not self.settings.is_demo else self.source)
+        self.operations.source = self.source
+        if self.source.provenance()["kind"] == "ODATA":
+            # Verifica la conexión para que el estado CONECTADO refleje una prueba real.
+            self.connectors.odata.probe()
+        return self.source
+
     def _select_source(self, demo_source: DemoDataSource | None) -> ProductionDataSource:
         s = self.settings
         if s.is_demo:
@@ -63,6 +73,10 @@ class Container:
             if not s.odata_base_url:
                 return UnavailableDataSource("Modo REAL con fuente OData, pero GPV_ODATA_BASE_URL no está configurada.")
             mapping = load_json_config(s.config_dir, s.odata_mapping_file)
+            if mapping is None:
+                self.source_note = (f"No existe {s.config_dir / s.odata_mapping_file}. Use el asistente de mapeo OData "
+                                    "en Conectores (rol Ingeniería/Administrador) para generarlo desde el $metadata real.")
+                return UnavailableDataSource(self.source_note)
             errors = validate_odata_mapping(mapping)
             if errors:
                 self.source_note = " ".join(errors)
