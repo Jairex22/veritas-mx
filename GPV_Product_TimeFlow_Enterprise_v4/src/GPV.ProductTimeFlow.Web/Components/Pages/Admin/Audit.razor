@@ -1,0 +1,40 @@
+@page "/admin/auditoria"
+@attribute [Authorize(Roles = "ProductAdmin")]
+@inject ServiceRunner Runner
+@inject ToastService Toasts
+
+<PageTitle>Auditoría · GPV Product TimeFlow</PageTitle>
+<PageHeader Title="Bitácora de auditoría" Eyebrow="Seguridad" Subtitle="Registro inmutable a nivel de aplicación, encadenado por hash SHA-256 para detectar alteraciones.">
+    <Actions><button class="btn btn-primary" @onclick="Verify" disabled="@verifying" data-testid="verify-audit">@if (verifying) { <span class="spinner"></span> } <Icon Name="shield" Size="18" /> Verificar integridad</button></Actions>
+</PageHeader>
+@if (verification is not null)
+{
+    <div class="alert @(verification.IsValid ? "success" : "error")" style="margin-bottom:16px"><Icon Name="@(verification.IsValid ? "check-circle" : "alert")" /><div><strong>@(verification.IsValid ? "Cadena íntegra" : "Alteración detectada")</strong>@verification.Message · @Format.DateTime(verification.VerifiedAtUtc)</div></div>
+}
+<div class="card">
+    <div class="toolbar"><input class="input" style="max-width:320px;min-height:38px" type="search" placeholder="Acción, usuario, entidad o detalle" @bind="search" @bind:after="Reload" aria-label="Buscar en auditoría" /></div>
+    @if (result is null) { <div class="card-body"><div class="skeleton"></div></div> }
+    else
+    {
+        <div class="table-wrap"><table class="data">
+            <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Entidad</th><th>Detalle</th><th>Hash</th></tr></thead>
+            <tbody>@foreach (var a in result.Items)
+            {
+                <tr><td class="nowrap">@Format.DateTime(a.OccurredAtUtc)</td><td>@a.ActorName<div class="cell-sub">@a.IpAddress</div></td><td><code>@a.Action</code></td>
+                    <td>@a.EntityType<div class="cell-sub mono">@a.EntityId</div></td><td class="small" style="max-width:360px;word-break:break-word">@a.Details</td><td class="mono muted">@a.Hash[..12]…</td></tr>
+            }</tbody>
+        </table></div>
+        <Pager Page="page" PageSize="50" Total="result.TotalCount" OnPage="Go" />
+    }
+</div>
+@code {
+    private PagedResult<AuditEntryDto>? result;
+    private AuditVerificationDto? verification;
+    private string? search;
+    private int page = 1;
+    private bool verifying;
+    protected override Task OnInitializedAsync() => Reload();
+    private async Task Go(int p) { page = p; await Reload(); }
+    private async Task Reload() { try { result = await Runner.Run<AuditService, PagedResult<AuditEntryDto>>((s, a) => s.ListAsync(a, search, page, 50)); } catch (Exception ex) { Toasts.Error(ex); } }
+    private async Task Verify() { verifying = true; try { verification = await Runner.Run<AuditService, AuditVerificationDto>((s, a) => s.VerifyAsync(a)); } catch (Exception ex) { Toasts.Error(ex); } finally { verifying = false; } }
+}

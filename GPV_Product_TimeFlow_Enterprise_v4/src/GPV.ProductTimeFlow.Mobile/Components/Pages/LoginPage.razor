@@ -1,0 +1,128 @@
+@page "/login"
+@layout BlankLayout
+@attribute [PublicPage]
+@inherits TimeFlowComponentBase
+@inject ServerSettings Settings
+
+<div class="login">
+    <div class="login-hero">
+        <div class="brand-mark brand-mark-lg" aria-hidden="true"></div>
+        <h1 tabindex="-1">Bienvenido a GPV Product TimeFlow</h1>
+        <p class="muted">Tiempo extra, vacaciones y permisos con autorización en tres filtros.</p>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Auth.SignOutReason))
+    {
+        <div class="alert alert-attention" role="status">@Auth.SignOutReason</div>
+    }
+
+    <form class="card stack" @onsubmit="LoginAsync" @onsubmit:preventDefault>
+        <div class="field">
+            <label for="email">Correo corporativo</label>
+            <input id="email" type="email" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false"
+                   placeholder="nombre@empresa.com" @bind="_email" @bind:event="oninput" disabled="@Busy" />
+        </div>
+        <div class="field">
+            <label for="password">Contraseña</label>
+            <div class="input-with-action">
+                <input id="password" type="@(_showPassword ? "text" : "password")" autocomplete="current-password"
+                       @bind="_password" @bind:event="oninput" disabled="@Busy" />
+                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _showPassword = !_showPassword"
+                        aria-label="@(_showPassword ? "Ocultar contraseña" : "Mostrar contraseña")">@(_showPassword ? "Ocultar" : "Mostrar")</button>
+            </div>
+        </div>
+
+        <ErrorAlert Message="@ErrorMessage" Details="ErrorDetails" />
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg" disabled="@(Busy || !CanSubmit)">
+            @if (Busy)
+            {
+                <span class="spinner" aria-hidden="true"></span>
+                <span>Iniciando sesión…</span>
+            }
+            else
+            {
+                <span>Iniciar sesión</span>
+            }
+        </button>
+    </form>
+
+    @if (ShowDemoHint)
+    {
+        <section class="demo-box" aria-labelledby="demo-title">
+            <h2 id="demo-title">Cuentas sintéticas de DEMO</h2>
+            <p class="small">Solo para el ambiente de demostración. Son personas ficticias; ningún correo se envía a buzones reales.
+                Contraseña de todas: <code>@DemoPassword</code></p>
+            <ul class="demo-accounts">
+                @foreach (var (email, role) in DemoAccounts)
+                {
+                    <li>
+                        <button type="button" class="demo-account" disabled="@Busy" @onclick="() => UseDemo(email)">
+                            <span class="demo-role">@role</span>
+                            <span class="demo-email">@email</span>
+                        </button>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+
+    <p class="login-server small muted">
+        Servidor: <strong>@Settings.BaseUri.Authority</strong> · <a href="/ajustes">Cambiar</a>
+    </p>
+</div>
+
+@code {
+    private const string DemoPassword = "Demo#TimeFlow2026";
+
+    private static readonly (string Email, string Role)[] DemoAccounts =
+    [
+        ("ana.empleada@demo.timeflow.example", "Empleada"),
+        ("laura.jefa@demo.timeflow.example", "Jefa directa"),
+        ("carlos.superior@demo.timeflow.example", "Jefe superior"),
+        ("registro.admin@demo.timeflow.example", "Registro administrativo"),
+        ("admin.producto@demo.timeflow.example", "Administración de Producto"),
+    ];
+
+    private string _email = "";
+    private string _password = "";
+    private bool _showPassword;
+
+    private bool CanSubmit => _email.Contains('@') && _password.Length > 0;
+
+    /// <summary>Visible si aún no se conoce el ambiente o el último servidor informó modo Demo.</summary>
+    private bool ShowDemoHint => Settings.LastEnvironmentMode is not { } mode || mode.Equals("Demo", StringComparison.OrdinalIgnoreCase);
+
+    protected override void OnInitialized()
+    {
+        if (Auth.IsAuthenticated) Nav.NavigateTo("/", replace: true);
+    }
+
+    private void UseDemo(string email)
+    {
+        _email = email;
+        _password = DemoPassword;
+    }
+
+    private async Task LoginAsync()
+    {
+        if (Busy || !CanSubmit) return;
+        var ok = await RunAsync(async ct =>
+        {
+            try
+            {
+                await Auth.LoginAsync(_email, _password, ct);
+            }
+            catch (ApiException ex) when (ex.Status == System.Net.HttpStatusCode.Unauthorized)
+            {
+                // El cliente compartido reemplaza el detalle de cualquier 401 por "Tu sesión expiró…"; en el login significa credenciales inválidas.
+                throw new UserFacingException("Correo o contraseña incorrectos.");
+            }
+        });
+        if (ok)
+        {
+            _password = "";
+            Nav.NavigateTo("/", replace: true);
+        }
+    }
+}

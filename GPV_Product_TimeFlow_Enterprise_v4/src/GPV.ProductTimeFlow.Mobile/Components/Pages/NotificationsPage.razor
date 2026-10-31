@@ -1,0 +1,134 @@
+@page "/notificaciones"
+@inherits TimeFlowComponentBase
+@inject NotificationCenter Notifications
+
+<div class="page stack">
+    <PageHeader Title="Notificaciones" Subtitle="@(Notifications.UnreadCount > 0 ? $"{Notifications.UnreadCount} sin leer" : "Todo al día")" BackHref="/mas">
+        @if (Notifications.UnreadCount > 0)
+        {
+            <button type="button" class="btn btn-ghost btn-sm" disabled="@Busy" @onclick="MarkAllAsync">Marcar todas</button>
+        }
+    </PageHeader>
+
+    <div class="segmented" role="tablist" aria-label="Filtro">
+        <button type="button" role="tab" class="@(!_unreadOnly ? "active" : "")" aria-selected="@(!_unreadOnly ? "true" : "false")" @onclick="() => SetFilterAsync(false)">Todas</button>
+        <button type="button" role="tab" class="@(_unreadOnly ? "active" : "")" aria-selected="@(_unreadOnly ? "true" : "false")" @onclick="() => SetFilterAsync(true)">Sin leer</button>
+    </div>
+
+    <ErrorAlert Message="@ErrorMessage" Details="ErrorDetails" OnRetry="() => LoadAsync(1)" />
+
+    @if (_items.Count == 0)
+    {
+        if (Busy)
+        {
+            <LoadingState Rows="4" />
+        }
+        else if (ErrorMessage is null)
+        {
+            <EmptyState Title="@(_unreadOnly ? "No tienes notificaciones sin leer" : "Sin notificaciones")" />
+        }
+    }
+    else
+    {
+        <ul class="notification-list">
+            @foreach (var n in _items)
+            {
+                <li class="notification @(n.IsRead ? "" : "unread")" @key="n.Id">
+                    <button type="button" class="notification-body" @onclick="() => OpenAsync(n)">
+                        <span class="notification-dot" aria-hidden="true"></span>
+                        <span class="notification-text">
+                            <strong>@n.Title</strong>
+                            <span>@n.Message</span>
+                            <span class="muted small">@Fmt.Relative(n.CreatedAtUtc)</span>
+                        </span>
+                    </button>
+                    @if (!n.IsRead)
+                    {
+                        <button type="button" class="btn btn-ghost btn-sm" aria-label="@($"Marcar como leída: {n.Title}")" @onclick="() => MarkReadAsync(n)">Leída</button>
+                    }
+                </li>
+            }
+        </ul>
+        @if (_page < _totalPages)
+        {
+            <button type="button" class="btn btn-secondary btn-block" disabled="@Busy" @onclick="() => LoadAsync(_page + 1)">Cargar más</button>
+        }
+    }
+</div>
+
+@code {
+    private readonly List<NotificationDto> _items = [];
+    private bool _unreadOnly;
+    private int _page = 1;
+    private int _totalPages;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Notifications.Changed += OnCenterChanged;
+        Notifications.Received += OnReceived;
+        await LoadAsync(1);
+    }
+
+    private async Task LoadAsync(int page)
+    {
+        var unreadOnly = _unreadOnly;
+        await RunAsync(async ct =>
+        {
+            var result = await Client.NotificationsAsync(unreadOnly, page, ct);
+            if (page == 1) _items.Clear();
+            _items.AddRange(result.Items.Where(i => _items.All(x => x.Id != i.Id)));
+            _page = result.Page;
+            _totalPages = result.TotalPages;
+        });
+    }
+
+    private async Task SetFilterAsync(bool unreadOnly)
+    {
+        if (_unreadOnly == unreadOnly || Busy) return;
+        _unreadOnly = unreadOnly;
+        await LoadAsync(1);
+    }
+
+    private async Task MarkReadAsync(NotificationDto n)
+    {
+        var ok = await RunAsync(ct => Client.MarkNotificationReadAsync(n.Id, ct));
+        if (!ok) return;
+        Replace(n with { IsRead = true });
+        await Notifications.RefreshAsync(PageToken);
+    }
+
+    private async Task OpenAsync(NotificationDto n)
+    {
+        if (!n.IsRead) await MarkReadAsync(n);
+        if (n.RequestId is { } id) Nav.NavigateTo($"/solicitudes/{id}?desde=/notificaciones");
+    }
+
+    private async Task MarkAllAsync()
+    {
+        var ok = await RunAsync(ct => Client.MarkAllNotificationsReadAsync(ct));
+        if (!ok) return;
+        Notifications.SetUnread(0);
+        await LoadAsync(1);
+    }
+
+    private void Replace(NotificationDto updated)
+    {
+        var index = _items.FindIndex(x => x.Id == updated.Id);
+        if (_unreadOnly && updated.IsRead && index >= 0) _items.RemoveAt(index);
+        else if (index >= 0) _items[index] = updated;
+    }
+
+    private void OnCenterChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void OnReceived(NotificationDto n) => _ = InvokeAsync(() =>
+    {
+        if (_items.All(x => x.Id != n.Id)) _items.Insert(0, n);
+        StateHasChanged();
+    });
+
+    protected override void OnDispose()
+    {
+        Notifications.Changed -= OnCenterChanged;
+        Notifications.Received -= OnReceived;
+    }
+}

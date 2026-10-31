@@ -1,0 +1,74 @@
+@implements IDisposable
+@inject NavigationManager Nav
+@inject NotificationCenter Notifications
+
+<nav class="bottom-nav" aria-label="Navegación principal">
+    <a href="/" class="@Active(Section.Home)" aria-current="@Current(Section.Home)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" /></svg>
+        <span>Inicio</span>
+    </a>
+    <a href="/solicitudes" class="@Active(Section.Requests)" aria-current="@Current(Section.Requests)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8M8 4a2 2 0 0 0-2 2v0H5a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1v0a2 2 0 0 0-2-2M8 11h8M8 15h5" /></svg>
+        <span>Solicitudes</span>
+    </a>
+    <a href="/solicitudes/nueva" class="nav-new @Active(Section.New)" aria-current="@Current(Section.New)">
+        <span class="nav-new-circle"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></span>
+        <span>Nueva</span>
+    </a>
+    <a href="/calendario" class="@Active(Section.Calendar)" aria-current="@Current(Section.Calendar)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 10h18" /></svg>
+        <span>Calendario</span>
+    </a>
+    <a href="/mas" class="@Active(Section.More)" aria-current="@Current(Section.More)">
+        <span class="nav-icon-wrap">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" /></svg>
+            @if (Notifications.UnreadCount > 0)
+            {
+                <span class="badge-dot" aria-label="Hay notificaciones sin leer"></span>
+            }
+        </span>
+        <span>Más</span>
+    </a>
+</nav>
+
+@code {
+    private enum Section { Home, Requests, New, Calendar, More, None }
+
+    private Section _current;
+
+    protected override void OnInitialized()
+    {
+        _current = Resolve(Nav.Uri);
+        Nav.LocationChanged += OnLocationChanged;
+        Notifications.Changed += OnNotificationsChanged;
+    }
+
+    private Section Resolve(string uri)
+    {
+        var path = Nav.ToBaseRelativePath(uri).Split('?', '#')[0].Trim('/').ToLowerInvariant();
+        if (path.Length == 0) return Section.Home;
+        if (path == "solicitudes/nueva" || path.EndsWith("/editar", StringComparison.Ordinal)) return Section.New;
+        if (path.StartsWith("solicitudes", StringComparison.Ordinal)) return Section.Requests;
+        if (path.StartsWith("calendario", StringComparison.Ordinal)) return Section.Calendar;
+        if (path is "mas" or "vacaciones" or "notificaciones" or "ajustes") return Section.More;
+        return Section.None;
+    }
+
+    private string Active(Section s) => s == _current ? "active" : "";
+
+    private string? Current(Section s) => s == _current ? "page" : null;
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        _current = Resolve(e.Location);
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void OnNotificationsChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+        Notifications.Changed -= OnNotificationsChanged;
+    }
+}

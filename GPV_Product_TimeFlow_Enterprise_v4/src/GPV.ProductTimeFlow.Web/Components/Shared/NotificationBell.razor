@@ -1,0 +1,109 @@
+@implements IAsyncDisposable
+@inject ServiceRunner Runner
+@inject UserSession Session
+@inject GPV.ProductTimeFlow.Infrastructure.InProcessNotificationBus Bus
+@inject ToastService Toasts
+@inject NavigationManager Nav
+
+<div style="position:relative">
+    <button class="icon-btn" @onclick="Toggle" aria-label="@($"Notificaciones: {unread} sin leer")" aria-expanded="@open" data-testid="bell">
+        <Icon Name="bell" />
+        @if (unread > 0) { <span class="dot">@(unread > 99 ? "99+" : unread)</span> }
+    </button>
+    @if (open)
+    {
+        <div class="notif-panel" role="dialog" aria-label="Notificaciones">
+            <div class="notif-head">
+                <strong>Notificaciones</strong>
+                <div class="row">
+                    @if (unread > 0) { <button class="btn btn-sm btn-ghost" @onclick="MarkAll">Marcar todo como leído</button> }
+                </div>
+            </div>
+            <div class="notif-list">
+                @if (items is null) { <div class="card-body"><div class="skeleton"></div></div> }
+                else if (items.Count == 0) { <EmptyState Icon="bell" Title="Sin notificaciones" Message="Aquí verás avisos de envíos, aprobaciones, devoluciones y registros." /> }
+                else
+                {
+                    @foreach (var n in items)
+                    {
+                        <a class="notif-item @(n.IsRead ? "" : "unread")" href="@(n.Link ?? "/notificaciones")" @onclick="() => Open(n)" @onclick:preventDefault="true">
+                            <Icon Name="@IconFor(n.Type)" />
+                            <div class="grow"><div class="title">@n.Title</div><div class="msg">@n.Message</div><div class="time">@Format.Relative(n.CreatedAtUtc)</div></div>
+                        </a>
+                    }
+                }
+            </div>
+            <div class="card-footer" style="justify-content:center"><a href="/notificaciones" @onclick="() => open = false">Ver historial completo</a></div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool open;
+    private int unread;
+    private List<NotificationDto>? items;
+    private IDisposable? subscription;
+    private PeriodicTimer? timer;
+    private CancellationTokenSource cts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var actor = await Session.GetActorAsync();
+        await RefreshCount();
+        // Tiempo real (mismo proceso) + respaldo por sondeo cada 30 s: las notificaciones viven en la base de datos.
+        subscription = Bus.Subscribe(actor.EmployeeId, async n => await InvokeAsync(async () =>
+        {
+            unread++;
+            Toasts.Info(n.Title, n.Message);
+            if (open) await Load();
+            StateHasChanged();
+        }));
+        timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
+        _ = Poll();
+    }
+
+    private async Task Poll()
+    {
+        try { while (await timer!.WaitForNextTickAsync(cts.Token)) await InvokeAsync(async () => { await RefreshCount(); StateHasChanged(); }); }
+        catch (OperationCanceledException) { }
+        catch (ObjectDisposedException) { }
+    }
+
+    private async Task RefreshCount() => unread = await Runner.Run<NotificationService, int>((s, a) => s.UnreadCountAsync(a));
+    private async Task Load() => items = (await Runner.Run<NotificationService, PagedResult<NotificationDto>>((s, a) => s.ListAsync(a, false, 1, 12))).Items.ToList();
+    private async Task Toggle() { open = !open; if (open) await Load(); }
+
+    private async Task Open(NotificationDto n)
+    {
+        if (!n.IsRead) { await Runner.Run<NotificationService>((s, a) => s.MarkReadAsync(a, n.Id)); unread = Math.Max(0, unread - 1); }
+        open = false;
+        Nav.NavigateTo(n.Link ?? "/notificaciones");
+    }
+
+    private async Task MarkAll()
+    {
+        await Runner.Run<NotificationService, int>((s, a) => s.MarkAllReadAsync(a));
+        unread = 0;
+        await Load();
+    }
+
+    public static string IconFor(NotificationType t) => t switch
+    {
+        NotificationType.RequestApproved or NotificationType.RequestCompleted or NotificationType.RequestRegistered => "check-circle",
+        NotificationType.RequestRejected => "x-circle",
+        NotificationType.RequestReturned => "undo",
+        NotificationType.AdministrativeObservation or NotificationType.SystemAlert => "alert",
+        NotificationType.PendingReminder => "clock",
+        NotificationType.RequestCancelled => "x",
+        _ => "inbox"
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        subscription?.Dispose();
+        cts.Cancel();
+        timer?.Dispose();
+        cts.Dispose();
+        await Task.CompletedTask;
+    }
+}

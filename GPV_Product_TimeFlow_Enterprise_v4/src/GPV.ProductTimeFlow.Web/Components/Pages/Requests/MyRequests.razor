@@ -1,0 +1,72 @@
+@page "/solicitudes"
+@attribute [Authorize]
+@inject ServiceRunner Runner
+@inject ToastService Toasts
+@inject NavigationManager Nav
+
+<PageTitle>Mis solicitudes · GPV Product TimeFlow</PageTitle>
+<PageHeader Title="Mis solicitudes" Subtitle="Consulta el estado, el responsable actual y el historial de tus solicitudes." Eyebrow="Solicitudes">
+    <Actions><a class="btn btn-primary" href="/solicitudes/nueva"><Icon Name="plus" /> Nueva solicitud</a></Actions>
+</PageHeader>
+
+<div class="card">
+    <div class="toolbar">
+        <div class="tabs" role="tablist" aria-label="Filtrar por situación">
+            @foreach (var (key, label) in Buckets)
+            {
+                <button class="tab @(bucket == key ? "active" : "")" role="tab" aria-selected="@(bucket == key)" @onclick="() => SetBucket(key)">@label</button>
+            }
+        </div>
+        <div class="grow"></div>
+        <select class="select-sm" @bind="kind" @bind:after="Reload" aria-label="Tipo de solicitud">
+            <option value="">Todos los tipos</option>
+            @foreach (var k in Enum.GetValues<RequestKind>()) { <option value="@k">@Labels.Kind(k)</option> }
+        </select>
+        <input class="input" style="max-width:220px;min-height:38px" type="search" placeholder="Folio o motivo" @bind="search" @bind:event="oninput" @bind:after="Debounced" aria-label="Buscar en mis solicitudes" />
+    </div>
+    @if (result is null) { <div class="card-body"><div class="skeleton"></div><div class="skeleton" style="margin-top:10px"></div></div> }
+    else
+    {
+        <RequestTable Items="result.Items" ShowApprover="true" EmptyIcon="file" EmptyTitle="No hay solicitudes con estos filtros" EmptyMessage="Ajusta los filtros o crea una nueva solicitud." />
+        <Pager Page="page" PageSize="20" Total="result.TotalCount" OnPage="Go" />
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "bucket")] private string? BucketQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "q")] private string? Q { get; set; }
+    private static readonly (string Key, string Label)[] Buckets = [("", "Todas"), ("open", "En trámite"), ("returned", "Devueltas"), ("approved", "Autorizadas"), ("rejected", "Rechazadas"), ("drafts", "Borradores")];
+    private string bucket = "";
+    private string kind = "";
+    private string? search;
+    private int page = 1;
+    private PagedResult<RequestSummaryDto>? result;
+    private CancellationTokenSource? debounce;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        bucket = BucketQuery ?? "";
+        search ??= Q;
+        await Reload();
+    }
+
+    private async Task SetBucket(string b) { bucket = b; page = 1; await Reload(); }
+    private async Task Go(int p) { page = p; await Reload(); }
+
+    private async Task Debounced()
+    {
+        debounce?.Cancel();
+        debounce = new();
+        try { await Task.Delay(300, debounce.Token); page = 1; await Reload(); } catch (TaskCanceledException) { }
+    }
+
+    private async Task Reload()
+    {
+        try
+        {
+            var q = new RequestQuery { Scope = RequestScope.Mine, Bucket = bucket == "" ? null : bucket, Kind = Enum.TryParse<RequestKind>(kind, out var k) ? k : null, Search = search, Page = page, PageSize = 20 };
+            result = await Runner.Run<RequestQueryService, PagedResult<RequestSummaryDto>>((s, a) => s.ListAsync(a, q));
+        }
+        catch (Exception ex) { Toasts.Error(ex); }
+    }
+}

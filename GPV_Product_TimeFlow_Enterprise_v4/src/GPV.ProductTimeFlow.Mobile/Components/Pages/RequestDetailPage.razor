@@ -1,0 +1,660 @@
+@page "/solicitudes/{Id:guid}"
+@inherits TimeFlowComponentBase
+@inject DeviceFiles Files
+
+<div class="page stack detail-page @(HasActions ? "has-action-bar" : "")">
+    <PageHeader Title="@(_detail?.Summary.Folio ?? "Solicitud")" Subtitle="@_detail?.Summary.KindLabel" BackHref="@BackHref">
+        @if (_detail is not null)
+        {
+            <button type="button" class="icon-button" aria-label="Descargar PDF" disabled="@Busy" @onclick="DownloadPdfAsync">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14" /></svg>
+            </button>
+        }
+    </PageHeader>
+
+    @if (_sheet == Sheet.None)
+    {
+        if (_detail is null)
+        {
+            <ErrorAlert Message="@ErrorMessage" Details="ErrorDetails" OnRetry="LoadAsync" />
+        }
+        else
+        {
+            <ErrorAlert Message="@ErrorMessage" Details="ErrorDetails" />
+        }
+    }
+
+    @if (_detail is null)
+    {
+        if (Busy)
+        {
+            <LoadingState Rows="5" />
+        }
+    }
+    else
+    {
+        var s = _detail.Summary;
+
+        <section class="card stack">
+            <div class="card-title-row">
+                <StatusChip Status="s.Status" />
+                @if (s.IsUrgent)
+                {
+                    <span class="chip chip-danger">Urgente</span>
+                }
+                <span class="muted small">Versión @s.Version</span>
+            </div>
+
+            @if (s.Status == RequestStatus.ReturnedForCorrection && !string.IsNullOrWhiteSpace(_detail.ReturnComment))
+            {
+                <div class="alert alert-attention" role="note">
+                    <div class="alert-title">Devuelta para corrección</div>
+                    <p>@_detail.ReturnComment</p>
+                </div>
+            }
+            @if (s.Kind == RequestKind.UnpaidLeave)
+            {
+                <div class="alert alert-danger notice-unpaid" role="note">
+                    <strong>Solicitud SIN goce de sueldo.</strong> Esta aplicación no aplica descuentos de nómina.
+                </div>
+            }
+
+            <dl class="facts">
+                <div><dt>Solicitante</dt><dd>@s.EmployeeName <span class="muted">· @s.EmployeeNumber</span></dd></div>
+                @if (!string.IsNullOrWhiteSpace(_detail.Position) || !string.IsNullOrWhiteSpace(_detail.Department))
+                {
+                    <div><dt>Puesto</dt><dd>@string.Join(" · ", new[] { _detail.Position, _detail.Department, s.Area }.Where(x => !string.IsNullOrWhiteSpace(x)))</dd></div>
+                }
+                <div><dt>Periodo</dt><dd>@Fmt.Period(s)</dd></div>
+                <div><dt>Cantidad</dt><dd>@Fmt.Amount(s)</dd></div>
+                @if (_detail.CrossesMidnight)
+                {
+                    <div><dt>Horario</dt><dd><span class="chip chip-attention chip-xs">Cruza la medianoche</span></dd></div>
+                }
+                @if (_detail.LeaveCategoryName is not null)
+                {
+                    <div><dt>Categoría</dt><dd>@_detail.LeaveCategoryName</dd></div>
+                }
+                @if (_detail.Project is not null)
+                {
+                    <div><dt>Proyecto</dt><dd>@_detail.Project</dd></div>
+                }
+                @if (_detail.Activity is not null)
+                {
+                    <div><dt>Actividad</dt><dd>@_detail.Activity</dd></div>
+                }
+                <div><dt>Motivo</dt><dd>@s.Reason</dd></div>
+                @if (_detail.Justification is not null)
+                {
+                    <div><dt>Justificación</dt><dd>@_detail.Justification</dd></div>
+                }
+                @if (_detail.Observations is not null)
+                {
+                    <div><dt>Observaciones</dt><dd>@_detail.Observations</dd></div>
+                }
+                <div><dt>Jefa directa</dt><dd>@(_detail.SupervisorName ?? "—")</dd></div>
+                <div><dt>Jefe superior</dt><dd>@(_detail.ManagerName ?? "—")</dd></div>
+                <div><dt>Creada</dt><dd>@Fmt.Local(s.CreatedAtUtc)</dd></div>
+                @if (s.SubmittedAtUtc is { } submitted)
+                {
+                    <div><dt>Enviada</dt><dd>@Fmt.Local(submitted)</dd></div>
+                }
+                @if (s.CurrentApproverName is not null)
+                {
+                    <div><dt>Con</dt><dd>@s.CurrentApproverName</dd></div>
+                }
+            </dl>
+        </section>
+
+        @if (_detail.Steps.Count > 0)
+        {
+            <section class="card">
+                <h2 class="card-title">Flujo de autorización</h2>
+                <ol class="timeline">
+                    @foreach (var step in _detail.Steps.OrderBy(x => x.Order))
+                    {
+                        <li class="timeline-item tone-@StepTone(step.Status)">
+                            <span class="timeline-dot" aria-hidden="true"></span>
+                            <div class="timeline-body">
+                                <div class="timeline-head">
+                                    <strong>@step.TypeLabel</strong>
+                                    <StatusChip Label="@step.StatusLabel" Tone="@StepTone(step.Status)" />
+                                </div>
+                                <div class="muted small">
+                                    @(step.ActorName ?? step.AssigneeName ?? "Sin asignar")
+                                    @if (step.ActedAtUtc is { } acted)
+                                    {
+                                        <span> · @Fmt.Local(acted)</span>
+                                    }
+                                    <span> · v@(step.RequestVersion)</span>
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(step.Comment))
+                                {
+                                    <p class="quote">@step.Comment</p>
+                                }
+                            </div>
+                        </li>
+                    }
+                </ol>
+            </section>
+        }
+
+        @if (_detail.Administrative is { } adm)
+        {
+            <section class="card">
+                <h2 class="card-title">Registro administrativo</h2>
+                <dl class="facts">
+                    @if (adm.ReceivedAtUtc is { } received)
+                    {
+                        <div><dt>Recibida</dt><dd>@adm.ReceivedByName · @Fmt.Local(received)</dd></div>
+                    }
+                    @if (adm.RegisteredAtUtc is { } registered)
+                    {
+                        <div><dt>Registrada</dt><dd>@adm.RegisteredByName · @Fmt.Local(registered)</dd></div>
+                    }
+                    @if (adm.ProcessedAtUtc is { } processed)
+                    {
+                        <div><dt>Procesada</dt><dd>@adm.ProcessedByName · @Fmt.Local(processed)</dd></div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(adm.ExternalReference))
+                    {
+                        <div><dt>Referencia</dt><dd>@adm.ExternalReference</dd></div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(adm.Observations))
+                    {
+                        <div><dt>Observaciones</dt><dd>@adm.Observations</dd></div>
+                    }
+                </dl>
+                @if (adm.ReceivedAtUtc is null && adm.RegisteredAtUtc is null && adm.ProcessedAtUtc is null && string.IsNullOrWhiteSpace(adm.Observations))
+                {
+                    <p class="muted small">Aún sin movimientos administrativos.</p>
+                }
+            </section>
+        }
+
+        <section class="card">
+            <h2 class="card-title">Firmas electrónicas</h2>
+            @if (_detail.Signatures.Count == 0)
+            {
+                <p class="muted small">Sin firmas registradas.</p>
+            }
+            else
+            {
+                <ul class="signature-list">
+                    @foreach (var sig in _detail.Signatures.OrderBy(x => x.SignedAtUtc))
+                    {
+                        <li class="signature-item @(sig.IsValid ? "" : "invalid")">
+                            @if (!string.IsNullOrEmpty(sig.ImageDataUrl))
+                            {
+                                <img class="signature-image" src="@sig.ImageDataUrl" alt="@($"Firma de {sig.SignerName}")" />
+                            }
+                            <div class="signature-meta">
+                                <div class="timeline-head">
+                                    <strong>@sig.SignerName</strong>
+                                    <StatusChip Label="@(sig.IsValid ? "Vigente" : "Invalidada")" Tone="@(sig.IsValid ? "success" : "muted")" />
+                                </div>
+                                <div class="muted small">@sig.SignerRole · @Fmt.Local(sig.SignedAtUtc) · v@(sig.RequestVersion)</div>
+                                @if (!sig.IsValid && !string.IsNullOrWhiteSpace(sig.InvalidationReason))
+                                {
+                                    <div class="small text-attention">@sig.InvalidationReason</div>
+                                }
+                                <div class="hash" title="Huella de la firma">@ShortHash(sig.SignatureHash)</div>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+            <p class="hint">Firma electrónica simple: constancia de autorización interna.</p>
+        </section>
+
+        <section class="card">
+            <div class="card-title-row">
+                <h2 class="card-title">Adjuntos</h2>
+                @if (_detail.Permissions.CanUploadAttachments)
+                {
+                    <button type="button" class="btn btn-ghost btn-sm" disabled="@Busy" @onclick="UploadAsync">Adjuntar</button>
+                }
+            </div>
+            @if (_detail.Attachments.Count == 0)
+            {
+                <p class="muted small">Sin archivos adjuntos.</p>
+            }
+            else
+            {
+                <ul class="file-list">
+                    @foreach (var a in _detail.Attachments)
+                    {
+                        <li class="file-item">
+                            <span class="file-icon" aria-hidden="true">@System.IO.Path.GetExtension(a.FileName).TrimStart('.').ToUpperInvariant()</span>
+                            <button type="button" class="file-name link-button" disabled="@Busy" @onclick="() => OpenAttachmentAsync(a)">
+                                @a.FileName<span class="muted small"> · @Fmt.FileSize(a.SizeBytes) · @a.UploadedByName</span>
+                            </button>
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+
+        <section class="card">
+            <h2 class="card-title">Historial</h2>
+            <ol class="history">
+                @foreach (var h in _detail.History.OrderByDescending(x => x.OccurredAtUtc))
+                {
+                    <li>
+                        <div class="history-head"><strong>@h.ActionLabel</strong><span class="muted small">@Fmt.Local(h.OccurredAtUtc)</span></div>
+                        <div class="muted small">
+                            @h.ActorName
+                            @if (h.FromStatusLabel is not null || h.ToStatusLabel is not null)
+                            {
+                                <span> · @(h.FromStatusLabel ?? "—") → @(h.ToStatusLabel ?? "—")</span>
+                            }
+                            <span> · v@(h.RequestVersion)</span>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(h.Comment))
+                        {
+                            <p class="quote">@h.Comment</p>
+                        }
+                    </li>
+                }
+            </ol>
+        </section>
+
+        @if (HasActions)
+        {
+            <div class="sticky-actions">
+                @if (_detail.Permissions.CanDecide)
+                {
+                    <button type="button" class="btn btn-primary" disabled="@Busy" @onclick="() => OpenSheet(Sheet.Decide)">Decidir</button>
+                }
+                @if (_detail.Permissions.CanSubmit)
+                {
+                    <button type="button" class="btn btn-primary" disabled="@Busy" @onclick="() => OpenSheet(Sheet.Submit)">Enviar</button>
+                }
+                @if (_detail.Permissions.CanEdit)
+                {
+                    <a class="btn btn-secondary" href="/solicitudes/@s.Id/editar">Editar</a>
+                }
+                @foreach (var action in AvailableAdminActions)
+                {
+                    <button type="button" class="btn @(action == AdministrativeAction.Observe ? "btn-secondary" : "btn-primary")" disabled="@Busy" @onclick="() => OpenAdmin(action)">@AdminButton(action)</button>
+                }
+                @if (_detail.Permissions.CanCancel)
+                {
+                    <button type="button" class="btn btn-danger-ghost" disabled="@Busy" @onclick="() => OpenSheet(Sheet.Cancel)">Cancelar</button>
+                }
+            </div>
+        }
+
+        @* ── Hojas de acción ── *@
+        <BottomSheet Visible="_sheet == Sheet.Decide" Title="@($"Decisión · {(_detail.Permissions.DecisionStep is { } st ? Labels.Step(st) : "Filtro")}")" Busy="Busy" OnClose="CloseSheet">
+            <ChildContent>
+                <p class="muted small">Revisas la versión @s.Version de @s.Folio. Si la solicitud cambia antes de tu decisión, se te pedirá revisarla de nuevo.</p>
+                <div class="choice-group" role="radiogroup" aria-label="Decisión">
+                    @foreach (var d in Enum.GetValues<ApprovalDecisionType>())
+                    {
+                        <label class="choice choice-@DecisionTone(d) @(_decision == d ? "selected" : "")">
+                            <input type="radio" name="decision" checked="@(_decision == d)" @onchange="() => SetDecision(d)" />
+                            <span>@DecisionLabel(d)</span>
+                        </label>
+                    }
+                </div>
+                @if (_decision is ApprovalDecisionType.Reject or ApprovalDecisionType.Return)
+                {
+                    <div class="field">
+                        <label for="decision-comment">Justificación (obligatoria, mínimo 10 caracteres)</label>
+                        <textarea id="decision-comment" rows="3" maxlength="1000" @bind="_comment" @bind:event="oninput"></textarea>
+                        <span class="hint counter">@CommentLength/1000</span>
+                    </div>
+                }
+                else if (_decision == ApprovalDecisionType.Approve)
+                {
+                    <div class="field">
+                        <label for="decision-comment">Comentario (opcional)</label>
+                        <textarea id="decision-comment" rows="2" maxlength="1000" @bind="_comment" @bind:event="oninput"></textarea>
+                    </div>
+                    <SignaturePad @ref="_signaturePad" Label="Tu firma (obligatoria para aprobar)" Disabled="Busy" HasInkChanged="v => _hasSignature = v" />
+                    <label class="checkbox">
+                        <input type="checkbox" @bind="_consent" />
+                        <span>Confirmo que firmo electrónicamente esta versión de la solicitud</span>
+                    </label>
+                }
+                <ErrorAlert Message="@ErrorMessage" Details="ErrorDetails" />
+            </ChildContent>
+            <Footer>
+                <button type="button" class="btn @(_decision == ApprovalDecisionType.Reject ? "btn-danger" : "btn-primary") btn-block btn-lg" disabled="@(!CanSendDecision)" @onclick="DecideAsync">
+                    @if (Busy)
+                    {
+                        <span class="spinner" aria-hidden="true"></span>
+                    }
+                    <span>@(_decision is { } dd ? $"Confirmar: {DecisionLabel(dd)}" : "Elige una decisión")</span>
+                </button>
+            </Footer>
+        </BottomSheet>
+
+        <BottomSheet Visible="_sheet == Sheet.Admin" Title="@AdminButton(_adminAction)" Busy="Busy" OnClose="CloseSheet">
+            <ChildContent>
+                @if (_adminAction == AdministrativeAction.Register)
+                {
+                    <div class="field">
+                        <label for="admin-ref">Referencia externa (opcional)</label>
+                        <input id="admin-ref" type="text" maxlength="100" placeholder="Ej. folio de captura en nómina" @bind="_externalReference" />
+                    </div>
+                }
+                <div class="field">
+                    <label for="admin-comment">@(_adminAction == AdministrativeAction.Observe ? "Observación (obligatoria, mínimo 10 caracteres)" : "Comentario (opcional)")</label>
+                    <textarea id="admin-comment" rows="3" maxlength="1000" @bind="_comment" @bind:event="oninput"></textarea>
+                </div>
+                <ErrorAlert Message="@ErrorMessage" Details="ErrorDetails" />
+            </ChildContent>
+            <Footer>
+                <button type="button" class="btn btn-primary btn-block btn-lg" disabled="@(!CanSendAdmin)" @onclick="AdministrativeAsync">
+                    @if (Busy)
+                    {
+                        <span class="spinner" aria-hidden="true"></span>
+                    }
+                    <span>Confirmar</span>
+                </button>
+            </Footer>
+        </BottomSheet>
+
+        <BottomSheet Visible="_sheet == Sheet.Submit" Title="Enviar a autorización" Busy="Busy" OnClose="CloseSheet">
+            <ChildContent>
+                <p class="muted small">Se turnará a @(_detail.SupervisorName ?? "tu jefa directa") (filtro 1) y después a @(_detail.ManagerName ?? "tu jefe superior") (filtro 2).</p>
+                <SignaturePad @ref="_signaturePad" Label="Firma del solicitante (opcional)" Disabled="Busy" />
+                <ErrorAlert Message="@ErrorMessage" Details="ErrorDetails" />
+            </ChildContent>
+            <Footer>
+                <button type="button" class="btn btn-primary btn-block btn-lg" disabled="@Busy" @onclick="SubmitAsync">
+                    @if (Busy)
+                    {
+                        <span class="spinner" aria-hidden="true"></span>
+                    }
+                    <span>Enviar solicitud</span>
+                </button>
+            </Footer>
+        </BottomSheet>
+
+        <BottomSheet Visible="_sheet == Sheet.Cancel" Title="Cancelar solicitud" Busy="Busy" OnClose="CloseSheet">
+            <ChildContent>
+                <p class="muted small">La cancelación no se puede deshacer. Si ya había días de vacaciones comprometidos, se reintegran a tu saldo.</p>
+                <div class="field">
+                    <label for="cancel-reason">Motivo (opcional)</label>
+                    <textarea id="cancel-reason" rows="3" maxlength="500" @bind="_comment" @bind:event="oninput"></textarea>
+                </div>
+                <ErrorAlert Message="@ErrorMessage" Details="ErrorDetails" />
+            </ChildContent>
+            <Footer>
+                <button type="button" class="btn btn-danger btn-block btn-lg" disabled="@Busy" @onclick="CancelRequestAsync">
+                    @if (Busy)
+                    {
+                        <span class="spinner" aria-hidden="true"></span>
+                    }
+                    <span>Cancelar solicitud</span>
+                </button>
+            </Footer>
+        </BottomSheet>
+    }
+</div>
+
+@code {
+    private enum Sheet { None, Decide, Admin, Submit, Cancel }
+
+    private RequestDetailDto? _detail;
+    private Sheet _sheet = Sheet.None;
+    /// <summary>Clave de idempotencia por diálogo: se genera al abrir la hoja y se reutiliza en reintentos del mismo diálogo.</summary>
+    private string _sheetKey = Guid.NewGuid().ToString("N");
+    private ApprovalDecisionType? _decision;
+    private string _comment = "";
+    private bool _consent;
+    private bool _hasSignature;
+    private AdministrativeAction _adminAction = AdministrativeAction.Receive;
+    private string? _externalReference;
+    private SignaturePad? _signaturePad;
+
+    [Parameter] public Guid Id { get; set; }
+
+    /// <summary>Pantalla de origen (?desde=/calendario) para el botón Regresar; solo rutas locales.</summary>
+    private string BackHref => QueryString.Get(Nav.Uri, "desde") is { Length: > 1 } f && f.StartsWith('/') && !f.StartsWith("//", StringComparison.Ordinal) ? f : "/solicitudes";
+
+    private int CommentLength => _comment.Trim().Length;
+
+    private bool HasActions => _detail is { Permissions: var p }
+        && (p.CanDecide || p.CanSubmit || p.CanEdit || p.CanCancel || p.CanAdminReceive || p.CanAdminObserve || p.CanAdminRegister || p.CanAdminComplete);
+
+    private IEnumerable<AdministrativeAction> AvailableAdminActions
+    {
+        get
+        {
+            if (_detail is null) yield break;
+            var p = _detail.Permissions;
+            if (p.CanAdminReceive) yield return AdministrativeAction.Receive;
+            if (p.CanAdminRegister) yield return AdministrativeAction.Register;
+            if (p.CanAdminComplete) yield return AdministrativeAction.Complete;
+            if (p.CanAdminObserve) yield return AdministrativeAction.Observe;
+        }
+    }
+
+    private bool CanSendDecision => !Busy && _decision switch
+    {
+        ApprovalDecisionType.Approve => _hasSignature && _consent,
+        ApprovalDecisionType.Reject or ApprovalDecisionType.Return => CommentLength >= 10,
+        _ => false,
+    };
+
+    private bool CanSendAdmin => !Busy && (_adminAction != AdministrativeAction.Observe || CommentLength >= 10);
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private Task LoadAsync() => RunAsync(async ct => _detail = await Client.GetRequestAsync(Id, ct));
+
+    /// <summary>Recarga el expediente sin borrar el error mostrado (p. ej. después de un conflicto de versión).</summary>
+    private async Task ReloadQuietlyAsync()
+    {
+        try { _detail = await Client.GetRequestAsync(Id, PageToken); }
+        catch (Exception ex) when (ex is not OperationCanceledException) { /* Se conserva el error original. */ }
+    }
+
+    private void OpenSheet(Sheet sheet)
+    {
+        ClearError();
+        _sheetKey = Guid.NewGuid().ToString("N");
+        _comment = "";
+        _consent = false;
+        _hasSignature = false;
+        _decision = null;
+        _externalReference = null;
+        _sheet = sheet;
+    }
+
+    private void SetDecision(ApprovalDecisionType decision)
+    {
+        if (_decision == decision) return;
+        _decision = decision;
+        // El panel de firma se vuelve a crear al cambiar de opción: hay que firmar de nuevo.
+        _hasSignature = false;
+        _consent = false;
+        ClearError();
+    }
+
+    private void OpenAdmin(AdministrativeAction action)
+    {
+        OpenSheet(Sheet.Admin);
+        _adminAction = action;
+    }
+
+    private void CloseSheet()
+    {
+        if (Busy) return;
+        _sheet = Sheet.None;
+        ClearError();
+    }
+
+    private async Task DecideAsync()
+    {
+        if (_detail is null || _decision is not { } decision || !CanSendDecision) return;
+        var version = _detail.Summary.Version;
+        var conflict = false;
+        WorkflowResultDto? result = null;
+        var ok = await RunAsync(async ct =>
+        {
+            string? signature = null;
+            if (decision == ApprovalDecisionType.Approve)
+            {
+                signature = _signaturePad is null ? null : await _signaturePad.GetPngBase64Async();
+                if (signature is null) throw new UserFacingException("Dibuja tu firma para aprobar.");
+            }
+            try
+            {
+                result = await Client.DecideAsync(Id, new DecisionInput
+                {
+                    Decision = decision,
+                    Comment = string.IsNullOrWhiteSpace(_comment) ? null : _comment.Trim(),
+                    SignaturePngBase64 = signature,
+                    SignatureConsent = decision == ApprovalDecisionType.Approve && _consent,
+                    ExpectedVersion = version,
+                    IdempotencyKey = _sheetKey,
+                }, ct);
+            }
+            catch (ApiException ex) when (ex.Status == System.Net.HttpStatusCode.Conflict)
+            {
+                conflict = true;
+                throw;
+            }
+        });
+        await AfterWorkflowAsync(ok, result, conflict);
+    }
+
+    private async Task AdministrativeAsync()
+    {
+        if (_detail is null || !CanSendAdmin) return;
+        WorkflowResultDto? result = null;
+        var conflict = false;
+        var ok = await RunAsync(async ct =>
+        {
+            try
+            {
+                result = await Client.AdministrativeAsync(Id, new AdministrativeInput
+                {
+                    Action = _adminAction,
+                    Comment = string.IsNullOrWhiteSpace(_comment) ? null : _comment.Trim(),
+                    ExternalReference = string.IsNullOrWhiteSpace(_externalReference) ? null : _externalReference.Trim(),
+                    IdempotencyKey = _sheetKey,
+                }, ct);
+            }
+            catch (ApiException ex) when (ex.Status == System.Net.HttpStatusCode.Conflict)
+            {
+                conflict = true;
+                throw;
+            }
+        });
+        await AfterWorkflowAsync(ok, result, conflict);
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (_detail is null) return;
+        WorkflowResultDto? result = null;
+        var ok = await RunAsync(async ct =>
+        {
+            var signature = _signaturePad is null ? null : await _signaturePad.GetPngBase64Async();
+            result = await Client.SubmitAsync(Id, new SubmitInput { SignaturePngBase64 = signature, IdempotencyKey = _sheetKey }, ct);
+        });
+        await AfterWorkflowAsync(ok, result, conflict: false);
+    }
+
+    private async Task CancelRequestAsync()
+    {
+        if (_detail is null) return;
+        WorkflowResultDto? result = null;
+        var ok = await RunAsync(async ct =>
+            result = await Client.CancelAsync(Id, new CancelInput { Reason = string.IsNullOrWhiteSpace(_comment) ? null : _comment.Trim() }, ct));
+        await AfterWorkflowAsync(ok, result, conflict: false);
+    }
+
+    private async Task AfterWorkflowAsync(bool ok, WorkflowResultDto? result, bool conflict)
+    {
+        if (ok && result is not null)
+        {
+            _sheet = Sheet.None;
+            Toasts.Show(result.WasDuplicate ? "La acción ya se había registrado." : result.Message, "success");
+            await LoadAsync();
+        }
+        else if (conflict)
+        {
+            // La solicitud cambió: se recarga para que el aprobador revise la versión vigente.
+            await ReloadQuietlyAsync();
+            if (_detail is { Permissions.CanDecide: false } && _sheet == Sheet.Decide) _sheet = Sheet.None;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DownloadPdfAsync()
+    {
+        if (_detail is null) return;
+        var folio = _detail.Summary.Folio;
+        await RunAsync(async ct =>
+        {
+            var bytes = await Client.DownloadPdfAsync(Id, ct);
+            await Files.OpenAsync(bytes, $"{folio}.pdf", "application/pdf", ct);
+        });
+    }
+
+    private async Task OpenAttachmentAsync(AttachmentDto a)
+    {
+        await RunAsync(async ct =>
+        {
+            var bytes = await Client.DownloadAttachmentAsync(a.Id, ct);
+            await Files.OpenAsync(bytes, a.FileName, string.IsNullOrWhiteSpace(a.ContentType) ? DeviceFiles.ContentTypeFor(a.FileName) : a.ContentType, ct);
+        });
+    }
+
+    private async Task UploadAsync()
+    {
+        await RunAsync(async ct =>
+        {
+            var file = await Files.PickAttachmentAsync(ct);
+            if (file is null) return;
+            using var stream = new MemoryStream(file.Content, writable: false);
+            await Client.UploadAttachmentAsync(Id, stream, file.FileName, file.ContentType, ct);
+            _detail = await Client.GetRequestAsync(Id, ct);
+            Toasts.Show($"Se adjuntó «{file.FileName}».", "success");
+        });
+    }
+
+    private static string StepTone(ApprovalStepStatus status) => status switch
+    {
+        ApprovalStepStatus.Pending => "warning",
+        ApprovalStepStatus.Approved => "success",
+        ApprovalStepStatus.Registered => "success",
+        ApprovalStepStatus.Rejected => "danger",
+        ApprovalStepStatus.Returned => "attention",
+        ApprovalStepStatus.Invalidated or ApprovalStepStatus.Cancelled => "muted",
+        _ => "neutral",
+    };
+
+    private static string DecisionLabel(ApprovalDecisionType d) => d switch
+    {
+        ApprovalDecisionType.Approve => "Aprobar",
+        ApprovalDecisionType.Reject => "Rechazar",
+        ApprovalDecisionType.Return => "Devolver para corrección",
+        _ => "—",
+    };
+
+    private static string DecisionTone(ApprovalDecisionType d) => d switch
+    {
+        ApprovalDecisionType.Approve => "success",
+        ApprovalDecisionType.Reject => "danger",
+        _ => "attention",
+    };
+
+    private static string AdminButton(AdministrativeAction a) => a switch
+    {
+        AdministrativeAction.Receive => "Marcar como recibida",
+        AdministrativeAction.Observe => "Registrar observación",
+        AdministrativeAction.Register => "Registrar",
+        AdministrativeAction.Complete => "Marcar como procesada",
+        _ => "Acción",
+    };
+
+    private static string ShortHash(string hash) => hash.Length > 16 ? $"{hash[..8]}…{hash[^8..]}" : hash;
+}

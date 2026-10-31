@@ -1,0 +1,17 @@
+@* Gráfico de barras accesible: incluye tabla equivalente para lectores de pantalla. *@
+<div class="bars" aria-hidden="true">
+    @foreach (var p in Points)
+    {
+        <div class="bar-col">
+            <span class="bar-value">@p.Value.ToString("0.#")</span>
+            <div class="bar" style="height:@(Max == 0 ? 2 : Math.Max(2, (double)(p.Value / Max) * 100))%"></div>
+            <span class="bar-label">@p.Label</span>
+        </div>
+    }
+</div>
+<table class="sr-only"><caption>@Caption</caption><tbody>@foreach (var p in Points) { <tr><th>@p.Label</th><td>@p.Value</td></tr> }</tbody></table>
+@code {
+    [Parameter] public IReadOnlyList<ChartPointDto> Points { get; set; } = [];
+    [Parameter] public string Caption { get; set; } = "Datos del gráfico";
+    private decimal Max => Points.Count == 0 ? 0 : Points.Max(p => p.Value);
+}

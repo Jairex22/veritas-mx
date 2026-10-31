@@ -1,0 +1,52 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<div class="field">
+    <div class="row between">
+        <span class="label">@Label</span>
+        <button type="button" class="btn btn-sm btn-ghost" @onclick="Clear"><Icon Name="refresh" Size="16" /> Limpiar</button>
+    </div>
+    <div class="sigpad">
+        <canvas @ref="canvas" id="@CanvasId" aria-label="Recuadro de firma: dibuje su firma con el dedo, lápiz o mouse" role="img"></canvas>
+        <div class="baseline"></div>
+        <div class="placeholder">@(hasInk ? "Firma capturada" : "Firme aquí con el dedo, lápiz o mouse")</div>
+    </div>
+    <span class="hint">Firma electrónica simple: constancia de autorización interna asociada a su sesión autenticada, a la fecha y a la huella de esta versión. No equivale a firma electrónica avanzada.</span>
+</div>
+
+@code {
+    private ElementReference canvas;
+    private IJSObjectReference? module;
+    private DotNetObjectReference<SignaturePad>? self;
+    private bool hasInk;
+    [Parameter] public string Label { get; set; } = "Firma";
+    [Parameter] public string CanvasId { get; set; } = "signature-canvas";
+    [Parameter] public EventCallback<bool> OnChanged { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/app.js");
+        self = DotNetObjectReference.Create(this);
+        await module.InvokeVoidAsync("initSignature", canvas, self);
+    }
+
+    [JSInvokable] public async Task OnSignatureChanged(bool value) { hasInk = value; await OnChanged.InvokeAsync(value); StateHasChanged(); }
+
+    public async Task<string?> GetPngBase64Async() => module is null ? null : await module.InvokeAsync<string?>("signatureData", canvas);
+
+    private async Task Clear()
+    {
+        if (module is null) return;
+        await module.InvokeVoidAsync("clearSignature", canvas);
+        hasInk = false;
+        await OnChanged.InvokeAsync(false);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { if (module is not null) { await module.InvokeVoidAsync("disposeSignature", canvas); await module.DisposeAsync(); } }
+        catch (JSDisconnectedException) { }
+        self?.Dispose();
+    }
+}

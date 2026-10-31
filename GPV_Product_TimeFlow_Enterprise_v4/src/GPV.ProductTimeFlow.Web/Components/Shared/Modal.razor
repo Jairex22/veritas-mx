@@ -1,0 +1,27 @@
+@if (Open)
+{
+    <div class="modal-backdrop" @onclick="Backdrop" @onkeydown="Key">
+        <div class="modal @(Wide ? "wide" : "")" role="dialog" aria-modal="true" aria-labelledby="@id" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <div><h2 id="@id">@Title</h2>@if (Subtitle is not null) { <p>@Subtitle</p> }</div>
+                <button class="icon-btn" type="button" @onclick="Close" aria-label="Cerrar"><Icon Name="x" /></button>
+            </div>
+            <div class="modal-body">@ChildContent</div>
+            @if (Footer is not null) { <div class="modal-footer">@Footer</div> }
+        </div>
+    </div>
+}
+@code {
+    private readonly string id = "m" + Guid.NewGuid().ToString("N")[..8];
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public EventCallback<bool> OpenChanged { get; set; }
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public bool Wide { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? Footer { get; set; }
+    private async Task Close() { if (!Busy) { Open = false; await OpenChanged.InvokeAsync(false); } }
+    private Task Backdrop() => Close();
+    private Task Key(KeyboardEventArgs e) => e.Key == "Escape" ? Close() : Task.CompletedTask;
+}

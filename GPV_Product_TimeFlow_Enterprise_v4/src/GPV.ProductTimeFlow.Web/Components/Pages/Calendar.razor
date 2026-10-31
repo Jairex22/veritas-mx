@@ -1,0 +1,85 @@
+@page "/calendario"
+@attribute [Authorize]
+@inject ServiceRunner Runner
+@inject ToastService Toasts
+@inject LocalClock Clock
+@inject UserSession Session
+
+<PageTitle>Calendario · GPV Product TimeFlow</PageTitle>
+<PageHeader Title="Calendario" Eyebrow="Planeación" Subtitle="Tus solicitudes, las ausencias de tu equipo y los días festivos configurados.">
+    <Actions><a class="btn btn-primary" href="/solicitudes/nueva/Vacation"><Icon Name="palm" Size="18" /> Solicitar vacaciones</a></Actions>
+</PageHeader>
+
+<div class="card">
+    <div class="cal-head">
+        <div class="row">
+            <button class="icon-btn" @onclick="() => Move(-1)" aria-label="Mes anterior"><Icon Name="chevron-left" /></button>
+            <h2 style="text-transform:capitalize;min-width:170px;text-align:center">@Format.Month(month.Year, month.Month)</h2>
+            <button class="icon-btn" @onclick="() => Move(1)" aria-label="Mes siguiente"><Icon Name="chevron-right" /></button>
+            <button class="btn btn-sm" @onclick="TodayMonth">Hoy</button>
+        </div>
+        <div class="segmented" role="group" aria-label="Alcance">
+            <button class="@(scope == CalendarScope.Mine ? "active" : "")" @onclick="() => SetScope(CalendarScope.Mine)">Mío</button>
+            <button class="@(scope == CalendarScope.Team ? "active" : "")" @onclick="() => SetScope(CalendarScope.Team)">Equipo</button>
+            @if (canDepartment) { <button class="@(scope == CalendarScope.Department ? "active" : "")" @onclick="() => SetScope(CalendarScope.Department)">Departamento</button> }
+        </div>
+    </div>
+    <div class="cal-grid" role="grid" aria-label="Calendario mensual">
+        @foreach (var dow in new[] { "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom" }) { <div class="cal-dow" role="columnheader">@dow</div> }
+        @for (var day = GridStart; day <= GridEnd; day = day.AddDays(1))
+        {
+            var d = day;
+            var evs = events.Where(e => e.Start <= d && e.End >= d).OrderByDescending(e => e.IsHoliday).ThenByDescending(e => e.IsMine).ToList();
+            <div class="cal-cell @(d.Month != month.Month ? "other" : "") @(d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday ? "weekend" : "") @(d == today ? "today" : "")" role="gridcell" aria-label="@Format.DateLong(d)">
+                <span class="cal-num">@d.Day</span>
+                @foreach (var e in evs.Take(3))
+                {
+                    var pending = e.Status is RequestStatus.PendingSupervisor or RequestStatus.PendingManager or RequestStatus.Submitted or RequestStatus.ReturnedForCorrection;
+                    if (e.RequestId is Guid rid) { <a class="cal-ev @e.Tone @(pending ? "pending" : "")" href="/solicitudes/@rid" title="@($"{e.Title} · {(e.Status is RequestStatus st ? Labels.Status(st) : "")}")">@e.Title</a> }
+                    else { <span class="cal-ev @e.Tone" title="@e.Title">@e.Title</span> }
+                }
+                @if (evs.Count > 3) { <span class="cal-more">+@(evs.Count - 3) más</span> }
+            </div>
+        }
+    </div>
+    <div class="card-footer" style="justify-content:flex-start">
+        <div class="legend">
+            <span><span class="kind-dot overtime"></span>Tiempo extra</span><span><span class="kind-dot vacation"></span>Vacaciones</span>
+            <span><span class="kind-dot paidleave"></span>Permiso con goce</span><span><span class="kind-dot unpaidleave"></span>Permiso sin goce</span>
+            <span><span class="kind-dot" style="background:var(--peer)"></span>Ausencia en el equipo</span><span><span class="kind-dot" style="background:var(--holiday)"></span>Festivo</span>
+            <span>Borde punteado: pendiente de autorización</span>
+        </div>
+    </div>
+</div>
+@if (scope == CalendarScope.Team && !isLeader) { <p class="small muted" style="margin-top:10px">Por privacidad, las ausencias de compañeros se muestran sin nombre ni motivo.</p> }
+
+@code {
+    [SupplyParameterFromQuery(Name = "scope")] private string? ScopeQuery { get; set; }
+    private DateOnly month, today;
+    private CalendarScope scope = CalendarScope.Mine;
+    private IReadOnlyList<CalendarEventDto> events = [];
+    private bool isLeader, canDepartment;
+    private DateOnly GridStart => month.AddDays(-(((int)month.DayOfWeek + 6) % 7));
+    private DateOnly GridEnd { get { var last = month.AddMonths(1).AddDays(-1); return last.AddDays((7 - ((int)last.DayOfWeek + 6) % 7 - 1)); } }
+
+    protected override async Task OnInitializedAsync()
+    {
+        today = Clock.Today;
+        month = new DateOnly(today.Year, today.Month, 1);
+        var actor = await Session.GetActorAsync();
+        isLeader = actor.Has(UserRole.DirectSupervisor) || actor.Has(UserRole.SeniorManager);
+        canDepartment = actor.Has(UserRole.SeniorManager) || actor.Has(UserRole.ProductAdmin);
+        if (ScopeQuery == "team") scope = CalendarScope.Team;
+        await Load();
+    }
+
+    private async Task Move(int delta) { month = month.AddMonths(delta); await Load(); }
+    private async Task TodayMonth() { month = new DateOnly(today.Year, today.Month, 1); await Load(); }
+    private async Task SetScope(CalendarScope s) { scope = s; await Load(); }
+
+    private async Task Load()
+    {
+        try { events = await Runner.Run<RequestQueryService, IReadOnlyList<CalendarEventDto>>((s, a) => s.GetCalendarAsync(a, GridStart, GridEnd, scope)); }
+        catch (Exception ex) { Toasts.Error(ex); }
+    }
+}

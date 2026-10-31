@@ -1,0 +1,5 @@
+<span class="kind-tag"><span class="kind-dot @Kind.ToString().ToLowerInvariant()"></span>@(Short ? Labels.KindShort(Kind) : Labels.Kind(Kind))</span>
+@code {
+    [Parameter, EditorRequired] public RequestKind Kind { get; set; }
+    [Parameter] public bool Short { get; set; } = true;
+}

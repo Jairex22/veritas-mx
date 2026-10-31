@@ -1,0 +1,5 @@
+{
+  "dotnet.defaultSolution": "GPV.ProductTimeFlow.sln",
+  "files.exclude": { "**/bin": true, "**/obj": true },
+  "editor.formatOnSave": false
+}

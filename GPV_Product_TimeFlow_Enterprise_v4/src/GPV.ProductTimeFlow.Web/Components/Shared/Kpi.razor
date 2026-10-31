@@ -1,0 +1,23 @@
+@if (Href is null)
+{
+    <div class="card kpi tone-@Tone">@Body</div>
+}
+else
+{
+    <a class="card kpi tone-@Tone" href="@Href">@Body</a>
+}
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter, EditorRequired] public string Value { get; set; } = "";
+    [Parameter] public string? Unit { get; set; }
+    [Parameter] public string Icon { get; set; } = "chart";
+    [Parameter] public string? Foot { get; set; }
+    [Parameter] public string Tone { get; set; } = "brand";
+    [Parameter] public string? Href { get; set; }
+
+    private RenderFragment Body => @<text>
+        <div class="kpi-top"><span class="kpi-label">@Label</span><span class="kpi-icon"><Icon Name="@Icon" Size="19" /></span></div>
+        <div class="kpi-value">@Value@if (Unit is not null) {<small>@Unit</small>}</div>
+        @if (Foot is not null) { <div class="kpi-foot">@Foot</div> }
+    </text>;
+}

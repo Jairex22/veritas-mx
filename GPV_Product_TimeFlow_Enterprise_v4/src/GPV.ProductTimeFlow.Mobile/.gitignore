@@ -1,0 +1,12 @@
+# Artefactos de compilación de la app móvil
+bin/
+obj/
+*.user
+
+# NUNCA versionar material de firma (Android keystore / certificados y perfiles de Apple)
+*.keystore
+*.jks
+*.p12
+*.pfx
+*.mobileprovision
+*.cer

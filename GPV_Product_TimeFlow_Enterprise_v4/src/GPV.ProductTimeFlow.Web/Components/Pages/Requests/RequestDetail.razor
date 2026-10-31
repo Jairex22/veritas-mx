@@ -1,0 +1,330 @@
+@page "/solicitudes/{Id:guid}"
+@attribute [Authorize]
+@implements IDisposable
+@inject ServiceRunner Runner
+@inject ToastService Toasts
+@inject NavigationManager Nav
+@inject UserSession Session
+@inject GPV.ProductTimeFlow.Infrastructure.InProcessNotificationBus Bus
+
+<PageTitle>@(d is null ? "Expediente" : $"{d.Summary.Folio} · Expediente") · GPV Product TimeFlow</PageTitle>
+
+@if (notFound)
+{
+    <div class="card"><EmptyState Icon="lock" Title="Expediente no disponible" Message="La solicitud no existe o no tiene permisos para consultarla."><a class="btn" href="/solicitudes">Volver a mis solicitudes</a></EmptyState></div>
+}
+else if (d is null)
+{
+    <div class="card"><div class="card-body"><div class="skeleton" style="width:40%;height:26px"></div><div class="skeleton" style="margin-top:14px"></div><div class="skeleton" style="margin-top:10px;width:70%"></div></div></div>
+}
+else
+{
+    var s = d.Summary;
+    var p = d.Permissions;
+    <nav class="breadcrumb" aria-label="Ruta"><a href="/solicitudes">Solicitudes</a><Icon Name="chevron-right" Size="14" /><span>@s.Folio</span></nav>
+    <header class="page-header">
+        <div>
+            <div class="row" style="gap:10px"><h1 tabindex="-1" data-testid="folio">@s.Folio</h1><StatusChip Status="s.Status" /></div>
+            <p><KindTag Kind="s.Kind" Short="false" /> · @s.EmployeeName (No. @s.EmployeeNumber) · Versión @s.Version</p>
+        </div>
+        <div class="page-actions">
+            <a class="btn" href="/files/requests/@s.Id/pdf" target="_blank" rel="noopener" data-testid="view-pdf"><Icon Name="eye" Size="18" /> Ver documento</a>
+            <a class="btn" href="/files/requests/@s.Id/pdf?download=true" data-testid="download-pdf"><Icon Name="download" Size="18" /> Descargar PDF</a>
+            <a class="btn desktop-only" href="/files/requests/@s.Id/pdf" target="_blank" rel="noopener" title="Abre el PDF para imprimir"><Icon Name="printer" Size="18" /> Imprimir</a>
+        </div>
+    </header>
+
+    @if (s.Kind == RequestKind.UnpaidLeave) { <div class="unpaid-banner" style="margin-bottom:16px"><Icon Name="alert" /> Permiso SIN goce de sueldo · Esta aplicación no aplica descuentos de nómina; solo registra y autoriza.</div> }
+    @if (d.ReturnComment is not null) { <div class="alert warning" style="margin-bottom:16px"><Icon Name="undo" /><div><strong>Devuelta para corrección</strong>@d.ReturnComment</div></div> }
+    @if (p.CanDecide) { <div class="alert info" style="margin-bottom:16px"><Icon Name="badge-check" /><div><strong>Requiere tu decisión (@Labels.Step(p.DecisionStep!.Value))</strong>Revisa el expediente completo. Para aprobar deberás firmar; para rechazar o devolver, justificar.</div></div> }
+
+    <section class="card" style="margin-bottom:18px" aria-label="Flujo de autorización">
+        <div class="card-header"><div><h2>Flujo de autorización</h2><p>Empleado → Jefa directa → Jefe superior → Registro administrativo</p></div></div>
+        <div class="card-body">
+            <div class="filters-flow">
+                @foreach (var step in d.Steps.DefaultIfEmpty())
+                {
+                    if (step is null) { <div class="filter-step"><span class="step-title">Sin enviar</span><strong>La solicitud aún es un borrador</strong></div> continue; }
+                    <div class="filter-step @StepCss(step.Status)">
+                        <span class="step-title">@step.TypeLabel</span>
+                        <strong>@(step.AssigneeName ?? "—")</strong>
+                        <span class="chip @StepTone(step.Status) plain" style="width:fit-content">@step.StatusLabel</span>
+                        @if (step.ActedAtUtc is not null) { <span class="cell-sub">@Format.DateTime(step.ActedAtUtc)@(step.ActorName is not null ? $" · {step.ActorName}" : "")</span> }
+                        @if (!string.IsNullOrWhiteSpace(step.Comment)) { <span class="small">“@step.Comment”</span> }
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+
+    <div class="grid grid-main">
+        <div class="stack">
+            <section class="card">
+                <div class="card-header"><h2>Detalle de la solicitud</h2></div>
+                <div class="card-body">
+                    <dl class="kv">
+                        <dt>Empleado</dt><dd>@s.EmployeeName · No. @s.EmployeeNumber</dd>
+                        <dt>Área / puesto</dt><dd>@(s.Area ?? "—") · @(d.Position ?? "—")</dd>
+                        <dt>Periodo</dt><dd>@Format.Period(s)@(d.CrossesMidnight ? " (termina al día siguiente)" : "")</dd>
+                        <dt>Duración</dt><dd>@Format.Duration(s)</dd>
+                        @if (d.Project is not null) { <dt>Proyecto</dt><dd>@d.Project</dd> }
+                        @if (d.Activity is not null) { <dt>Actividad</dt><dd>@d.Activity</dd> }
+                        @if (d.LeaveCategoryName is not null) { <dt>Clasificación</dt><dd>@d.LeaveCategoryName</dd> }
+                        <dt>Motivo</dt><dd>@s.Reason</dd>
+                        @if (d.Justification is not null) { <dt>Justificación</dt><dd>@d.Justification</dd> }
+                        @if (d.Observations is not null) { <dt>Observaciones</dt><dd>@d.Observations</dd> }
+                        <dt>Creada</dt><dd>@Format.DateTime(s.CreatedAtUtc)</dd>
+                        <dt>Enviada</dt><dd>@Format.DateTime(s.SubmittedAtUtc)</dd>
+                        <dt>Huella (SHA-256)</dt><dd class="mono">@d.ContentHash</dd>
+                    </dl>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-header"><div><h2>Firmas y constancias</h2><p>Firma electrónica simple asociada a la versión exacta de la solicitud.</p></div></div>
+                <div class="card-body stack" style="gap:10px">
+                    @if (d.Signatures.Count == 0) { <p class="muted small">Aún no hay firmas registradas.</p> }
+                    @foreach (var g in d.Signatures)
+                    {
+                        <div class="sig-card @(g.IsValid ? "" : "invalid")">
+                            @if (g.ImageDataUrl is not null) { <img src="@g.ImageDataUrl" alt="@($"Firma de {g.SignerName}")" /> }
+                            <div class="grow">
+                                <div class="row"><strong>@g.SignerName</strong><span class="chip @(g.IsValid ? "success" : "muted") plain">@(g.IsValid ? "Vigente" : "Invalidada")</span></div>
+                                <div class="cell-sub">@g.SignerRole · @Format.DateTime(g.SignedAtUtc) · versión @g.RequestVersion</div>
+                                <div class="mono muted">Documento @g.DocumentHash[..16]… · Firma @g.SignatureHash[..16]…</div>
+                                @if (!g.IsValid) { <div class="small" style="color:var(--attention)">@g.InvalidationReason</div> }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-header"><h2>Documentos adjuntos</h2>@if (p.CanUploadAttachments) { <a class="btn btn-sm" href="/solicitudes/@s.Id/editar"><Icon Name="paperclip" Size="16" /> Gestionar</a> }</div>
+                <div class="card-body stack" style="gap:8px">
+                    @if (d.Attachments.Count == 0) { <p class="muted small">Sin documentos adjuntos.</p> }
+                    @foreach (var a in d.Attachments)
+                    {
+                        <div class="file-row"><Icon Name="paperclip" /><div class="grow"><div class="cell-title">@a.FileName</div><div class="cell-sub">@Format.Bytes(a.SizeBytes) · @a.UploadedByName · @Format.DateTime(a.UploadedAtUtc)</div></div>
+                            <a class="btn btn-sm" href="/files/attachments/@a.Id"><Icon Name="download" Size="16" /> Descargar</a></div>
+                    }
+                </div>
+            </section>
+        </div>
+
+        <div class="stack">
+            @if (d.Administrative is not null)
+            {
+                <section class="card">
+                    <div class="card-header"><h2>Registro administrativo</h2></div>
+                    <div class="card-body">
+                        <dl class="kv" style="grid-template-columns:110px 1fr">
+                            <dt>Recibida</dt><dd>@(d.Administrative.ReceivedAtUtc is null ? "Pendiente" : $"{Format.DateTime(d.Administrative.ReceivedAtUtc)} · {d.Administrative.ReceivedByName}")</dd>
+                            <dt>Registrada</dt><dd>@(d.Administrative.RegisteredAtUtc is null ? "Pendiente" : $"{Format.DateTime(d.Administrative.RegisteredAtUtc)} · {d.Administrative.RegisteredByName}")</dd>
+                            <dt>Procesada</dt><dd>@(d.Administrative.ProcessedAtUtc is null ? "Pendiente" : $"{Format.DateTime(d.Administrative.ProcessedAtUtc)} · {d.Administrative.ProcessedByName}")</dd>
+                            <dt>Referencia</dt><dd>@(d.Administrative.ExternalReference ?? "—")</dd>
+                            @if (d.Administrative.Observations is not null) { <dt>Observaciones</dt><dd style="white-space:pre-line">@d.Administrative.Observations</dd> }
+                        </dl>
+                    </div>
+                </section>
+            }
+            <section class="card">
+                <div class="card-header"><div><h2>Historial</h2><p>Se conserva aunque la solicitud se rechace o corrija.</p></div></div>
+                <div class="card-body">
+                    @if (d.History.Count == 0) { <p class="muted small">Sin movimientos.</p> }
+                    <ul class="timeline">
+                        @foreach (var h in d.History.Reverse())
+                        {
+                            <li><span class="dot"></span><div class="what">@h.ActionLabel</div><div class="when">@Format.DateTime(h.OccurredAtUtc) · @h.ActorName · v@(h.RequestVersion)</div>
+                                @if (h.ToStatusLabel is not null && h.ToStatusLabel != h.FromStatusLabel) { <div class="cell-sub">→ @h.ToStatusLabel</div> }
+                                @if (!string.IsNullOrWhiteSpace(h.Comment)) { <div class="note">@h.Comment</div> }</li>
+                        }
+                    </ul>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    @if (p.CanEdit || p.CanSubmit || p.CanCancel || p.CanDecide || p.CanAdminReceive || p.CanAdminObserve || p.CanAdminRegister || p.CanAdminComplete)
+    {
+        <div class="action-bar" role="toolbar" aria-label="Acciones de la solicitud">
+            @if (p.CanCancel) { <button class="btn btn-ghost" @onclick="() => cancelOpen = true" data-testid="cancel-request"><Icon Name="x-circle" Size="18" /> Cancelar solicitud</button> }
+            @if (p.CanEdit) { <a class="btn" href="/solicitudes/@s.Id/editar" data-testid="edit-request"><Icon Name="edit" Size="18" /> @(s.Status == RequestStatus.ReturnedForCorrection ? "Corregir" : "Editar")</a> }
+            @if (p.CanSubmit) { <button class="btn btn-primary" @onclick="Resubmit" disabled="@busy" data-testid="send-request"><Icon Name="send" Size="18" /> @(s.Status == RequestStatus.ReturnedForCorrection ? "Reenviar" : "Enviar")</button> }
+            @if (p.CanDecide)
+            {
+                <button class="btn btn-warning" @onclick="() => OpenDecision(ApprovalDecisionType.Return)" data-testid="return"><Icon Name="undo" Size="18" /> Devolver</button>
+                <button class="btn btn-danger" @onclick="() => OpenDecision(ApprovalDecisionType.Reject)" data-testid="reject"><Icon Name="x-circle" Size="18" /> Rechazar</button>
+                <button class="btn btn-success" @onclick="() => OpenDecision(ApprovalDecisionType.Approve)" data-testid="approve"><Icon Name="pen" Size="18" /> Firmar y aprobar</button>
+            }
+            @if (p.CanAdminReceive) { <button class="btn" @onclick="() => Admin(AdministrativeAction.Receive)" disabled="@busy" data-testid="admin-receive"><Icon Name="inbox" Size="18" /> Marcar como recibida</button> }
+            @if (p.CanAdminObserve) { <button class="btn btn-warning" @onclick="() => OpenAdmin(AdministrativeAction.Observe)" data-testid="admin-observe"><Icon Name="alert" Size="18" /> Registrar observación</button> }
+            @if (p.CanAdminRegister) { <button class="btn btn-primary" @onclick="() => OpenAdmin(AdministrativeAction.Register)" data-testid="admin-register"><Icon Name="archive" Size="18" /> Registrar</button> }
+            @if (p.CanAdminComplete) { <button class="btn btn-success" @onclick="() => OpenAdmin(AdministrativeAction.Complete)" data-testid="admin-complete"><Icon Name="check-circle" Size="18" /> Marcar como procesada</button> }
+        </div>
+    }
+
+    <Modal @bind-Open="decisionOpen" Title="@DecisionTitle" Subtitle="@($"{s.Folio} · {s.EmployeeName} · versión {s.Version}")" Busy="busy" Wide="decision == ApprovalDecisionType.Approve">
+        <ChildContent>
+            <ErrorList Errors="errors" />
+            @if (decision == ApprovalDecisionType.Approve)
+            {
+                <div class="alert info"><Icon Name="info" /><div>Al aprobar, @(p.DecisionStep == ApprovalStepType.DirectSupervisor ? "la solicitud pasará automáticamente al jefe superior." : "la autorización será definitiva y se remitirá a registro administrativo.")</div></div>
+                <SignaturePad @ref="pad" Label="Firma del aprobador" CanvasId="approver-signature" />
+                <label class="check"><input type="checkbox" @bind="consent" data-testid="consent" /> Confirmo que firmo electrónicamente esta versión (@s.Version) de la solicitud, con huella @d.ContentHash[..12]…, después de revisarla.</label>
+                <div class="field"><label for="dc">Comentario (opcional)</label><textarea id="dc" maxlength="1000" @bind="comment" style="min-height:70px"></textarea></div>
+            }
+            else
+            {
+                <div class="field"><label for="dc">@(decision == ApprovalDecisionType.Reject ? "Justificación del rechazo" : "Indica qué debe corregirse")<span class="req">*</span></label>
+                    <textarea id="dc" maxlength="1000" @bind="comment" @bind:event="oninput" data-testid="decision-comment"></textarea><span class="hint">Mínimo 10 caracteres. Será visible para el empleado.</span></div>
+                @if (decision == ApprovalDecisionType.Reject) { <div class="alert warning"><Icon Name="alert" /><div>El rechazo detiene la solicitud de forma definitiva y se notifica a las personas involucradas.</div></div> }
+            }
+        </ChildContent>
+        <Footer>
+            <button class="btn" @onclick="() => decisionOpen = false" disabled="@busy">Cancelar</button>
+            <button class="btn @(decision == ApprovalDecisionType.Approve ? "btn-success" : decision == ApprovalDecisionType.Reject ? "btn-danger" : "btn-primary")" @onclick="ConfirmDecision" disabled="@busy" data-testid="confirm-decision">
+                @if (busy) { <span class="spinner"></span> } @DecisionTitle
+            </button>
+        </Footer>
+    </Modal>
+
+    <Modal @bind-Open="adminOpen" Title="@Labels.AdministrativeAction(adminAction)" Subtitle="@($"{s.Folio} · {s.EmployeeName}")" Busy="busy">
+        <ChildContent>
+            <ErrorList Errors="errors" />
+            @if (adminAction == AdministrativeAction.Register) { <div class="field"><label for="ref">Referencia administrativa (opcional)</label><input id="ref" maxlength="100" @bind="externalRef" placeholder="p. ej. número de captura" /></div> }
+            <div class="field"><label for="ac">@(adminAction == AdministrativeAction.Observe ? "Observación" : "Comentario (opcional)")@if (adminAction == AdministrativeAction.Observe) { <span class="req">*</span> }</label>
+                <textarea id="ac" maxlength="1000" @bind="comment" @bind:event="oninput" data-testid="admin-comment"></textarea></div>
+            <p class="small muted">El registro administrativo no modifica las decisiones de los jefes; solo deja constancia de la recepción y el trámite.</p>
+        </ChildContent>
+        <Footer>
+            <button class="btn" @onclick="() => adminOpen = false" disabled="@busy">Cancelar</button>
+            <button class="btn btn-primary" @onclick="() => Admin(adminAction)" disabled="@busy" data-testid="confirm-admin">@if (busy) { <span class="spinner"></span> } Confirmar</button>
+        </Footer>
+    </Modal>
+
+    <Modal @bind-Open="cancelOpen" Title="Cancelar solicitud" Subtitle="@s.Folio" Busy="busy">
+        <ChildContent>
+            <p>La solicitud dejará de avanzar y se notificará a quien la tenga pendiente. El historial se conserva.</p>
+            <div class="field"><label for="cr">Motivo (opcional)</label><textarea id="cr" maxlength="500" @bind="comment"></textarea></div>
+        </ChildContent>
+        <Footer>
+            <button class="btn" @onclick="() => cancelOpen = false" disabled="@busy">Volver</button>
+            <button class="btn btn-danger" @onclick="Cancel" disabled="@busy" data-testid="confirm-cancel">Cancelar solicitud</button>
+        </Footer>
+    </Modal>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private RequestDetailDto? d;
+    private bool notFound, busy, decisionOpen, adminOpen, cancelOpen, consent;
+    private ApprovalDecisionType decision;
+    private AdministrativeAction adminAction;
+    private string? comment, externalRef;
+    private List<string>? errors;
+    private SignaturePad? pad;
+    private string idempotencyKey = Guid.NewGuid().ToString("N");
+    private IDisposable? subscription;
+
+    private string DecisionTitle => decision switch { ApprovalDecisionType.Approve => "Firmar y aprobar", ApprovalDecisionType.Reject => "Rechazar solicitud", _ => "Devolver para corrección" };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await Load();
+        var actor = await Session.GetActorAsync();
+        subscription ??= Bus.Subscribe(actor.EmployeeId, async n => { if (n.RequestId == Id) await InvokeAsync(async () => { await Load(); StateHasChanged(); }); });
+    }
+
+    private async Task Load()
+    {
+        try { d = await Runner.Run<RequestQueryService, RequestDetailDto>((s, a) => s.GetDetailAsync(a, Id)); notFound = false; }
+        catch (NotFoundException) { notFound = true; }
+        catch (Exception ex) { Toasts.Error(ex); }
+    }
+
+    private void OpenDecision(ApprovalDecisionType t)
+    {
+        decision = t; comment = null; consent = false; errors = null;
+        idempotencyKey = Guid.NewGuid().ToString("N");   // una clave por intento: el doble clic reutiliza la misma
+        decisionOpen = true;
+    }
+
+    private void OpenAdmin(AdministrativeAction a) { adminAction = a; comment = null; externalRef = null; errors = null; idempotencyKey = Guid.NewGuid().ToString("N"); adminOpen = true; }
+
+    private async Task ConfirmDecision()
+    {
+        if (busy) return;
+        busy = true; errors = null;
+        try
+        {
+            string? signature = decision == ApprovalDecisionType.Approve && pad is not null ? await pad.GetPngBase64Async() : null;
+            var input = new DecisionInput { Decision = decision, Comment = comment, SignaturePngBase64 = signature, SignatureConsent = consent, ExpectedVersion = d!.Summary.Version, IdempotencyKey = idempotencyKey };
+            var result = await Runner.Run<WorkflowService, WorkflowResultDto>((s, a) => s.DecideAsync(a, Id, input));
+            decisionOpen = false;
+            Toasts.Success(result.WasDuplicate ? "Operación ya registrada" : $"{result.Folio}: {result.StatusLabel}", result.Message);
+            await Load();
+        }
+        catch (BusinessRuleException ex) { errors = ex.Errors.ToList(); }
+        catch (Exception ex) { decisionOpen = false; Toasts.Error(ex); await Load(); }
+        finally { busy = false; }
+    }
+
+    private async Task Admin(AdministrativeAction action)
+    {
+        if (busy) return;
+        busy = true; errors = null;
+        try
+        {
+            var key = action == AdministrativeAction.Receive ? Guid.NewGuid().ToString("N") : idempotencyKey;
+            var result = await Runner.Run<WorkflowService, WorkflowResultDto>((s, a) => s.AdministrativeAsync(a, Id, new AdministrativeInput { Action = action, Comment = comment, ExternalReference = externalRef, IdempotencyKey = key }));
+            adminOpen = false;
+            Toasts.Success(result.Folio, result.Message);
+            await Load();
+        }
+        catch (BusinessRuleException ex) { errors = ex.Errors.ToList(); }
+        catch (Exception ex) { adminOpen = false; Toasts.Error(ex); await Load(); }
+        finally { busy = false; }
+    }
+
+    private async Task Resubmit()
+    {
+        busy = true;
+        try
+        {
+            var result = await Runner.Run<WorkflowService, WorkflowResultDto>((s, a) => s.SubmitAsync(a, Id, new SubmitInput { IdempotencyKey = idempotencyKey }));
+            Toasts.Success($"Solicitud {result.Folio} enviada", result.Message);
+            idempotencyKey = Guid.NewGuid().ToString("N");
+            await Load();
+        }
+        catch (Exception ex) { Toasts.Error(ex); }
+        finally { busy = false; }
+    }
+
+    private async Task Cancel()
+    {
+        busy = true;
+        try
+        {
+            var result = await Runner.Run<WorkflowService, WorkflowResultDto>((s, a) => s.CancelAsync(a, Id, new CancelInput { Reason = comment }));
+            cancelOpen = false;
+            Toasts.Success(result.Folio, result.Message);
+            await Load();
+        }
+        catch (Exception ex) { Toasts.Error(ex); }
+        finally { busy = false; }
+    }
+
+    private static string StepCss(ApprovalStepStatus st) => st switch
+    {
+        ApprovalStepStatus.Approved => "approved", ApprovalStepStatus.Registered => "registered", ApprovalStepStatus.Pending => "pending",
+        ApprovalStepStatus.Rejected => "rejected", ApprovalStepStatus.Returned => "returned", _ => ""
+    };
+    private static string StepTone(ApprovalStepStatus st) => st switch
+    {
+        ApprovalStepStatus.Approved or ApprovalStepStatus.Registered => "success", ApprovalStepStatus.Pending => "warning",
+        ApprovalStepStatus.Rejected => "danger", ApprovalStepStatus.Returned => "attention", _ => "muted"
+    };
+
+    public void Dispose() => subscription?.Dispose();
+}

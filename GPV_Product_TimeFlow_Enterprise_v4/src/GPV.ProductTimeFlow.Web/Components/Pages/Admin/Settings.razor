@@ -1,0 +1,167 @@
+@page "/admin/configuracion"
+@attribute [Authorize(Roles = "ProductAdmin")]
+@inject ServiceRunner Runner
+@inject ToastService Toasts
+@inject GPV.ProductTimeFlow.Application.IntegrationStatus Integration
+@inject EnvironmentInfo Env
+
+<PageTitle>Configuración · GPV Product TimeFlow</PageTitle>
+<PageHeader Title="Configuración" Eyebrow="Administración de Producto" Subtitle="Parámetros de políticas, calendario laboral, catálogos, correo y documentos. Todos los cambios quedan auditados." />
+
+<div class="tabs" style="margin-bottom:16px;width:fit-content" role="tablist">
+    @foreach (var (k, l) in Tabs) { <button class="tab @(tab == k ? "active" : "")" role="tab" @onclick="() => tab = k">@l</button> }
+</div>
+
+@if (tab == "policy" && policy is not null)
+{
+    <div class="card">
+        <div class="card-header"><div><h2>Parámetros de políticas</h2><p>Reglas configurables conforme a las políticas internas. No representan cálculos definitivos de nómina.</p></div></div>
+        <div class="card-body stack">
+            <ErrorList Errors="errors" />
+            <h3>Tiempo extra</h3>
+            <div class="form-grid">
+                <div class="field"><label>Mínimo de horas por solicitud</label><input type="number" step="0.25" @bind="policy.OvertimeMinHours" /></div>
+                <div class="field"><label>Máximo de horas por solicitud</label><input type="number" step="0.5" @bind="policy.OvertimeMaxHoursPerRequest" /></div>
+                <div class="field"><label>Máximo de horas por mes</label><input type="number" step="1" @bind="policy.OvertimeMaxHoursPerMonth" /></div>
+                <div class="field"><label>Días hacia atrás permitidos (tiempo extra y permisos)</label><input type="number" @bind="policy.OvertimeMaxDaysInPast" /></div>
+            </div>
+            <h3>Vacaciones y calendario</h3>
+            <div class="form-grid">
+                <div class="field"><label>Días hábiles (1 = lunes … 7 = domingo)</label><input @bind="policy.WorkingDays" /></div>
+                <div class="field"><label>Máximo de días consecutivos por solicitud</label><input type="number" @bind="policy.VacationMaxConsecutiveDays" /></div>
+                <div class="field"><label>Anticipación máxima (días a futuro)</label><input type="number" @bind="policy.RequestMaxDaysInFuture" /></div>
+                <div class="field"><label class="check"><input type="checkbox" @bind="policy.VacationAllowNegativeBalance" /> Permitir saldo negativo (no recomendado)</label></div>
+            </div>
+            <h3>Flujo, recordatorios y retención</h3>
+            <div class="form-grid">
+                <div class="field"><label>Recordatorio tras (horas pendiente)</label><input type="number" @bind="policy.ReminderAfterHours" /></div>
+                <div class="field"><label>Marcar como urgente tras (horas)</label><input type="number" @bind="policy.UrgentAfterHours" /></div>
+                <div class="field"><label>Buzón del registro administrativo</label><input type="email" @bind="policy.AdministrativeMailbox" /></div>
+                <div class="field"><label>Retención de expedientes (días)</label><input type="number" @bind="policy.RetentionDays" /><span class="hint">Referencia para la política de depuración; no elimina datos automáticamente.</span></div>
+                <div class="field full"><label class="check"><input type="checkbox" @bind="policy.RequireEmployeeSignature" /> Exigir firma del solicitante al enviar</label></div>
+            </div>
+            <h3>Documentos e identidad visual</h3>
+            <div class="form-grid">
+                <div class="field"><label>Color corporativo (#RRGGBB)</label><div class="row" style="flex-wrap:nowrap"><input type="color" @bind="policy.BrandPrimaryColor" style="width:56px;padding:4px" /><input @bind="policy.BrandPrimaryColor" /></div><span class="hint">Configurable: sustituir por la paleta oficial autorizada por GPV.</span></div>
+                <div class="field full"><label>Leyenda al pie del PDF</label><textarea @bind="policy.DocumentFooterText" maxlength="500"></textarea></div>
+            </div>
+        </div>
+        <div class="card-footer"><button class="btn btn-primary" @onclick="SavePolicy" disabled="@busy">@if (busy) { <span class="spinner"></span> } Guardar parámetros</button></div>
+    </div>
+}
+else if (tab == "holidays")
+{
+    <div class="grid grid-main">
+        <div class="card">
+            <div class="card-header"><div><h2>Días festivos</h2><p>Se excluyen del cálculo de días hábiles. Validar el calendario oficial con RH cada año.</p></div></div>
+            <div class="table-wrap"><table class="data"><thead><tr><th>Fecha</th><th>Nombre</th><th>Estado</th><th></th></tr></thead><tbody>
+                @foreach (var h in holidays)
+                {
+                    <tr><td class="nowrap">@Format.DateLong(h.Date) @h.Date.Year</td><td>@h.Name</td><td><span class="chip @(h.IsActive ? "success" : "muted") plain">@(h.IsActive ? "Activo" : "Inactivo")</span></td>
+                        <td class="right"><button class="btn btn-sm" @onclick="() => holiday = h">Editar</button></td></tr>
+                }
+            </tbody></table></div>
+        </div>
+        <div class="card">
+            <div class="card-header"><h2>@(holiday.Id == 0 ? "Agregar festivo" : "Editar festivo")</h2></div>
+            <div class="card-body stack">
+                <div class="field"><label>Fecha</label><input type="date" value="@holiday.Date.ToString("yyyy-MM-dd")" @onchange="HolidayDate" /></div>
+                <div class="field"><label>Nombre</label><input value="@holiday.Name" @onchange="HolidayName" /></div>
+                <label class="check"><input type="checkbox" checked="@holiday.IsActive" @onchange="HolidayActive" /> Activo</label>
+            </div>
+            <div class="card-footer"><button class="btn" @onclick="() => holiday = NewHoliday()">Nuevo</button><button class="btn btn-primary" @onclick="SaveHoliday">Guardar</button></div>
+        </div>
+    </div>
+}
+else if (tab == "categories")
+{
+    <div class="grid grid-main">
+        <div class="card">
+            <div class="card-header"><div><h2>Catálogo de tipos de permiso</h2><p>Clasificaciones disponibles para permisos con y sin goce.</p></div></div>
+            <div class="table-wrap"><table class="data"><thead><tr><th>Clasificación</th><th>Aplica a</th><th>Requiere documento</th><th>Estado</th><th></th></tr></thead><tbody>
+                @foreach (var c in categories)
+                {
+                    <tr><td>@c.Name</td><td>@Labels.Kind(c.AppliesTo)</td><td>@(c.RequiresAttachment ? "Sí" : "No")</td><td><span class="chip @(c.IsActive ? "success" : "muted") plain">@(c.IsActive ? "Activa" : "Inactiva")</span></td>
+                        <td class="right"><button class="btn btn-sm" @onclick="() => category = c">Editar</button></td></tr>
+                }
+            </tbody></table></div>
+        </div>
+        <div class="card">
+            <div class="card-header"><h2>@(category.Id == 0 ? "Nueva clasificación" : "Editar clasificación")</h2></div>
+            <div class="card-body stack">
+                <div class="field"><label>Nombre</label><input value="@category.Name" @onchange="CategoryName" /></div>
+                <div class="field"><label>Aplica a</label><select value="@category.AppliesTo" @onchange="CategoryKind">
+                    <option value="@RequestKind.PaidLeave">@Labels.Kind(RequestKind.PaidLeave)</option><option value="@RequestKind.UnpaidLeave">@Labels.Kind(RequestKind.UnpaidLeave)</option></select></div>
+                <label class="check"><input type="checkbox" checked="@category.RequiresAttachment" @onchange="CategoryAttachment" /> Requiere documento adjunto</label>
+                <label class="check"><input type="checkbox" checked="@category.IsActive" @onchange="CategoryActive" /> Activa</label>
+            </div>
+            <div class="card-footer"><button class="btn" @onclick="() => category = NewCategory()">Nueva</button><button class="btn btn-primary" @onclick="SaveCategory">Guardar</button></div>
+        </div>
+    </div>
+}
+else if (tab == "integrations")
+{
+    <div class="grid grid-2">
+        <div class="card"><div class="card-header"><h2>Correo (Microsoft Graph)</h2></div><div class="card-body stack">
+            <dl class="kv"><dt>Proveedor</dt><dd>@Integration.EmailProvider</dd><dt>Ambiente</dt><dd>@Env.Label</dd><dt>URL pública</dt><dd>@Env.BaseUrl</dd></dl>
+            <p class="small muted">Las credenciales (Tenant, Client ID, secreto o certificado y buzón remitente) se configuran exclusivamente mediante variables de entorno o un almacén seguro autorizado por TI; nunca desde esta pantalla ni en archivos del repositorio. Consulte docs/CONFIGURACION_OUTLOOK.md.</p>
+        </div></div>
+        <div class="card"><div class="card-header"><h2>Autenticación</h2></div><div class="card-body stack">
+            <dl class="kv"><dt>Modo</dt><dd>@Integration.AuthenticationMode</dd></dl>
+            <p class="small muted">En producción se usa Microsoft Entra ID (OpenID Connect). Las cuentas locales con contraseña solo existen en DEMO y PRUEBAS y la aplicación se niega a iniciar en PRODUCCIÓN si están habilitadas.</p>
+        </div></div>
+    </div>
+}
+
+@code {
+    private static readonly (string, string)[] Tabs = [("policy", "Políticas"), ("holidays", "Días festivos"), ("categories", "Tipos de permiso"), ("integrations", "Correo y autenticación")];
+    private string tab = "policy";
+    private PolicySettingsDto? policy;
+    private IReadOnlyList<HolidayDto> holidays = [];
+    private IReadOnlyList<LeaveCategoryDto> categories = [];
+    private HolidayDto holiday = NewHoliday();
+    private LeaveCategoryDto category = NewCategory();
+    private List<string>? errors;
+    private bool busy;
+
+    private static HolidayDto NewHoliday() => new(0, DateOnly.FromDateTime(DateTime.Today), "", true);
+    private static LeaveCategoryDto NewCategory() => new(0, "", RequestKind.PaidLeave, false, true);
+
+    protected override async Task OnInitializedAsync() => await LoadAll();
+
+    private void HolidayDate(ChangeEventArgs e) { if (DateOnly.TryParse(e.Value?.ToString(), out var d)) holiday = holiday with { Date = d }; }
+    private void HolidayName(ChangeEventArgs e) => holiday = holiday with { Name = e.Value?.ToString() ?? "" };
+    private void HolidayActive(ChangeEventArgs e) => holiday = holiday with { IsActive = e.Value is true };
+    private void CategoryName(ChangeEventArgs e) => category = category with { Name = e.Value?.ToString() ?? "" };
+    private void CategoryKind(ChangeEventArgs e) => category = category with { AppliesTo = Enum.Parse<RequestKind>(e.Value!.ToString()!) };
+    private void CategoryAttachment(ChangeEventArgs e) => category = category with { RequiresAttachment = e.Value is true };
+    private void CategoryActive(ChangeEventArgs e) => category = category with { IsActive = e.Value is true };
+
+    private async Task LoadAll()
+    {
+        policy = await Runner.Run<SettingsAdminService, PolicySettingsDto>((s, _) => s.GetPolicyAsync());
+        holidays = await Runner.Run<SettingsAdminService, IReadOnlyList<HolidayDto>>((s, _) => s.HolidaysAsync(null));
+        categories = await Runner.Run<SettingsAdminService, IReadOnlyList<LeaveCategoryDto>>((s, _) => s.CategoriesAsync(null, false));
+    }
+
+    private async Task SavePolicy()
+    {
+        busy = true; errors = null;
+        try { await Runner.Run<SettingsAdminService>((s, a) => s.UpdatePolicyAsync(a, policy!)); Toasts.Success("Parámetros guardados"); }
+        catch (BusinessRuleException ex) { errors = ex.Errors.ToList(); }
+        catch (Exception ex) { Toasts.Error(ex); }
+        finally { busy = false; }
+    }
+
+    private async Task SaveHoliday()
+    {
+        try { await Runner.Run<SettingsAdminService>((s, a) => s.SaveHolidayAsync(a, holiday)); Toasts.Success("Día festivo guardado"); holiday = NewHoliday(); await LoadAll(); }
+        catch (Exception ex) { Toasts.Error(ex); }
+    }
+
+    private async Task SaveCategory()
+    {
+        try { await Runner.Run<SettingsAdminService>((s, a) => s.SaveCategoryAsync(a, category)); Toasts.Success("Clasificación guardada"); category = NewCategory(); await LoadAll(); }
+        catch (Exception ex) { Toasts.Error(ex); }
+    }
+}

@@ -1,0 +1,60 @@
+@page "/registro"
+@attribute [Authorize(Roles = "AdministrativeRegistrar,ProductAdmin")]
+@inject ServiceRunner Runner
+@inject ToastService Toasts
+
+<PageTitle>Registro administrativo · GPV Product TimeFlow</PageTitle>
+<PageHeader Title="Registro administrativo" Eyebrow="Filtro 3" Subtitle="Recepción, verificación y registro de solicitudes que ya cuentan con las dos autorizaciones gerenciales. Este filtro no modifica decisiones de los jefes.">
+    <Actions><a class="btn" href="/files/exports/requests.xlsx?set=approved" data-testid="registry-export"><Icon Name="table" Size="18" /> Exportar autorizadas (Excel)</a></Actions>
+</PageHeader>
+
+<div class="card">
+    <div class="toolbar">
+        <div class="tabs" role="tablist">
+            @foreach (var (key, label, status) in Tabs)
+            {
+                <button class="tab @(tab == key ? "active" : "")" role="tab" @onclick="() => SetTab(key)">@label</button>
+            }
+        </div>
+        <div class="grow"></div>
+        <select class="select-sm" @bind="kind" @bind:after="Reload" aria-label="Tipo">
+            <option value="">Todos los tipos</option>
+            @foreach (var k in Enum.GetValues<RequestKind>()) { <option value="@k">@Labels.Kind(k)</option> }
+        </select>
+        <input class="input" style="max-width:220px;min-height:38px" type="search" placeholder="Empleado o folio" @bind="search" @bind:after="Reload" aria-label="Buscar" />
+    </div>
+    @if (result is null) { <div class="card-body"><div class="skeleton"></div></div> }
+    else
+    {
+        <RequestTable Items="result.Items" ShowEmployee="true" ShowApprover="false" EmptyIcon="archive" EmptyTitle="Sin solicitudes en esta etapa" EmptyMessage="Las solicitudes llegan aquí automáticamente cuando el jefe superior las autoriza." />
+        <Pager Page="page" PageSize="20" Total="result.TotalCount" OnPage="Go" />
+    }
+</div>
+<p class="small muted" style="margin-top:12px">Si el área administrativa no tiene acceso a la aplicación, el administrador de Producto puede entregar el Excel y los PDF por correo corporativo autorizado; el buzón administrativo recibe aviso automático de cada autorización final.</p>
+
+@code {
+    [SupplyParameterFromQuery(Name = "tab")] private string? TabQuery { get; set; }
+    private static readonly (string Key, string Label, RequestStatus Status)[] Tabs =
+    [
+        ("pending", "Pendientes de registro", RequestStatus.PendingAdministrativeRegistration), ("observed", "Con observaciones", RequestStatus.AdministrativeObserved),
+        ("registered", "Registradas", RequestStatus.AdministrativeRegistered), ("completed", "Procesadas", RequestStatus.Completed)
+    ];
+    private string tab = "pending", kind = "";
+    private string? search;
+    private int page = 1;
+    private PagedResult<RequestSummaryDto>? result;
+
+    protected override async Task OnParametersSetAsync() { tab = Tabs.Any(t => t.Key == TabQuery) ? TabQuery! : "pending"; await Reload(); }
+    private async Task SetTab(string t) { tab = t; page = 1; await Reload(); }
+    private async Task Go(int p) { page = p; await Reload(); }
+
+    private async Task Reload()
+    {
+        try
+        {
+            var q = new RequestQuery { Scope = RequestScope.Administrative, Status = Tabs.First(t => t.Key == tab).Status, Kind = Enum.TryParse<RequestKind>(kind, out var k) ? k : null, Search = search, Page = page, PageSize = 20 };
+            result = await Runner.Run<RequestQueryService, PagedResult<RequestSummaryDto>>((s, a) => s.ListAsync(a, q));
+        }
+        catch (Exception ex) { Toasts.Error(ex); }
+    }
+}

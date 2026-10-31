@@ -1,0 +1,75 @@
+@page "/reportes"
+@attribute [Authorize(Roles = "DirectSupervisor,SeniorManager,AdministrativeRegistrar,ProductAdmin")]
+@inject ServiceRunner Runner
+@inject ToastService Toasts
+@inject LocalClock Clock
+
+<PageTitle>Reportes y Excel · GPV Product TimeFlow</PageTitle>
+<PageHeader Title="Reportes y exportación a Excel" Eyebrow="Reportes" Subtitle="Genera archivos Excel para el proceso administrativo. Cada exportación queda registrada y nunca modifica la información." />
+
+<div class="grid grid-main">
+    <div class="card">
+        <div class="card-header"><div><h2>Nueva exportación</h2><p>Incluye hojas de Resumen, Detalle (tabla con filtros) y Metadatos.</p></div></div>
+        <div class="card-body">
+            <div class="form-grid">
+                <div class="field"><label for="set">Conjunto</label>
+                    <select id="set" @bind="filter.Set"><option value="approved">Solicitudes autorizadas</option><option value="processed">Solicitudes registradas / procesadas</option><option value="all">Historial completo (sin borradores)</option></select></div>
+                <div class="field"><label for="kind">Tipo</label>
+                    <select id="kind" @bind="kind"><option value="">Todos los tipos</option>@foreach (var k in Enum.GetValues<RequestKind>()) { <option value="@k">@Labels.Kind(k)</option> }</select></div>
+                <div class="field"><label for="from">Desde</label><input id="from" type="date" @bind="filter.From" /></div>
+                <div class="field"><label for="to">Hasta</label><input id="to" type="date" @bind="filter.To" /></div>
+                <div class="field full"><label for="emp">Empleado</label>
+                    <select id="emp" @bind="employeeId"><option value="">Todos los empleados visibles</option>@foreach (var e in employees) { <option value="@e.Id">@e.FullName · @e.EmployeeNumber</option> }</select>
+                    <span class="hint">Jefas y jefes solo exportan solicitudes de su equipo.</span></div>
+            </div>
+        </div>
+        <div class="card-footer">
+            <a class="btn btn-primary" href="@ExportUrl" @onclick="Refresh" data-testid="export-excel"><Icon Name="download" Size="18" /> Descargar Excel</a>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header"><div><h2>Exportaciones recientes</h2><p>Bitácora de trazabilidad (SHA-256 del archivo).</p></div><button class="btn btn-sm" @onclick="LoadHistory"><Icon Name="refresh" Size="16" /></button></div>
+        <div class="card-body stack" style="gap:8px">
+            @if (history.Count == 0) { <p class="muted small">Sin exportaciones.</p> }
+            @foreach (var h in history.Take(12))
+            {
+                <div class="file-row"><Icon Name="table" /><div class="grow"><div class="cell-title">@h.FileName</div><div class="cell-sub">@Format.DateTime(h.ExportedAtUtc) · @h.ExportedByName · @h.RowCount registros</div><div class="mono muted">@h.Sha256[..20]…</div></div></div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private ExportFilter filter = new();
+    private string kind = "", employeeId = "";
+    private IReadOnlyList<EmployeeDto> employees = [];
+    private IReadOnlyList<ExcelExportLogDto> history = [];
+
+    private string ExportUrl
+    {
+        get
+        {
+            var qs = new List<string> { $"set={filter.Set}" };
+            if (kind != "") qs.Add($"kind={kind}");
+            if (employeeId != "") qs.Add($"employeeId={employeeId}");
+            if (filter.From is DateOnly f) qs.Add($"from={f:yyyy-MM-dd}");
+            if (filter.To is DateOnly t) qs.Add($"to={t:yyyy-MM-dd}");
+            return "/files/exports/requests.xlsx?" + string.Join('&', qs);
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        filter.From = new DateOnly(Clock.Today.Year, 1, 1);
+        filter.To = Clock.Today.AddDays(90);
+        try { employees = (await Runner.Run<EmployeeAdminService, PagedResult<EmployeeDto>>((s, a) => s.ListAsync(a, null, false, 1, 200))).Items; } catch (ForbiddenException) { }
+        await LoadHistory();
+    }
+
+    private async Task LoadHistory()
+    {
+        try { history = await Runner.Run<ExportService, IReadOnlyList<ExcelExportLogDto>>((s, a) => s.HistoryAsync(a)); } catch (Exception ex) { Toasts.Error(ex); }
+    }
+
+    private async Task Refresh() { await Task.Delay(1500); await LoadHistory(); }
+}

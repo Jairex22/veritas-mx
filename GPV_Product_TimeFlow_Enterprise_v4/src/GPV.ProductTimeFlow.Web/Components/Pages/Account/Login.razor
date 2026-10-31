@@ -1,0 +1,118 @@
+@page "/account/login"
+@layout AuthLayout
+@attribute [AllowAnonymous]
+@attribute [ExcludeFromInteractiveRouting]
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@using System.Security.Claims
+@using System.ComponentModel.DataAnnotations
+@inject AuthService Auth
+@inject RequestQueryService Queries
+@inject NavigationManager Nav
+@inject AuthModeInfo AuthMode
+@inject EnvironmentInfo Env
+@inject LoginThrottle Throttle
+
+<PageTitle>Iniciar sesión · GPV Product TimeFlow</PageTitle>
+
+<div class="auth-page">
+    <section class="auth-visual" aria-hidden="true">
+        <div class="brand" style="color:#fff;padding:0">
+            <span class="brand-mark" style="background:rgba(255,255,255,.16)"><Icon Name="clock" Size="20" Stroke="2.4" /></span>
+            <span class="brand-text"><strong>GPV Product TimeFlow</strong><span style="color:rgba(255,255,255,.75)">Enterprise · v4.0</span></span>
+        </div>
+        <div>
+            <h1>Solicitudes y autorizaciones del equipo de Producto, en un solo flujo.</h1>
+            <p>Tiempo extra, vacaciones y permisos con autorización de jefa directa y jefe superior, firma electrónica y registro administrativo trazable.</p>
+            <div class="auth-features">
+                <div class="auth-feature"><span class="icon-wrap"><Icon Name="badge-check" Size="18" /></span> Flujo de tres filtros con firma y constancia por versión</div>
+                <div class="auth-feature"><span class="icon-wrap"><Icon Name="bell" Size="18" /></span> Notificaciones internas y correo corporativo</div>
+                <div class="auth-feature"><span class="icon-wrap"><Icon Name="shield" Size="18" /></span> Auditoría encadenada y control de acceso por recurso</div>
+            </div>
+        </div>
+        <small style="color:rgba(255,255,255,.7)">Departamento de Producto · GPV Americas · Uso interno</small>
+    </section>
+
+    <section class="auth-form-wrap">
+        <div class="card auth-card">
+            <div class="brand mobile-only" style="padding:0 0 18px">
+                <span class="brand-mark"><Icon Name="clock" Size="20" Stroke="2.4" /></span>
+                <span class="brand-text"><strong>GPV Product TimeFlow</strong><span>Producto · v4.0</span></span>
+            </div>
+            <h2>Bienvenido a GPV Product TimeFlow</h2>
+            <p class="muted" style="margin:6px 0 22px">Inicie sesión con su cuenta corporativa para continuar.</p>
+
+            @if (LoggedOut) { <div class="alert success" style="margin-bottom:16px"><Icon Name="check-circle" /> Sesión cerrada correctamente.</div> }
+            @if (error is not null) { <div class="alert error" role="alert" style="margin-bottom:16px"><Icon Name="alert" /><div>@error</div></div> }
+
+            @if (AuthMode.IsEntraId)
+            {
+                <a class="btn btn-primary btn-lg btn-block" href="/account/entra?returnUrl=@Uri.EscapeDataString(ReturnUrl ?? "/")"><Icon Name="lock" /> Iniciar sesión con Microsoft</a>
+                <p class="small muted" style="margin-top:14px">Autenticación mediante Microsoft Entra ID de GPV Americas. La aplicación no almacena contraseñas corporativas.</p>
+            }
+            else
+            {
+                <EditForm Model="Input" FormName="login" OnValidSubmit="SignIn" method="post" Enhance="false">
+                    <DataAnnotationsValidator />
+                    <div class="stack" style="gap:14px">
+                        <div class="field">
+                            <label for="email">Correo corporativo</label>
+                            <InputText id="email" @bind-Value="Input!.Email" autocomplete="username" placeholder="nombre@empresa" data-testid="login-email" />
+                            <ValidationMessage For="() => Input!.Email" />
+                        </div>
+                        <div class="field">
+                            <label for="password">Contraseña</label>
+                            <InputText id="password" type="password" @bind-Value="Input!.Password" autocomplete="current-password" data-testid="login-password" />
+                            <ValidationMessage For="() => Input!.Password" />
+                        </div>
+                        <button class="btn btn-primary btn-lg btn-block" type="submit" data-testid="login-submit">Iniciar sesión</button>
+                    </div>
+                </EditForm>
+                @if (Env.Mode == EnvironmentMode.Demo)
+                {
+                    <div class="demo-accounts">
+                        <div class="row" style="margin-bottom:8px"><span class="chip warning plain">DEMO</span><strong class="small">Cuentas sintéticas de demostración</strong></div>
+                        <table>
+                            @foreach (var (email, name, role) in GPV.ProductTimeFlow.Infrastructure.Seeding.DataSeeder.DemoAccounts)
+                            {
+                                <tr><td><strong>@role</strong><div class="cell-sub">@name</div></td><td class="right"><code>@email</code></td></tr>
+                            }
+                        </table>
+                        <p class="small muted" style="margin-top:8px">Contraseña común DEMO: <code>Demo#TimeFlow2026</code>. No son usuarios reales y no existen en producción.</p>
+                    </div>
+                }
+            }
+        </div>
+    </section>
+</div>
+
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    [SupplyParameterFromForm] private LoginModel? Input { get; set; }
+    [SupplyParameterFromQuery] private string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery(Name = "loggedOut")] private string? LoggedOutFlag { get; set; }
+    private bool LoggedOut => LoggedOutFlag == "1";
+    private string? error;
+
+    protected override void OnInitialized() => Input ??= new();
+
+    private async Task SignIn()
+    {
+        if (AuthMode.IsEntraId) return;
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+        if (!Throttle.Allow(ip)) { error = "Demasiados intentos desde este equipo. Espere un minuto e intente de nuevo."; return; }
+        var result = await Auth.ValidateAsync(Input!.Email, Input.Password, ip);
+        if (result.Outcome != LoginOutcome.Success) { error = result.Message; return; }
+        var profile = await Queries.GetProfileAsync(result.EmployeeId!.Value);
+        var identity = new ClaimsIdentity(GPV.ProductTimeFlow.Infrastructure.Hosting.ActorFactory.Claims(profile.EmployeeId, profile.FullName, profile.Email, result.Roles, result.SecurityStamp),
+            CookieAuthenticationDefaults.AuthenticationScheme);
+        await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity), new AuthenticationProperties { IsPersistent = false });
+        Nav.NavigateTo(WebEndpoints.SafeReturnUrl(ReturnUrl), forceLoad: true);
+    }
+
+    private sealed class LoginModel
+    {
+        [Required(ErrorMessage = "Escriba su correo."), EmailAddress(ErrorMessage = "Correo no válido.")] public string Email { get; set; } = "";
+        [Required(ErrorMessage = "Escriba su contraseña.")] public string Password { get; set; } = "";
+    }
+}

@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Dominio puro: entidades, máquina de estados y reglas de cálculo. Sin dependencias de infraestructura. -->
+  <ItemGroup>
+    <ProjectReference Include="..\GPV.ProductTimeFlow.Shared\GPV.ProductTimeFlow.Shared.csproj" />
+  </ItemGroup>
+</Project>

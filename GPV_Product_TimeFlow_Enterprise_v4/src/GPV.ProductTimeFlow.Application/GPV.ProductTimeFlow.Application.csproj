@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Casos de uso, autorización por recurso, validaciones y puertos (interfaces) hacia infraestructura. -->
+  <ItemGroup>
+    <ProjectReference Include="..\GPV.ProductTimeFlow.Domain\GPV.ProductTimeFlow.Domain.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.14" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.14" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.14" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="GPV.ProductTimeFlow.Infrastructure" />
+    <InternalsVisibleTo Include="GPV.ProductTimeFlow.UnitTests" />
+    <InternalsVisibleTo Include="GPV.ProductTimeFlow.IntegrationTests" />
+  </ItemGroup>
+</Project>

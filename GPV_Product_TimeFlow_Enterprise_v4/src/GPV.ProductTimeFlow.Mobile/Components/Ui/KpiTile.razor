@@ -1,0 +1,21 @@
+@if (Href is not null)
+{
+    <a class="kpi kpi-@Tone" href="@Href">
+        <span class="kpi-value">@Value</span>
+        <span class="kpi-label">@Label</span>
+    </a>
+}
+else
+{
+    <div class="kpi kpi-@Tone">
+        <span class="kpi-value">@Value</span>
+        <span class="kpi-label">@Label</span>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Value { get; set; } = "";
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter] public string Tone { get; set; } = "neutral";
+    [Parameter] public string? Href { get; set; }
+}

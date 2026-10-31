@@ -1,0 +1,33 @@
+@page "/admin/organigrama"
+@attribute [Authorize(Roles = "ProductAdmin")]
+@inject ServiceRunner Runner
+@inject ToastService Toasts
+
+<PageTitle>Organigrama · GPV Product TimeFlow</PageTitle>
+<PageHeader Title="Organigrama de autorizaciones" Eyebrow="Administración de Producto" Subtitle="Jerarquía vigente usada para turnar solicitudes (jefa directa → jefe superior). Para modificarla, edite al empleado." />
+<div class="card"><div class="card-body org">
+    @if (nodes is null) { <div class="skeleton"></div> }
+    else { <ul>@foreach (var n in nodes) { @RenderNode(n, 0) }</ul> }
+</div></div>
+@code {
+    private IReadOnlyList<OrgNodeDto>? nodes;
+    protected override async Task OnInitializedAsync()
+    {
+        try { nodes = await Runner.Run<EmployeeAdminService, IReadOnlyList<OrgNodeDto>>((s, a) => s.OrgChartAsync(a)); } catch (Exception ex) { Toasts.Error(ex); }
+    }
+    private RenderFragment RenderNode(OrgNodeDto n, int depth) => @<li>
+        @if (n.Reports.Count > 0)
+        {
+            <details class="org-details" open="@(depth < 2)">
+                <summary>@NodeCard(n)</summary>
+                <ul>@foreach (var c in n.Reports) { @RenderNode(c, depth + 1) }</ul>
+            </details>
+        }
+        else { @NodeCard(n) }
+    </li>;
+    private RenderFragment NodeCard(OrgNodeDto n) => @<span class="org-node">
+        <span class="avatar" style="width:30px;height:30px;font-size:.72rem">@string.Concat(n.Name.Split(' ').Take(2).Select(p => p[0]))</span>
+        <span><a href="/admin/empleados/@n.EmployeeId" class="cell-title">@n.Name</a><div class="cell-sub">@n.Position · @n.Area @(n.Reports.Count > 0 ? $"· {n.Reports.Count} a cargo" : "")</div></span>
+        <span class="roles">@foreach (var r in Labels.Roles(n.Roles).Where(r => r != "Empleado")) { <span class="chip info plain">@r</span> }</span>
+    </span>;
+}

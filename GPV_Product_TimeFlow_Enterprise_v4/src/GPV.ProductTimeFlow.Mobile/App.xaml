@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="GPV.ProductTimeFlow.Mobile.App">
+    <Application.Resources>
+        <ResourceDictionary>
+            <!-- Colores de marca. La interfaz completa vive en Blazor (wwwroot/css/app.css); aquí solo el fondo nativo. -->
+            <Color x:Key="BrandPrimary">#1F4FD8</Color>
+            <Color x:Key="SurfaceLight">#F4F6FB</Color>
+            <Color x:Key="SurfaceDark">#0B1120</Color>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

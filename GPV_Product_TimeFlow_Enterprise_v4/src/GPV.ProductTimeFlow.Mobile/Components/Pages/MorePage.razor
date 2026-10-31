@@ -1,0 +1,70 @@
+@page "/mas"
+@inherits TimeFlowComponentBase
+@inject NotificationCenter Notifications
+
+<div class="page stack">
+    <PageHeader Title="Más" />
+
+    @if (Profile is { } p)
+    {
+        <section class="card profile-card">
+            <span class="avatar avatar-lg" aria-hidden="true">@Fmt.Initials(p.FullName)</span>
+            <div>
+                <strong>@p.FullName</strong>
+                <div class="muted small">@p.Email</div>
+                <div class="muted small">No. @p.EmployeeNumber@(p.Position is null ? "" : $" · {p.Position}")</div>
+                <div class="role-chips">
+                    @foreach (var role in Labels.Roles(p.Roles))
+                    {
+                        <span class="chip chip-neutral chip-xs">@role</span>
+                    }
+                </div>
+            </div>
+        </section>
+        @if (p.SupervisorName is not null || p.ManagerName is not null)
+        {
+            <section class="card">
+                <dl class="facts">
+                    <div><dt>Jefa directa</dt><dd>@(p.SupervisorName ?? "—")</dd></div>
+                    <div><dt>Jefe superior</dt><dd>@(p.ManagerName ?? "—")</dd></div>
+                </dl>
+            </section>
+        }
+    }
+
+    <nav class="menu card" aria-label="Más opciones">
+        <a class="menu-item" href="/notificaciones">
+            <span>Notificaciones</span>
+            @if (Notifications.UnreadCount > 0)
+            {
+                <span class="badge badge-inline">@Notifications.UnreadCount</span>
+            }
+        </a>
+        <a class="menu-item" href="/vacaciones"><span>Saldo de vacaciones</span></a>
+        @if (Auth.IsApprover)
+        {
+            <a class="menu-item" href="/solicitudes?vista=aprobaciones"><span>Bandeja de aprobación</span></a>
+        }
+        @if (Auth.CanUseAdministrativeInbox)
+        {
+            <a class="menu-item" href="/solicitudes?vista=administrativo"><span>Registro administrativo</span></a>
+        }
+        <a class="menu-item" href="/ajustes"><span>Ajustes</span></a>
+    </nav>
+
+    <button type="button" class="btn btn-danger-ghost btn-block" @onclick="LogoutAsync">Cerrar sesión</button>
+</div>
+
+@code {
+    protected override void OnInitialized() => Notifications.Changed += OnChanged;
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private async Task LogoutAsync()
+    {
+        await Auth.LogoutAsync();
+        Nav.NavigateTo("/login", replace: true);
+    }
+
+    protected override void OnDispose() => Notifications.Changed -= OnChanged;
+}

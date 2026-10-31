@@ -1,0 +1,10 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "build", "type": "process", "command": "dotnet", "args": ["build", "${workspaceFolder}/GPV.ProductTimeFlow.sln"], "problemMatcher": "$msCompile", "group": { "kind": "build", "isDefault": true } },
+    { "label": "test (unit + integración)", "type": "shell", "command": "dotnet test tests/UnitTests && dotnet test tests/IntegrationTests", "problemMatcher": "$msCompile", "group": "test" },
+    { "label": "test e2e (Playwright)", "type": "shell", "command": "dotnet test tests/EndToEndTests", "problemMatcher": "$msCompile", "group": "test" },
+    { "label": "run web (DEMO)", "type": "process", "command": "dotnet", "args": ["run", "--project", "src/GPV.ProductTimeFlow.Web", "--launch-profile", "https"], "isBackground": true, "problemMatcher": [] },
+    { "label": "run api (DEMO)", "type": "process", "command": "dotnet", "args": ["run", "--project", "src/GPV.ProductTimeFlow.API", "--launch-profile", "http"], "isBackground": true, "problemMatcher": [] }
+  ]
+}

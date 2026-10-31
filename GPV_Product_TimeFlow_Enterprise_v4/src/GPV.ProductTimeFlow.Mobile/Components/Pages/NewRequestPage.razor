@@ -1,0 +1,643 @@
+@page "/solicitudes/nueva"
+@page "/solicitudes/{Id:guid}/editar"
+@inherits TimeFlowComponentBase
+@inject DeviceFiles Files
+
+<div class="page stack">
+    <PageHeader Title="@(IsEdit ? "Corregir solicitud" : "Nueva solicitud")" Subtitle="@HeaderSubtitle" BackHref="@BackHref" />
+
+    <ol class="stepper" aria-label="Pasos">
+        <li class="@StepClass(Step.Kind)">Tipo</li>
+        <li class="@StepClass(Step.Form)">Datos</li>
+        <li class="@StepClass(Step.Finish)">Adjuntos y envío</li>
+    </ol>
+
+    <ErrorAlert Message="@ErrorMessage" Details="ErrorDetails" />
+
+    @switch (_step)
+    {
+        case Step.Loading:
+            if (Busy)
+            {
+                <LoadingState Rows="5" />
+            }
+            break;
+
+        case Step.Kind:
+            <section class="kind-picker" aria-label="Tipo de solicitud">
+                @foreach (var kind in Enum.GetValues<RequestKind>())
+                {
+                    <button type="button" class="kind-option kind-@kind.ToString().ToLowerInvariant()" @onclick="() => SelectKindAsync(kind)">
+                        <span class="kind-option-icon" aria-hidden="true"></span>
+                        <span class="kind-option-text">
+                            <strong>@Labels.Kind(kind)</strong>
+                            <span class="muted small">@KindDescription(kind)</span>
+                        </span>
+                    </button>
+                }
+            </section>
+            break;
+
+        case Step.Form:
+            <form class="stack" @onsubmit="SaveDraftAsync" @onsubmit:preventDefault novalidate>
+                <div class="card stack">
+                    <div class="card-title-row">
+                        <h2 class="card-title">@Labels.Kind(_input.Kind)</h2>
+                        @if (!IsEdit && _draft is null)
+                        {
+                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _step = Step.Kind">Cambiar tipo</button>
+                        }
+                    </div>
+
+                    @if (_input.Kind == RequestKind.UnpaidLeave)
+                    {
+                        <div class="alert alert-danger notice-unpaid" role="note">
+                            <strong>Solicitud SIN goce de sueldo.</strong> Esta aplicación no aplica descuentos de nómina.
+                        </div>
+                    }
+
+                    @if (_input.Kind == RequestKind.Overtime)
+                    {
+                        <div class="field">
+                            <label for="ot-date">Fecha</label>
+                            <input id="ot-date" type="date" @bind="_input.StartDate" @bind:after="RefreshPreviewAsync" />
+                        </div>
+                        <div class="field-row">
+                            <div class="field">
+                                <label for="ot-start">Hora de inicio</label>
+                                <input id="ot-start" type="time" @bind="_input.StartTime" @bind:after="RefreshPreviewAsync" />
+                            </div>
+                            <div class="field">
+                                <label for="ot-end">Hora de término</label>
+                                <input id="ot-end" type="time" @bind="_input.EndTime" @bind:after="RefreshPreviewAsync" />
+                            </div>
+                        </div>
+                        <p class="hint">Si la hora de término es menor que la de inicio, el horario termina al día siguiente.</p>
+                        <div class="field">
+                            <label for="ot-project">Proyecto</label>
+                            <input id="ot-project" type="text" maxlength="150" @bind="_input.Project" />
+                        </div>
+                        <div class="field">
+                            <label for="ot-activity">Actividad a realizar</label>
+                            <textarea id="ot-activity" rows="3" maxlength="1000" @bind="_input.Activity"></textarea>
+                        </div>
+                        <OvertimePreviewView Preview="_otPreview" Loading="_previewLoading" Error="@_previewError" />
+                    }
+                    else if (_input.Kind == RequestKind.Vacation)
+                    {
+                        <div class="field-row">
+                            <div class="field">
+                                <label for="v-start">Primer día</label>
+                                <input id="v-start" type="date" @bind="_input.StartDate" @bind:after="OnStartDateChangedAsync" />
+                            </div>
+                            <div class="field">
+                                <label for="v-end">Último día</label>
+                                <input id="v-end" type="date" min="@_input.StartDate.ToString("yyyy-MM-dd")" @bind="_input.EndDate" @bind:after="RefreshPreviewAsync" />
+                            </div>
+                        </div>
+                        <VacationPreviewView Preview="_vacPreview" Loading="_previewLoading" Error="@_previewError" />
+                    }
+                    else
+                    {
+                        <div class="field">
+                            <label for="l-category">Categoría del permiso</label>
+                            <select id="l-category" @bind="_input.LeaveCategoryId">
+                                <option value="">Selecciona una categoría</option>
+                                @foreach (var c in _categories)
+                                {
+                                    <option value="@c.Id">@c.Name@(c.RequiresAttachment ? " · requiere evidencia" : "")</option>
+                                }
+                            </select>
+                            @if (SelectedCategory?.RequiresAttachment == true)
+                            {
+                                <p class="hint">Esta categoría requiere adjuntar evidencia en el siguiente paso.</p>
+                            }
+                        </div>
+
+                        <div class="switch-row">
+                            <label class="switch">
+                                <input type="checkbox" checked="@_input.IsFullDay" @onchange="OnFullDayChanged" />
+                                <span class="switch-track" aria-hidden="true"></span>
+                                <span>Día(s) completo(s)</span>
+                            </label>
+                        </div>
+
+                        @if (_input.IsFullDay)
+                        {
+                            <div class="field-row">
+                                <div class="field">
+                                    <label for="l-start">Desde</label>
+                                    <input id="l-start" type="date" @bind="_input.StartDate" @bind:after="OnStartDateChangedAsync" />
+                                </div>
+                                <div class="field">
+                                    <label for="l-end">Hasta</label>
+                                    <input id="l-end" type="date" min="@_input.StartDate.ToString("yyyy-MM-dd")" @bind="_input.EndDate" />
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="field">
+                                <label for="l-date">Fecha</label>
+                                <input id="l-date" type="date" @bind="_input.StartDate" />
+                            </div>
+                            <div class="field-row">
+                                <div class="field">
+                                    <label for="l-tstart">De</label>
+                                    <input id="l-tstart" type="time" @bind="_input.StartTime" />
+                                </div>
+                                <div class="field">
+                                    <label for="l-tend">A</label>
+                                    <input id="l-tend" type="time" @bind="_input.EndTime" />
+                                </div>
+                            </div>
+                        }
+                    }
+
+                    <div class="field">
+                        <label for="reason">Motivo</label>
+                        <textarea id="reason" rows="3" maxlength="500" placeholder="Describe brevemente el motivo (mínimo 5 caracteres)" @bind="_input.Reason" @bind:event="oninput"></textarea>
+                        <span class="hint counter">@((_input.Reason ?? "").Length)/500</span>
+                    </div>
+
+                    @if (_input.Kind is RequestKind.PaidLeave or RequestKind.UnpaidLeave)
+                    {
+                        <div class="field">
+                            <label for="justification">Justificación</label>
+                            <textarea id="justification" rows="3" maxlength="1000" @bind="_input.Justification"></textarea>
+                        </div>
+                    }
+
+                    <div class="field">
+                        <label for="observations">Observaciones (opcional)</label>
+                        <textarea id="observations" rows="2" maxlength="1000" @bind="_input.Observations"></textarea>
+                    </div>
+                </div>
+
+                @if (_validation.Count > 0)
+                {
+                    <div class="alert alert-attention" role="alert">
+                        <div class="alert-title">Revisa los datos:</div>
+                        <ul class="alert-list">
+                            @foreach (var v in _validation)
+                            {
+                                <li>@v</li>
+                            }
+                        </ul>
+                    </div>
+                }
+
+                <div class="action-bar">
+                    <button type="submit" class="btn btn-primary btn-block btn-lg" disabled="@Busy">
+                        @if (Busy)
+                        {
+                            <span class="spinner" aria-hidden="true"></span>
+                        }
+                        <span>@(_draft is null ? "Guardar borrador y continuar" : "Guardar cambios y continuar")</span>
+                    </button>
+                </div>
+            </form>
+            break;
+
+        case Step.Finish when _draft is not null:
+            <section class="card stack">
+                <div class="card-title-row">
+                    <h2 class="card-title">@_draft.Summary.Folio</h2>
+                    <StatusChip Status="_draft.Summary.Status" />
+                </div>
+                <dl class="facts">
+                    <div><dt>Tipo</dt><dd>@_draft.Summary.KindLabel</dd></div>
+                    <div><dt>Periodo</dt><dd>@Fmt.Period(_draft.Summary)</dd></div>
+                    <div><dt>Cantidad</dt><dd>@Fmt.Amount(_draft.Summary)</dd></div>
+                    @if (_draft.LeaveCategoryName is not null)
+                    {
+                        <div><dt>Categoría</dt><dd>@_draft.LeaveCategoryName</dd></div>
+                    }
+                    <div><dt>Motivo</dt><dd>@_draft.Summary.Reason</dd></div>
+                    <div><dt>Turna a</dt><dd>@(_draft.SupervisorName ?? "—") → @(_draft.ManagerName ?? "—")</dd></div>
+                </dl>
+                @if (_draft.Summary.Kind == RequestKind.UnpaidLeave)
+                {
+                    <div class="alert alert-danger notice-unpaid" role="note">
+                        <strong>Solicitud SIN goce de sueldo.</strong> Esta aplicación no aplica descuentos de nómina.
+                    </div>
+                }
+                @if (_draft.CrossesMidnight)
+                {
+                    <div class="alert alert-attention">El horario cruza la medianoche.</div>
+                }
+                <button type="button" class="btn btn-secondary btn-sm" disabled="@Busy" @onclick="() => _step = Step.Form">Editar datos</button>
+            </section>
+
+            <section class="card stack">
+                <div class="card-title-row">
+                    <h2 class="card-title">Adjuntos</h2>
+                    <span class="muted small">Opcional</span>
+                </div>
+                <p class="hint">@DeviceFiles.AllowedTypesLabel</p>
+                @if (_draft.Attachments.Count > 0)
+                {
+                    <ul class="file-list">
+                        @foreach (var a in _draft.Attachments)
+                        {
+                            <li class="file-item">
+                                <span class="file-icon" aria-hidden="true">@System.IO.Path.GetExtension(a.FileName).TrimStart('.').ToUpperInvariant()</span>
+                                <span class="file-name">@a.FileName<span class="muted small"> · @Fmt.FileSize(a.SizeBytes)</span></span>
+                                @if (_draft.Permissions.CanUploadAttachments)
+                                {
+                                    <button type="button" class="btn btn-ghost btn-sm" disabled="@Busy" @onclick="() => RemoveAttachmentAsync(a)" aria-label="@($"Quitar {a.FileName}")">Quitar</button>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+                else if (SelectedCategory?.RequiresAttachment == true)
+                {
+                    <div class="alert alert-attention">La categoría «@SelectedCategory.Name» requiere adjuntar evidencia.</div>
+                }
+                @if (_draft.Permissions.CanUploadAttachments)
+                {
+                    <button type="button" class="btn btn-secondary" disabled="@Busy" @onclick="UploadAsync">
+                        @(_uploading ? "Subiendo…" : "Adjuntar archivo")
+                    </button>
+                }
+            </section>
+
+            @if (_draft.Permissions.CanSubmit)
+            {
+                <section class="card stack">
+                    <h2 class="card-title">Enviar a autorización</h2>
+                    <p class="muted small">Al enviarla, la solicitud se turna a tu jefa directa (filtro 1) y después al jefe superior (filtro 2).</p>
+                    <SignaturePad @ref="_signaturePad" Label="Firma del solicitante (opcional)" Disabled="Busy" />
+                    <div class="action-bar">
+                        <button type="button" class="btn btn-primary btn-block btn-lg" disabled="@Busy" @onclick="SubmitAsync">
+                            @if (Busy && !_uploading)
+                            {
+                                <span class="spinner" aria-hidden="true"></span>
+                                <span>Enviando…</span>
+                            }
+                            else
+                            {
+                                <span>Enviar solicitud</span>
+                            }
+                        </button>
+                        <a class="btn btn-ghost btn-block" href="/solicitudes/@_draft.Summary.Id">Guardar como borrador y salir</a>
+                    </div>
+                </section>
+            }
+            else
+            {
+                <a class="btn btn-secondary btn-block" href="/solicitudes/@_draft.Summary.Id">Ver expediente</a>
+            }
+            break;
+    }
+</div>
+
+@code {
+    private enum Step { Loading, Kind, Form, Finish }
+
+    /// <summary>Clave de idempotencia generada una sola vez por pantalla: un doble toque no crea dos envíos.</summary>
+    private readonly string _submitKey = Guid.NewGuid().ToString("N");
+
+    private Step _step = Step.Loading;
+    private RequestInput _input = new() { StartDate = Fmt.Today };
+    private RequestDetailDto? _draft;
+    private IReadOnlyList<LeaveCategoryDto> _categories = [];
+    private List<string> _validation = [];
+    private OvertimePreviewDto? _otPreview;
+    private VacationPreviewDto? _vacPreview;
+    private bool _previewLoading;
+    private string? _previewError;
+    private CancellationTokenSource? _previewCts;
+    private SignaturePad? _signaturePad;
+    private bool _uploading;
+
+    [Parameter] public Guid? Id { get; set; }
+
+    private bool IsEdit => Id is not null;
+
+    private Guid? RequestId => _draft?.Summary.Id ?? Id;
+
+    private string BackHref => RequestId is { } id ? $"/solicitudes/{id}" : "/";
+
+    private string? HeaderSubtitle => _draft is not null ? $"Folio {_draft.Summary.Folio}" : null;
+
+    private LeaveCategoryDto? SelectedCategory => _categories.FirstOrDefault(c => c.Id == (_input.LeaveCategoryId ?? _draft?.LeaveCategoryId));
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id is { } id)
+        {
+            await RunAsync(async ct =>
+            {
+                var detail = await Client.GetRequestAsync(id, ct);
+                if (!detail.Permissions.CanEdit)
+                {
+                    _draft = detail;
+                    throw new UserFacingException("Esta solicitud ya no se puede editar en su estado actual.");
+                }
+                _draft = detail;
+                _input = FromDetail(detail);
+                await LoadCategoriesAsync(_input.Kind, ct);
+                _step = Step.Form;
+            });
+            if (_step == Step.Form) await RefreshPreviewAsync();
+            else if (_draft is not null) _step = Step.Finish;
+            return;
+        }
+
+        if (Enum.TryParse<RequestKind>(QueryString.Get(Nav.Uri, "tipo"), ignoreCase: true, out var preset) && Enum.IsDefined(preset))
+            await SelectKindAsync(preset);
+        else
+            _step = Step.Kind;
+    }
+
+    private static RequestInput FromDetail(RequestDetailDto d) => new()
+    {
+        Kind = d.Summary.Kind,
+        StartDate = d.Summary.StartDate,
+        EndDate = d.Summary.Kind == RequestKind.Overtime ? null : d.Summary.EndDate,
+        StartTime = d.Summary.StartTime,
+        EndTime = d.Summary.EndTime,
+        IsFullDay = d.Summary.IsFullDay,
+        Reason = d.Summary.Reason,
+        Project = d.Project,
+        Activity = d.Activity,
+        Justification = d.Justification,
+        Observations = d.Observations,
+        LeaveCategoryId = d.LeaveCategoryId,
+    };
+
+    private async Task SelectKindAsync(RequestKind kind)
+    {
+        var today = Fmt.Today;
+        _input = kind switch
+        {
+            RequestKind.Overtime => new RequestInput { Kind = kind, StartDate = today, IsFullDay = false, StartTime = new TimeOnly(18, 0), EndTime = new TimeOnly(20, 0) },
+            RequestKind.Vacation => new RequestInput { Kind = kind, StartDate = today.AddDays(7), EndDate = today.AddDays(7), IsFullDay = true },
+            _ => new RequestInput { Kind = kind, StartDate = today, EndDate = today, IsFullDay = true },
+        };
+        _otPreview = null;
+        _vacPreview = null;
+        _previewError = null;
+        _validation = [];
+        _categories = [];
+        _step = Step.Form;
+
+        if (kind is RequestKind.PaidLeave or RequestKind.UnpaidLeave)
+            await RunAsync(ct => LoadCategoriesAsync(kind, ct));
+        else
+            await RefreshPreviewAsync();
+    }
+
+    private async Task LoadCategoriesAsync(RequestKind kind, CancellationToken ct)
+    {
+        if (kind is not (RequestKind.PaidLeave or RequestKind.UnpaidLeave)) return;
+        var all = await Client.LeaveCategoriesAsync(kind, ct);
+        _categories = all.Where(c => c.IsActive && c.AppliesTo == kind).OrderBy(c => c.Name, StringComparer.CurrentCulture).ToList();
+    }
+
+    private async Task OnStartDateChangedAsync()
+    {
+        if (_input.EndDate is { } end && end < _input.StartDate) _input.EndDate = _input.StartDate;
+        await RefreshPreviewAsync();
+    }
+
+    private void OnFullDayChanged(ChangeEventArgs e)
+    {
+        _input.IsFullDay = e.Value is true || (e.Value is string s && bool.TryParse(s, out var b) && b);
+        if (_input.IsFullDay)
+        {
+            _input.StartTime = null;
+            _input.EndTime = null;
+            _input.EndDate ??= _input.StartDate;
+        }
+        else
+        {
+            _input.StartTime ??= new TimeOnly(9, 0);
+            _input.EndTime ??= new TimeOnly(13, 0);
+            _input.EndDate = _input.StartDate;
+        }
+    }
+
+    /// <summary>Cálculo en vivo (horas de tiempo extra / días hábiles y saldo de vacaciones) con el motor de la API.</summary>
+    private async Task RefreshPreviewAsync()
+    {
+        _previewCts?.Cancel();
+        _previewError = null;
+        if (_input.Kind == RequestKind.Overtime && (_input.StartTime is null || _input.EndTime is null)) { _otPreview = null; return; }
+        if (_input.Kind == RequestKind.Vacation && (_input.EndDate is null || _input.EndDate < _input.StartDate)) { _vacPreview = null; return; }
+        if (_input.Kind is not (RequestKind.Overtime or RequestKind.Vacation)) return;
+
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(PageToken);
+        _previewCts = cts;
+        _previewLoading = true;
+        try
+        {
+            if (_input.Kind == RequestKind.Overtime)
+            {
+                _otPreview = await Client.OvertimePreviewAsync(new OvertimePreviewRequest
+                {
+                    Date = _input.StartDate,
+                    Start = _input.StartTime!.Value,
+                    End = _input.EndTime!.Value,
+                    ExcludeRequestId = RequestId,
+                }, cts.Token);
+            }
+            else
+            {
+                _vacPreview = await Client.VacationPreviewAsync(new VacationPreviewRequest
+                {
+                    StartDate = _input.StartDate,
+                    EndDate = _input.EndDate!.Value,
+                    ExcludeRequestId = RequestId,
+                }, cts.Token);
+            }
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+        }
+        catch (ApiException ex) when (ex.Status == System.Net.HttpStatusCode.Unauthorized)
+        {
+            await Auth.HandleUnauthorizedAsync();
+        }
+        catch (ApiException ex)
+        {
+            _previewError = string.Join(" ", ex.Errors.DefaultIfEmpty(ex.Message));
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            _previewError = "No se pudo calcular la vista previa (sin conexión con el servidor).";
+        }
+        finally
+        {
+            if (ReferenceEquals(_previewCts, cts))
+            {
+                _previewLoading = false;
+                _previewCts = null;
+            }
+            cts.Dispose();
+        }
+    }
+
+    private List<string> Validate()
+    {
+        var errors = new List<string>();
+        var reason = _input.Reason?.Trim() ?? "";
+        if (reason.Length is < 5 or > 500) errors.Add("El motivo debe tener entre 5 y 500 caracteres.");
+
+        switch (_input.Kind)
+        {
+            case RequestKind.Overtime:
+                if (_input.StartTime is null || _input.EndTime is null) errors.Add("Indica la hora de inicio y de término.");
+                else if (_input.StartTime == _input.EndTime) errors.Add("La hora de término debe ser distinta de la de inicio.");
+                break;
+            case RequestKind.Vacation:
+                if (_input.EndDate is null) errors.Add("Indica el último día de vacaciones.");
+                else if (_input.EndDate < _input.StartDate) errors.Add("El último día no puede ser anterior al primero.");
+                break;
+            default:
+                if (_input.LeaveCategoryId is null) errors.Add("Selecciona la categoría del permiso.");
+                if (_input.IsFullDay)
+                {
+                    if (_input.EndDate is null || _input.EndDate < _input.StartDate) errors.Add("La fecha final no puede ser anterior a la inicial.");
+                }
+                else if (_input.StartTime is null || _input.EndTime is null) errors.Add("Indica el horario del permiso.");
+                else if (_input.EndTime <= _input.StartTime) errors.Add("La hora final debe ser posterior a la inicial.");
+                break;
+        }
+        return errors;
+    }
+
+    /// <summary>Normaliza los campos según el tipo antes de enviarlos.</summary>
+    private RequestInput Normalized()
+    {
+        var i = _input;
+        var copy = new RequestInput
+        {
+            Kind = i.Kind,
+            StartDate = i.StartDate,
+            Reason = i.Reason.Trim(),
+            Project = Clean(i.Project),
+            Activity = Clean(i.Activity),
+            Justification = Clean(i.Justification),
+            Observations = Clean(i.Observations),
+        };
+        switch (i.Kind)
+        {
+            case RequestKind.Overtime:
+                copy.IsFullDay = false;
+                copy.StartTime = i.StartTime;
+                copy.EndTime = i.EndTime;
+                copy.EndDate = null;
+                copy.Justification = null;
+                break;
+            case RequestKind.Vacation:
+                copy.IsFullDay = true;
+                copy.EndDate = i.EndDate;
+                copy.Project = null;
+                copy.Activity = null;
+                copy.Justification = null;
+                break;
+            default:
+                copy.LeaveCategoryId = i.LeaveCategoryId;
+                copy.IsFullDay = i.IsFullDay;
+                copy.EndDate = i.IsFullDay ? i.EndDate : i.StartDate;
+                copy.StartTime = i.IsFullDay ? null : i.StartTime;
+                copy.EndTime = i.IsFullDay ? null : i.EndTime;
+                copy.Project = null;
+                copy.Activity = null;
+                break;
+        }
+        return copy;
+
+        static string? Clean(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+    }
+
+    private async Task SaveDraftAsync()
+    {
+        _validation = Validate();
+        if (_validation.Count > 0) return;
+
+        var ok = await RunAsync(async ct =>
+        {
+            var input = Normalized();
+            _draft = RequestId is { } id
+                ? await Client.UpdateRequestAsync(id, input, ct)
+                : await Client.CreateRequestAsync(input, ct);
+        });
+        if (ok && _draft is not null)
+        {
+            Toasts.Show($"Borrador {_draft.Summary.Folio} guardado.", "success");
+            _step = Step.Finish;
+        }
+    }
+
+    private async Task UploadAsync()
+    {
+        if (_draft is null) return;
+        var id = _draft.Summary.Id;
+        _uploading = true;
+        try
+        {
+            await RunAsync(async ct =>
+            {
+                var file = await Files.PickAttachmentAsync(ct);
+                if (file is null) return;
+                using var stream = new MemoryStream(file.Content, writable: false);
+                await Client.UploadAttachmentAsync(id, stream, file.FileName, file.ContentType, ct);
+                _draft = await Client.GetRequestAsync(id, ct);
+                Toasts.Show($"Se adjuntó «{file.FileName}».", "success");
+            });
+        }
+        finally
+        {
+            _uploading = false;
+        }
+    }
+
+    private async Task RemoveAttachmentAsync(AttachmentDto attachment)
+    {
+        if (_draft is null) return;
+        var id = _draft.Summary.Id;
+        await RunAsync(async ct =>
+        {
+            await Client.RemoveAttachmentAsync(id, attachment.Id, ct);
+            _draft = await Client.GetRequestAsync(id, ct);
+        });
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (_draft is null || Busy) return;
+        var id = _draft.Summary.Id;
+        WorkflowResultDto? result = null;
+        var ok = await RunAsync(async ct =>
+        {
+            var signature = _signaturePad is null ? null : await _signaturePad.GetPngBase64Async();
+            result = await Client.SubmitAsync(id, new SubmitInput { SignaturePngBase64 = signature, IdempotencyKey = _submitKey }, ct);
+        });
+        if (ok && result is not null)
+        {
+            Toasts.Show(result.WasDuplicate ? $"{result.Folio}: la solicitud ya se había enviado." : $"{result.Folio}: {result.Message}", "success");
+            Nav.NavigateTo($"/solicitudes/{id}", replace: true);
+        }
+    }
+
+    private string StepClass(Step s)
+    {
+        var current = _step == Step.Loading ? Step.Kind : _step;
+        return s == current ? "current" : s < current ? "done" : "";
+    }
+
+    private static string KindDescription(RequestKind kind) => kind switch
+    {
+        RequestKind.Overtime => "Horas adicionales a tu jornada, con proyecto y actividad.",
+        RequestKind.Vacation => "Días de descanso con cargo a tu saldo del periodo.",
+        RequestKind.PaidLeave => "Ausencia autorizada sin afectar tu sueldo.",
+        RequestKind.UnpaidLeave => "Ausencia autorizada sin goce de sueldo.",
+        _ => "",
+    };
+
+    protected override void OnDispose() => _previewCts?.Cancel();
+}

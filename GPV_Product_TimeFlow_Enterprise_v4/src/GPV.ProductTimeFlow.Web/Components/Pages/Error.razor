@@ -1,0 +1,16 @@
+@page "/Error"
+@attribute [AllowAnonymous]
+@layout AuthLayout
+@using System.Diagnostics
+<PageTitle>Error · GPV Product TimeFlow</PageTitle>
+<div class="verify-page"><div class="card" style="max-width:520px"><div class="card-body stack">
+    <h1>Ocurrió un error</h1>
+    <p>No fue posible completar la operación. El incidente quedó registrado.</p>
+    @if (RequestId is not null) { <p class="small muted">Identificador: <code>@RequestId</code></p> }
+    <a class="btn btn-primary" href="/">Volver al inicio</a>
+</div></div></div>
+@code {
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+    private string? RequestId { get; set; }
+    protected override void OnInitialized() => RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}

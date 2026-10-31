@@ -1,0 +1,16 @@
+bin/
+obj/
+App_Data/
+*.db
+*.db-shm
+*.db-wal
+*.user
+.vs/
+TestResults/
+*.keystore
+*.jks
+*.pfx
+appsettings.*.local.json
+.env
+load-result-*.md
+dist/

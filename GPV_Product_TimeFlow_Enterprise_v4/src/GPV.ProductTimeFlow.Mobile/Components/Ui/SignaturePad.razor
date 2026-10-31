@@ -1,0 +1,82 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<div class="signature-pad @(HasInk ? "signed" : "")">
+    <div class="signature-label">
+        <span>@Label</span>
+        <button type="button" class="btn btn-ghost btn-sm" disabled="@(!HasInk || Disabled)" @onclick="ClearAsync">Borrar</button>
+    </div>
+    <div class="signature-surface">
+        <canvas @ref="_canvas" aria-label="@($"{Label}. Dibuja tu firma con el dedo.")" role="img"></canvas>
+        @if (!HasInk)
+        {
+            <span class="signature-placeholder" aria-hidden="true">Firma aquí</span>
+        }
+        <span class="signature-baseline" aria-hidden="true"></span>
+    </div>
+</div>
+
+@code {
+    private const string PngPrefix = "data:image/png;base64,";
+
+    private ElementReference _canvas;
+    private IJSObjectReference? _module;
+    private IJSObjectReference? _pad;
+    private DotNetObjectReference<SignaturePad>? _self;
+
+    [Parameter] public string Label { get; set; } = "Firma";
+    [Parameter] public bool Disabled { get; set; }
+
+    /// <summary>Se dispara cuando el panel pasa de vacío a firmado o viceversa.</summary>
+    [Parameter] public EventCallback<bool> HasInkChanged { get; set; }
+
+    public bool HasInk { get; private set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _self = DotNetObjectReference.Create(this);
+        _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/signature.js");
+        _pad = await _module.InvokeAsync<IJSObjectReference>("create", _canvas, _self);
+    }
+
+    [JSInvokable]
+    public async Task OnInkChanged(bool hasInk)
+    {
+        HasInk = hasInk;
+        await HasInkChanged.InvokeAsync(hasInk);
+        StateHasChanged();
+    }
+
+    public async Task ClearAsync()
+    {
+        if (_pad is not null) await _pad.InvokeVoidAsync("clear");
+    }
+
+    /// <summary>PNG en base64 SIN el prefijo "data:" (formato que esperan SubmitInput/DecisionInput), o null si está vacío.</summary>
+    public async Task<string?> GetPngBase64Async()
+    {
+        if (_pad is null) return null;
+        var dataUrl = await _pad.InvokeAsync<string?>("toPng");
+        if (string.IsNullOrEmpty(dataUrl)) return null;
+        return dataUrl.StartsWith(PngPrefix, StringComparison.Ordinal) ? dataUrl[PngPrefix.Length..] : null;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_pad is not null)
+            {
+                await _pad.InvokeVoidAsync("dispose");
+                await _pad.DisposeAsync();
+            }
+            if (_module is not null) await _module.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // El WebView ya se cerró.
+        }
+        _self?.Dispose();
+    }
+}

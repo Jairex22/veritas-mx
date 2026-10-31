@@ -1,0 +1,38 @@
+@inject UserSession Session
+
+<CascadingAuthenticationState>
+    <Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+                <NotAuthorized>
+                    @if (context.User.Identity?.IsAuthenticated == true)
+                    {
+                        <div class="content"><div class="card"><div class="empty">
+                            <div class="empty-icon"><Icon Name="lock" /></div>
+                            <h3>Acceso restringido</h3>
+                            <p>Su rol no permite consultar esta sección. Si considera que es un error, contacte al administrador de Producto.</p>
+                            <a class="btn" href="/">Volver al inicio</a>
+                        </div></div></div>
+                    }
+                    else
+                    {
+                        <RedirectToLogin />
+                    }
+                </NotAuthorized>
+                <Authorizing><div class="content"><div class="skeleton" style="height:24px;width:240px"></div></div></Authorizing>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="routeData" Selector="h1" />
+        </Found>
+    </Router>
+</CascadingAuthenticationState>
+
+@code {
+    [Parameter] public string? ClientIp { get; set; }
+    [Parameter] public string? UserAgent { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Session.ClientIp ??= ClientIp;
+        Session.UserAgent ??= UserAgent;
+    }
+}

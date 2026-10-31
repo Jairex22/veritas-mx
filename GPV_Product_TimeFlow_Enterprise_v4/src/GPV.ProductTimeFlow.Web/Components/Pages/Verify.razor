@@ -1,0 +1,39 @@
+@page "/verificar/{Folio}"
+@layout AuthLayout
+@attribute [AllowAnonymous]
+@attribute [ExcludeFromInteractiveRouting]
+@inject RequestQueryService Queries
+
+<PageTitle>Verificación de documento · GPV Product TimeFlow</PageTitle>
+<div class="verify-page">
+    <div class="card" style="max-width:560px;width:100%">
+        <div class="card-body stack">
+            <div class="brand" style="padding:0">
+                <span class="brand-mark"><Icon Name="qr" Size="20" /></span>
+                <span class="brand-text"><strong>Verificación de documento</strong><span>GPV Product TimeFlow</span></span>
+            </div>
+            @if (result is null)
+            {
+                <div class="alert error"><Icon Name="x-circle" /><div><strong>No verificable</strong>El folio o el código de verificación no corresponden a un documento registrado.</div></div>
+            }
+            else
+            {
+                <div class="alert @(result.ContentIntact ? "success" : "error")"><Icon Name="@(result.ContentIntact ? "check-circle" : "alert")" /><div><strong>@(result.ContentIntact ? "Documento auténtico" : "Integridad comprometida")</strong>@result.Message</div></div>
+                <dl class="kv">
+                    <dt>Folio</dt><dd>@result.Folio</dd>
+                    <dt>Tipo</dt><dd>@result.KindLabel</dd>
+                    <dt>Estado</dt><dd>@result.StatusLabel</dd>
+                    <dt>Firmas vigentes</dt><dd>@result.ValidSignatures</dd>
+                    <dt>Última actuación</dt><dd>@Format.DateTime(result.LastDecisionUtc)</dd>
+                </dl>
+                <p class="small muted">Por privacidad, esta página no muestra datos personales. Para consultar el expediente completo inicie sesión en la aplicación.</p>
+            }
+        </div>
+    </div>
+</div>
+@code {
+    [Parameter] public string Folio { get; set; } = "";
+    [SupplyParameterFromQuery(Name = "c")] private string? Code { get; set; }
+    private VerificationDto? result;
+    protected override async Task OnInitializedAsync() => result = await Queries.VerifyAsync(Folio, Code);
+}

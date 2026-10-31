@@ -1,0 +1,17 @@
+@* Chip de estado. Usa Labels.Status/Labels.StatusTone (nunca el nombre técnico del enum). *@
+<span class="chip chip-@ToneValue">@LabelValue</span>
+
+@code {
+    /// <summary>Estado de la solicitud (calcula etiqueta y tono).</summary>
+    [Parameter] public RequestStatus? Status { get; set; }
+
+    /// <summary>Etiqueta explícita (si no se indica Status).</summary>
+    [Parameter] public string? Label { get; set; }
+
+    /// <summary>neutral | warning | info | attention | danger | success | muted</summary>
+    [Parameter] public string? Tone { get; set; }
+
+    private string LabelValue => Label ?? (Status is { } s ? Labels.Status(s) : "—");
+
+    private string ToneValue => Tone ?? (Status is { } s ? Labels.StatusTone(s) : "neutral");
+}

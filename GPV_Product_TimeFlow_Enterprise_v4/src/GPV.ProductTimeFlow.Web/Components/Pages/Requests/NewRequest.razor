@@ -1,0 +1,381 @@
+@page "/solicitudes/nueva"
+@page "/solicitudes/nueva/{KindParam}"
+@page "/solicitudes/{EditId:guid}/editar"
+@attribute [Authorize]
+@inject ServiceRunner Runner
+@inject ToastService Toasts
+@inject NavigationManager Nav
+@inject LocalClock Clock
+
+<PageTitle>@(EditId is null ? "Nueva solicitud" : "Corregir solicitud") · GPV Product TimeFlow</PageTitle>
+<PageHeader Title="@(EditId is null ? "Nueva solicitud" : $"Corregir solicitud {folio}")" Eyebrow="Solicitudes"
+            Subtitle="Completa los datos. Las horas y días se calculan automáticamente según el calendario laboral y las políticas vigentes." />
+
+<ol class="stepper" aria-label="Pasos">
+    @for (var i = 1; i <= 4; i++)
+    {
+        var n = i;
+        <li class="step @(step == n ? "active" : step > n ? "done" : "")" aria-current="@(step == n ? "step" : null)">
+            <span class="num">@(step > n ? "✓" : n.ToString())</span><span class="label">@StepNames[n - 1]</span>
+        </li>
+    }
+</ol>
+
+@if (step == 1)
+{
+    <div class="type-grid" role="radiogroup" aria-label="Tipo de solicitud">
+        @foreach (var (k, icon, desc) in Types)
+        {
+            <button type="button" class="type-card @(input.Kind == k ? "selected" : "")" role="radio" aria-checked="@(input.Kind == k)" @onclick="() => ChooseKind(k)" data-testid="@($"type-{k}")">
+                <span class="type-icon @k.ToString().ToLowerInvariant()"><Icon Name="@icon" Size="22" /></span>
+                <strong>@Labels.Kind(k)</strong>
+                <p>@desc</p>
+            </button>
+        }
+    </div>
+}
+else if (step == 2)
+{
+    <div class="grid grid-main">
+        <div class="card">
+            <div class="card-header"><div><h2>@Labels.Kind(input.Kind)</h2><p>Los campos marcados con * son obligatorios.</p></div></div>
+            <div class="card-body stack">
+                @if (input.Kind == RequestKind.UnpaidLeave)
+                {
+                    <div class="unpaid-banner" role="note"><Icon Name="alert" /> Solicitud SIN goce de sueldo. Esta aplicación solo registra y autoriza; no aplica descuentos de nómina.</div>
+                }
+                <ErrorList Errors="errors" />
+                <div class="form-grid">
+                    <div class="field full">
+                        <label>Empleado</label>
+                        <input value="@($"{profile?.FullName} · No. {profile?.EmployeeNumber}")" disabled />
+                        <span class="hint">Responsable directo: @(profile?.SupervisorName ?? "sin asignar") · Jefe superior: @(profile?.ManagerName ?? "sin asignar")</span>
+                    </div>
+
+                    @if (input.Kind == RequestKind.Overtime)
+                    {
+                        <div class="field"><label for="date">Fecha<span class="req">*</span></label><input id="date" type="date" @bind="input.StartDate" @bind:after="Preview" data-testid="ot-date" /></div>
+                        <div class="field"><label>Horas calculadas</label><input value="@(otPreview is null ? "—" : Labels.Hours(otPreview.Hours))" disabled data-testid="ot-hours" /></div>
+                        <div class="field"><label for="start">Hora inicial<span class="req">*</span></label><input id="start" type="time" step="900" @bind="StartTime" @bind:after="Preview" data-testid="ot-start" /></div>
+                        <div class="field"><label for="end">Hora final<span class="req">*</span></label><input id="end" type="time" step="900" @bind="EndTime" @bind:after="Preview" data-testid="ot-end" /><span class="hint">Si termina después de medianoche, se calcula al día siguiente.</span></div>
+                        <div class="field"><label for="project">Proyecto<span class="req">*</span></label><input id="project" maxlength="150" @bind="input.Project" data-testid="ot-project" /></div>
+                        <div class="field"><label for="reason">Motivo<span class="req">*</span></label><input id="reason" maxlength="500" @bind="input.Reason" data-testid="reason" /></div>
+                        <div class="field full"><label for="activity">Actividad realizada o planeada<span class="req">*</span></label><textarea id="activity" maxlength="1000" @bind="input.Activity" data-testid="ot-activity"></textarea></div>
+                    }
+                    else if (input.Kind == RequestKind.Vacation)
+                    {
+                        <div class="field"><label for="vstart">Fecha inicial<span class="req">*</span></label><input id="vstart" type="date" @bind="input.StartDate" @bind:after="Preview" data-testid="vac-start" /></div>
+                        <div class="field"><label for="vend">Fecha final<span class="req">*</span></label><input id="vend" type="date" @bind="input.EndDate" @bind:after="Preview" data-testid="vac-end" /></div>
+                        <div class="field full"><label for="reason">Motivo<span class="req">*</span></label><input id="reason" maxlength="500" @bind="input.Reason" data-testid="reason" /></div>
+                    }
+                    else
+                    {
+                        <div class="field"><label for="cat">Clasificación<span class="req">*</span></label>
+                            <select id="cat" @bind="input.LeaveCategoryId" data-testid="leave-category">
+                                <option value="">Seleccione…</option>
+                                @foreach (var c in categories) { <option value="@c.Id">@c.Name@(c.RequiresAttachment ? " (requiere documento)" : "")</option> }
+                            </select>
+                        </div>
+                        <div class="field"><label>Duración</label>
+                            <div class="segmented" role="group" aria-label="Duración del permiso">
+                                <button type="button" class="@(input.IsFullDay ? "active" : "")" @onclick="() => SetFullDay(true)">Día completo</button>
+                                <button type="button" class="@(!input.IsFullDay ? "active" : "")" @onclick="() => SetFullDay(false)">Parcial (horas)</button>
+                            </div>
+                        </div>
+                        <div class="field"><label for="lstart">@(input.IsFullDay ? "Fecha inicial" : "Fecha")<span class="req">*</span></label><input id="lstart" type="date" @bind="input.StartDate" data-testid="leave-start" /></div>
+                        @if (input.IsFullDay)
+                        {
+                            <div class="field"><label for="lend">Fecha final</label><input id="lend" type="date" @bind="input.EndDate" data-testid="leave-end" /></div>
+                        }
+                        else
+                        {
+                            <div class="field"><label>Horario<span class="req">*</span></label>
+                                <div class="row" style="flex-wrap:nowrap"><input type="time" step="900" @bind="StartTime" aria-label="Hora inicial" /><span>a</span><input type="time" step="900" @bind="EndTime" aria-label="Hora final" /></div>
+                            </div>
+                        }
+                        <div class="field full"><label for="reason">Motivo<span class="req">*</span></label><input id="reason" maxlength="500" @bind="input.Reason" data-testid="reason" /></div>
+                        <div class="field full"><label for="just">Justificación<span class="req">*</span></label><textarea id="just" maxlength="1000" @bind="input.Justification" data-testid="justification"></textarea></div>
+                    }
+                    <div class="field full"><label for="obs">Observaciones</label><textarea id="obs" maxlength="1000" style="min-height:70px" @bind="input.Observations"></textarea></div>
+                </div>
+            </div>
+            <div class="card-footer">
+                @if (EditId is null) { <button class="btn" @onclick="() => step = 1">Atrás</button> }
+                <button class="btn btn-primary" @onclick="SaveDraft" disabled="@busy" data-testid="save-draft">@if (busy) { <span class="spinner"></span> } Guardar y continuar <Icon Name="arrow-right" Size="16" /></button>
+            </div>
+        </div>
+        <div class="stack">
+            @if (input.Kind == RequestKind.Overtime)
+            {
+                <div class="card"><div class="card-header"><h2>Cálculo automático</h2></div><div class="card-body stack">
+                    <div class="calc-box">
+                        <div><div class="label">Horas</div><div class="value">@(otPreview?.Hours.ToString("0.##") ?? "—")</div></div>
+                        <div><div class="label">Inicio</div><div class="value" style="font-size:1rem">@(otPreview?.StartLocal.ToString("dd/MM HH:mm") ?? "—")</div></div>
+                        <div><div class="label">Fin</div><div class="value" style="font-size:1rem">@(otPreview?.EndLocal.ToString("dd/MM HH:mm") ?? "—")</div></div>
+                    </div>
+                    <PreviewMessages Errors="otPreview?.Errors" Warnings="otPreview?.Warnings" />
+                    <p class="small muted">El pago, los máximos y la elegibilidad se rigen por las políticas internas configuradas. Esta aplicación no calcula conceptos de nómina.</p>
+                </div></div>
+            }
+            else if (input.Kind == RequestKind.Vacation)
+            {
+                <div class="card"><div class="card-header"><div><h2>Selecciona tus días</h2><p>Toca la fecha inicial y luego la final.</p></div></div><div class="card-body">
+                    <RangeCalendar Start="input.StartDate" End="input.EndDate" OnRangeChanged="OnRange" Holidays="holidays" BusyDays="busyDays" MinDate="today" Today="today" />
+                </div></div>
+                <div class="card"><div class="card-header"><h2>Saldo y días aplicables</h2></div><div class="card-body stack">
+                    <div class="calc-box">
+                        <div><div class="label">Días hábiles</div><div class="value" data-testid="vac-days">@(vacPreview?.BusinessDays.ToString("0.#") ?? "—")</div></div>
+                        <div><div class="label">Disponibles</div><div class="value">@(vacPreview?.AvailableBefore.ToString("0.#") ?? "—")</div></div>
+                        <div><div class="label">Después</div><div class="value">@(vacPreview?.AvailableAfter.ToString("0.#") ?? "—")</div></div>
+                    </div>
+                    @if (vacPreview?.HolidaysInRange.Count > 0) { <div class="alert info"><Icon Name="info" /><div><strong>Días festivos excluidos</strong>@string.Join(", ", vacPreview.HolidaysInRange)</div></div> }
+                    <PreviewMessages Errors="vacPreview?.Errors" Warnings="vacPreview?.Warnings" />
+                    @if (vacPreview?.TeammatesAbsentNames.Count > 0) { <p class="small muted">Ausentes: @string.Join(", ", vacPreview.TeammatesAbsentNames)</p> }
+                </div></div>
+            }
+            else
+            {
+                <div class="card"><div class="card-body stack">
+                    <h3>Recomendaciones</h3>
+                    <p class="small muted">Adjunta el comprobante cuando la clasificación lo requiera (por ejemplo, matrimonio o fallecimiento de familiar). Los permisos parciales se registran por horas; los de día completo, por días hábiles.</p>
+                </div></div>
+            }
+        </div>
+    </div>
+}
+else if (step == 3)
+{
+    <div class="grid grid-2">
+        <div class="card">
+            <div class="card-header"><div><h2>Documentos adjuntos</h2><p>PDF, PNG, JPG, DOCX o XLSX · máximo 10 MB por archivo.</p></div></div>
+            <div class="card-body stack">
+                <label class="btn" style="width:fit-content"><Icon Name="upload" /> Seleccionar archivo<InputFile class="sr-only" OnChange="Upload" accept=".pdf,.png,.jpg,.jpeg,.docx,.xlsx" data-testid="attachment-input" /></label>
+                @if (uploading) { <div class="row muted"><span class="spinner"></span> Subiendo y verificando archivo…</div> }
+                @if (detail?.Attachments.Count > 0)
+                {
+                    @foreach (var a in detail.Attachments)
+                    {
+                        <div class="file-row"><Icon Name="paperclip" /><div class="grow"><div class="cell-title">@a.FileName</div><div class="cell-sub">@Format.Bytes(a.SizeBytes) · SHA-256 @a.Sha256[..12]…</div></div>
+                            <button class="icon-btn" @onclick="() => RemoveAttachment(a.Id)" aria-label="@($"Eliminar {a.FileName}")"><Icon Name="trash" Size="18" /></button></div>
+                    }
+                }
+                else { <p class="muted small">Sin archivos adjuntos (opcional salvo que la clasificación lo requiera).</p> }
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header"><div><h2>Firma del solicitante</h2><p>Opcional según la política vigente.</p></div></div>
+            <div class="card-body"><SignaturePad @ref="signaturePad" Label="Tu firma" CanvasId="employee-signature" OnChanged="v => hasSignature = v" /></div>
+        </div>
+    </div>
+    <div class="action-bar">
+        <button class="btn" @onclick="() => step = 2">Atrás</button>
+        <button class="btn btn-primary" @onclick="ToReview" data-testid="to-review">Revisar solicitud <Icon Name="arrow-right" Size="16" /></button>
+    </div>
+}
+else if (step == 4 && detail is not null)
+{
+    var s = detail.Summary;
+    <div class="grid grid-main">
+        <div class="card">
+            <div class="card-header"><div><h2>Revisión final</h2><p>Verifica que la información sea correcta antes de enviarla a tu jefa directa.</p></div><StatusChip Status="s.Status" /></div>
+            <div class="card-body stack">
+                @if (s.Kind == RequestKind.UnpaidLeave) { <div class="unpaid-banner"><Icon Name="alert" /> Solicitud SIN goce de sueldo. No se aplicarán descuentos desde esta aplicación.</div> }
+                <dl class="kv">
+                    <dt>Folio</dt><dd>@s.Folio</dd>
+                    <dt>Tipo</dt><dd><KindTag Kind="s.Kind" Short="false" /></dd>
+                    <dt>Periodo</dt><dd>@Format.Period(s)@(detail.CrossesMidnight ? " (termina al día siguiente)" : "")</dd>
+                    <dt>Duración</dt><dd>@Format.Duration(s)</dd>
+                    @if (detail.Project is not null) { <dt>Proyecto</dt><dd>@detail.Project</dd> }
+                    @if (detail.Activity is not null) { <dt>Actividad</dt><dd>@detail.Activity</dd> }
+                    @if (detail.LeaveCategoryName is not null) { <dt>Clasificación</dt><dd>@detail.LeaveCategoryName</dd> }
+                    <dt>Motivo</dt><dd>@s.Reason</dd>
+                    @if (detail.Justification is not null) { <dt>Justificación</dt><dd>@detail.Justification</dd> }
+                    @if (detail.Observations is not null) { <dt>Observaciones</dt><dd>@detail.Observations</dd> }
+                    <dt>Adjuntos</dt><dd>@(detail.Attachments.Count == 0 ? "Ninguno" : string.Join(", ", detail.Attachments.Select(a => a.FileName)))</dd>
+                    <dt>Firma</dt><dd>@(signatureBase64 is null ? "Sin firma del solicitante" : "Firma capturada")</dd>
+                </dl>
+                <ErrorList Errors="errors" />
+            </div>
+        </div>
+        <div class="card"><div class="card-header"><h2>Ruta de autorización</h2></div><div class="card-body">
+            <ul class="timeline">
+                <li><span class="dot"></span><div class="what">Filtro 1 · Jefa directa</div><div class="when">@(profile?.SupervisorName ?? "Sin asignar")</div></li>
+                <li><span class="dot"></span><div class="what">Filtro 2 · Jefe superior</div><div class="when">@(profile?.ManagerName ?? "Sin asignar")</div></li>
+                <li><span class="dot"></span><div class="what">Filtro 3 · Registro administrativo</div><div class="when">Recepción y registro final</div></li>
+            </ul>
+        </div></div>
+    </div>
+    <div class="action-bar">
+        <button class="btn" @onclick="() => step = 3">Atrás</button>
+        <a class="btn" href="/solicitudes/@detail.Summary.Id">Guardar como borrador</a>
+        <button class="btn btn-primary" @onclick="Submit" disabled="@busy" data-testid="submit-request">@if (busy) { <span class="spinner"></span> } <Icon Name="send" Size="16" /> Enviar a jefa directa</button>
+    </div>
+}
+
+@code {
+    [Parameter] public string? KindParam { get; set; }
+    [Parameter] public Guid? EditId { get; set; }
+    [SupplyParameterFromQuery(Name = "start")] private string? StartQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "end")] private string? EndQuery { get; set; }
+
+    private static readonly string[] StepNames = ["Tipo", "Datos", "Adjuntos y firma", "Revisión y envío"];
+    private static readonly (RequestKind Kind, string Icon, string Desc)[] Types =
+    [
+        (RequestKind.Overtime, "timer", "Horas adicionales a la jornada, con proyecto y actividad. Detecta cruces de medianoche y traslapes."),
+        (RequestKind.Vacation, "palm", "Días de descanso con descuento de saldo. Considera fines de semana y festivos."),
+        (RequestKind.PaidLeave, "badge-check", "Ausencia con goce por día completo u horas, con clasificación y justificación."),
+        (RequestKind.UnpaidLeave, "user-minus", "Ausencia sin goce de sueldo. Se registra y autoriza; no aplica descuentos."),
+    ];
+
+    private int step = 1;
+    private RequestInput input = new();
+    private Guid? draftId;
+    private string? folio;
+    private RequestDetailDto? detail;
+    private UserProfileDto? profile;
+    private List<string>? errors;
+    private bool busy, uploading, hasSignature;
+    private string? signatureBase64;
+    private SignaturePad? signaturePad;
+    private OvertimePreviewDto? otPreview;
+    private VacationPreviewDto? vacPreview;
+    private IReadOnlyList<LeaveCategoryDto> categories = [];
+    private IReadOnlyList<HolidayDto> holidays = [];
+    private HashSet<DateOnly> busyDays = [];
+    private DateOnly today;
+    private readonly string submitKey = Guid.NewGuid().ToString("N");
+
+    private TimeOnly? StartTime { get => input.StartTime; set => input.StartTime = value; }
+    private TimeOnly? EndTime { get => input.EndTime; set => input.EndTime = value; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        today = Clock.Today;
+        profile = await Runner.Run<RequestQueryService, UserProfileDto>((s, a) => s.GetProfileAsync(a.EmployeeId));
+        holidays = await Runner.Run<SettingsAdminService, IReadOnlyList<HolidayDto>>((s, _) => s.HolidaysAsync(null));
+        input = new RequestInput { StartDate = today, EndDate = today, IsFullDay = true, StartTime = new TimeOnly(18, 0), EndTime = new TimeOnly(20, 0) };
+        if (EditId is Guid id)
+        {
+            try
+            {
+                input = await Runner.Run<RequestQueryService, RequestInput>((s, a) => s.GetInputAsync(a, id));
+                detail = await Runner.Run<RequestQueryService, RequestDetailDto>((s, a) => s.GetDetailAsync(a, id, false));
+                if (!detail.Permissions.CanEdit) { Toasts.Show(ToastKind.Warning, "La solicitud ya no se puede editar"); Nav.NavigateTo($"/solicitudes/{id}"); return; }
+                draftId = id; folio = detail.Summary.Folio; step = 2;
+                await LoadKindData();
+                await Preview();
+            }
+            catch (Exception ex) { Toasts.Error(ex); Nav.NavigateTo("/solicitudes"); }
+        }
+        else if (Enum.TryParse<RequestKind>(KindParam, true, out var k)) await ChooseKind(k);
+    }
+
+    private async Task ChooseKind(RequestKind k)
+    {
+        input.Kind = k;
+        input.IsFullDay = true;
+        if (k == RequestKind.Vacation)
+        {
+            input.StartDate = DateOnly.TryParse(StartQuery, out var s) ? s : NextWorkday(today.AddDays(14));
+            input.EndDate = DateOnly.TryParse(EndQuery, out var e) ? e : input.StartDate.AddDays(2);
+        }
+        step = 2;
+        errors = null;
+        await LoadKindData();
+        await Preview();
+    }
+
+    private static DateOnly NextWorkday(DateOnly d) { while (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) d = d.AddDays(1); return d; }
+
+    private async Task LoadKindData()
+    {
+        if (input.Kind is RequestKind.PaidLeave or RequestKind.UnpaidLeave)
+            categories = await Runner.Run<SettingsAdminService, IReadOnlyList<LeaveCategoryDto>>((s, _) => s.CategoriesAsync(input.Kind, true));
+        if (input.Kind == RequestKind.Vacation)
+        {
+            var events = await Runner.Run<RequestQueryService, IReadOnlyList<CalendarEventDto>>((s, a) => s.GetCalendarAsync(a, today, today.AddDays(119), CalendarScope.Team));
+            busyDays = events.Where(e => !e.IsMine && !e.IsHoliday && e.Kind != RequestKind.Overtime)
+                .SelectMany(e => Enumerable.Range(0, e.End.DayNumber - e.Start.DayNumber + 1).Select(i => e.Start.AddDays(i))).ToHashSet();
+        }
+    }
+
+    private void SetFullDay(bool v) { input.IsFullDay = v; if (!v) { input.StartTime ??= new TimeOnly(9, 0); input.EndTime ??= new TimeOnly(13, 0); input.EndDate = input.StartDate; } }
+
+    private async Task OnRange((DateOnly Start, DateOnly End) r) { input.StartDate = r.Start; input.EndDate = r.End; await Preview(); }
+
+    private async Task Preview()
+    {
+        try
+        {
+            if (input.Kind == RequestKind.Overtime && input.StartTime is TimeOnly st && input.EndTime is TimeOnly et)
+                otPreview = await Runner.Run<OvertimeService, OvertimePreviewDto>((s, a) => s.PreviewAsync(a, new OvertimePreviewRequest { Date = input.StartDate, Start = st, End = et, ExcludeRequestId = draftId }));
+            if (input.Kind == RequestKind.Vacation && input.EndDate is DateOnly end)
+                vacPreview = await Runner.Run<VacationService, VacationPreviewDto>((s, a) => s.PreviewAsync(a, new VacationPreviewRequest { StartDate = input.StartDate, EndDate = end, ExcludeRequestId = draftId }));
+        }
+        catch (Exception ex) { Toasts.Error(ex); }
+    }
+
+    private async Task SaveDraft()
+    {
+        busy = true; errors = null;
+        try
+        {
+            if (input.Kind is RequestKind.PaidLeave or RequestKind.UnpaidLeave && input.IsFullDay && (input.EndDate is null || input.EndDate < input.StartDate)) input.EndDate = input.StartDate;
+            if (draftId is Guid id) await Runner.Run<WorkflowService>((s, a) => s.UpdateDraftAsync(a, id, input));
+            else draftId = await Runner.Run<WorkflowService, Guid>((s, a) => s.CreateDraftAsync(a, input));
+            await LoadDetail();
+            folio = detail?.Summary.Folio;
+            Toasts.Success("Borrador guardado", $"Folio {folio}");
+            step = 3;
+        }
+        catch (BusinessRuleException ex) { errors = ex.Errors.ToList(); }
+        catch (Exception ex) { Toasts.Error(ex); }
+        finally { busy = false; }
+    }
+
+    private async Task LoadDetail() => detail = await Runner.Run<RequestQueryService, RequestDetailDto>((s, a) => s.GetDetailAsync(a, draftId!.Value, false));
+
+    private async Task Upload(InputFileChangeEventArgs e)
+    {
+        uploading = true;
+        try
+        {
+            var file = e.File;
+            await using var stream = file.OpenReadStream(10 * 1024 * 1024 + 1);
+            await Runner.Run<WorkflowService, AttachmentDto>((s, a) => s.AddAttachmentAsync(a, draftId!.Value, file.Name, file.ContentType, stream, file.Size));
+            await LoadDetail();
+            Toasts.Success("Archivo adjuntado", file.Name);
+        }
+        catch (IOException) { Toasts.Show(ToastKind.Error, "Archivo demasiado grande", "El máximo es 10 MB."); }
+        catch (Exception ex) { Toasts.Error(ex); }
+        finally { uploading = false; }
+    }
+
+    private async Task RemoveAttachment(Guid id)
+    {
+        try { await Runner.Run<WorkflowService>((s, a) => s.RemoveAttachmentAsync(a, draftId!.Value, id)); await LoadDetail(); }
+        catch (Exception ex) { Toasts.Error(ex); }
+    }
+
+    private async Task ToReview()
+    {
+        signatureBase64 = signaturePad is null ? null : await signaturePad.GetPngBase64Async();
+        await LoadDetail();
+        errors = null;
+        step = 4;
+    }
+
+    private async Task Submit()
+    {
+        busy = true; errors = null;
+        try
+        {
+            var result = await Runner.Run<WorkflowService, WorkflowResultDto>((s, a) => s.SubmitAsync(a, draftId!.Value, new SubmitInput { IdempotencyKey = submitKey, SignaturePngBase64 = signatureBase64 }));
+            Toasts.Success($"Solicitud {result.Folio} enviada", result.Message);
+            Nav.NavigateTo($"/solicitudes/{result.RequestId}");
+        }
+        catch (BusinessRuleException ex) { errors = ex.Errors.ToList(); }
+        catch (Exception ex) { Toasts.Error(ex); }
+        finally { busy = false; }
+    }
+}

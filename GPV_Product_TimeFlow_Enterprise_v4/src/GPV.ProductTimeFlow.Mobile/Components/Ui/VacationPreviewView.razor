@@ -1,0 +1,41 @@
+@* Resultado de VacationPreviewAsync: días hábiles, saldo antes/después, festivos y compañeros ausentes. *@
+<div class="preview" aria-live="polite">
+    @if (Loading && Preview is null)
+    {
+        <p class="muted small"><span class="spinner spinner-sm" aria-hidden="true"></span> Calculando…</p>
+    }
+    else if (!string.IsNullOrEmpty(Error))
+    {
+        <div class="alert alert-attention small">@Error</div>
+    }
+    else if (Preview is not null)
+    {
+        <div class="preview-grid @(Loading ? "is-stale" : "")">
+            <div><span class="preview-value">@Fmt.Number(Preview.BusinessDays)</span><span class="muted small">días hábiles</span></div>
+            <div><span class="preview-value">@Fmt.Number(Preview.AvailableBefore)</span><span class="muted small">disponibles hoy</span></div>
+            <div class="@(Preview.AvailableAfter < 0 ? "text-danger" : "")"><span class="preview-value">@Fmt.Number(Preview.AvailableAfter)</span><span class="muted small">quedarían</span></div>
+        </div>
+        <p class="muted small">@Preview.CalendarDays @(Preview.CalendarDays == 1 ? "día natural" : "días naturales") en el periodo.</p>
+        @if (Preview.HolidaysInRange.Count > 0)
+        {
+            <p class="small"><strong>Días festivos en el periodo:</strong> @string.Join(", ", Preview.HolidaysInRange)</p>
+        }
+        @if (Preview.TeammatesAbsentCount > 0)
+        {
+            <p class="small">
+                <strong>@Preview.TeammatesAbsentCount @(Preview.TeammatesAbsentCount == 1 ? "persona del equipo estará ausente" : "personas del equipo estarán ausentes")</strong>
+                @if (Preview.TeammatesAbsentNames.Count > 0)
+                {
+                    <span>: @string.Join(", ", Preview.TeammatesAbsentNames)</span>
+                }
+            </p>
+        }
+        <PreviewMessages Errors="Preview.Errors" Warnings="Preview.Warnings" />
+    }
+</div>
+
+@code {
+    [Parameter] public VacationPreviewDto? Preview { get; set; }
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public string? Error { get; set; }
+}

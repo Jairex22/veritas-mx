@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <!--
+      CSP: solo recursos locales del paquete. Las llamadas a la API las hace C# (HttpClient), no el WebView.
+      img-src data: → imágenes de firmas (ImageDataUrl). style-src 'unsafe-inline' → atributos style que genera Blazor.
+    -->
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'" />
+    <title>GPV TimeFlow</title>
+    <base href="/" />
+    <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+    <div id="app">
+        <div class="boot" role="status">
+            <div class="brand-mark brand-mark-lg" aria-hidden="true"></div>
+            <p>Cargando GPV TimeFlow…</p>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui" role="alert">
+        Ocurrió un error inesperado.
+        <a href="" class="reload">Recargar</a>
+        <a class="dismiss" aria-label="Cerrar">×</a>
+    </div>
+
+    <script src="_framework/blazor.webview.js" autostart="false"></script>
+</body>
+</html>

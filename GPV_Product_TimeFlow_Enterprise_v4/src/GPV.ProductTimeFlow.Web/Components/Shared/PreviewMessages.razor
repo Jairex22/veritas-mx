@@ -1,0 +1,17 @@
+@if (Errors is { Count: > 0 })
+{
+    <div class="alert error" role="alert"><Icon Name="alert" /><div><strong>No se puede enviar así</strong><ul>@foreach (var e in Errors) { <li>@e</li> }</ul></div></div>
+}
+@if (Warnings is { Count: > 0 })
+{
+    <div class="alert warning"><Icon Name="info" /><div><strong>Advertencias</strong><ul>@foreach (var w in Warnings) { <li>@w</li> }</ul></div></div>
+}
+@if ((Errors is null || Errors.Count == 0) && (Warnings is null || Warnings.Count == 0) && ShowOk)
+{
+    <div class="alert success"><Icon Name="check-circle" /><div>Sin conflictos detectados.</div></div>
+}
+@code {
+    [Parameter] public IReadOnlyList<string>? Errors { get; set; }
+    [Parameter] public IReadOnlyList<string>? Warnings { get; set; }
+    [Parameter] public bool ShowOk { get; set; } = true;
+}

@@ -1,0 +1,69 @@
+@page "/tiempo-extra"
+@attribute [Authorize]
+@inject ServiceRunner Runner
+@inject ToastService Toasts
+@inject LocalClock Clock
+
+<PageTitle>Tiempo extra · GPV Product TimeFlow</PageTitle>
+<PageHeader Title="Tiempo extra" Eyebrow="Resumen mensual" Subtitle="Horas solicitadas, autorizadas, rechazadas y pendientes del mes. No sustituye el cálculo de nómina.">
+    <Actions><a class="btn btn-primary" href="/solicitudes/nueva/Overtime"><Icon Name="plus" Size="18" /> Registrar tiempo extra</a></Actions>
+</PageHeader>
+
+<div class="card" style="margin-bottom:18px">
+    <div class="cal-head">
+        <div class="row">
+            <button class="icon-btn" @onclick="() => Move(-1)" aria-label="Mes anterior"><Icon Name="chevron-left" /></button>
+            <h2 style="text-transform:capitalize;min-width:170px;text-align:center">@Format.Month(year, month)</h2>
+            <button class="icon-btn" @onclick="() => Move(1)" aria-label="Mes siguiente"><Icon Name="chevron-right" /></button>
+        </div>
+        @if (policy is not null) { <span class="small muted">Máximo mensual configurado: @Labels.Hours(policy.OvertimeMaxHoursPerMonth) · por solicitud: @Labels.Hours(policy.OvertimeMaxHoursPerRequest)</span> }
+    </div>
+</div>
+
+@if (data is null) { <div class="card"><div class="card-body"><div class="skeleton"></div></div></div> }
+else
+{
+    <div class="grid grid-4 kpis" style="margin-bottom:18px">
+        <Kpi Label="Solicitadas" Value="@data.RequestedHours.ToString("0.##")" Unit="h" Icon="timer" Tone="overtime" />
+        <Kpi Label="Autorizadas" Value="@data.ApprovedHours.ToString("0.##")" Unit="h" Icon="check-circle" Tone="success" />
+        <Kpi Label="Pendientes" Value="@data.PendingHours.ToString("0.##")" Unit="h" Icon="clock" Tone="warning" />
+        <Kpi Label="Rechazadas" Value="@data.RejectedHours.ToString("0.##")" Unit="h" Icon="x-circle" Tone="danger" />
+    </div>
+    @if (policy is not null)
+    {
+        <div class="card" style="margin-bottom:18px"><div class="card-body stack" style="gap:8px">
+            <div class="row between"><strong>Uso del máximo mensual</strong><span class="small muted">@data.RequestedHours.ToString("0.##") de @policy.OvertimeMaxHoursPerMonth.ToString("0.##") h</span></div>
+            <div class="progress"><span style="background:var(--overtime);width:@(Math.Min(100, (double)(data.RequestedHours / Math.Max(1, policy.OvertimeMaxHoursPerMonth) * 100)))%"></span></div>
+        </div></div>
+    }
+    <div class="card">
+        <div class="card-header"><h2>Historial del mes</h2></div>
+        <div class="card-body" style="padding:12px 0 0"><RequestTable Items="data.Items" EmptyIcon="timer" EmptyTitle="Sin tiempo extra registrado en este mes" /></div>
+    </div>
+}
+
+@code {
+    private int year, month;
+    private OvertimeMonthlySummaryDto? data;
+    private PolicySettingsDto? policy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        year = Clock.Today.Year; month = Clock.Today.Month;
+        policy = await Runner.Run<SettingsAdminService, PolicySettingsDto>((s, _) => s.GetPolicyAsync());
+        await Load();
+    }
+
+    private async Task Move(int delta)
+    {
+        var d = new DateOnly(year, month, 1).AddMonths(delta);
+        year = d.Year; month = d.Month;
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        try { data = await Runner.Run<OvertimeService, OvertimeMonthlySummaryDto>((s, a) => s.MonthlySummaryAsync(a, year, month)); }
+        catch (Exception ex) { Toasts.Error(ex); }
+    }
+}

@@ -1,0 +1,114 @@
+@page "/"
+@attribute [Authorize]
+@inject ServiceRunner Runner
+@inject ToastService Toasts
+
+<PageTitle>Inicio · GPV Product TimeFlow</PageTitle>
+
+@if (data is null)
+{
+    <div class="grid grid-4 kpis">@for (var i = 0; i < 4; i++) { <div class="card kpi"><div class="skeleton" style="width:60%"></div><div class="skeleton" style="height:30px;width:40%"></div></div> }</div>
+}
+else
+{
+    var p = data.Profile;
+    <section class="card hero" style="margin-bottom:20px">
+        <div>
+            <div class="eyebrow" style="color:var(--brand);font-weight:650;font-size:.8rem;text-transform:uppercase;letter-spacing:.08em">Bienvenido a GPV Product TimeFlow</div>
+            <h1 tabindex="-1" data-testid="greeting">Hola, @p.FirstName</h1>
+            <p>@(p.Position ?? "Producto") · @p.Area · No. @p.EmployeeNumber</p>
+        </div>
+        <div class="page-actions">
+            <a class="btn btn-primary btn-lg" href="/solicitudes/nueva"><Icon Name="plus" /> Nueva solicitud</a>
+            <a class="btn btn-lg" href="/calendario"><Icon Name="calendar" /> Calendario</a>
+        </div>
+    </section>
+
+    @if (data.MyReturned > 0)
+    {
+        <div class="alert warning" style="margin-bottom:18px"><Icon Name="undo" /><div><strong>Tienes @data.MyReturned solicitud(es) devuelta(s) para corrección</strong>Revisa las observaciones, corrige y vuelve a enviar. <a href="/solicitudes?bucket=returned">Ver solicitudes devueltas</a></div></div>
+    }
+
+    <div class="grid grid-4 kpis" style="margin-bottom:20px">
+        <Kpi Label="Vacaciones disponibles" Value="@data.VacationAvailable.ToString("0.#")" Unit="días" Icon="palm" Tone="vacation" Foot="@($"{data.VacationPending:0.#} días en trámite")" Href="/vacaciones" />
+        <Kpi Label="Tiempo extra del mes" Value="@data.OvertimeMonthHours.ToString("0.#")" Unit="h" Icon="timer" Tone="overtime" Foot="@($"{data.OvertimeMonthApprovedHours:0.#} h autorizadas")" Href="/tiempo-extra" />
+        <Kpi Label="En trámite" Value="@data.MyInProgress.ToString()" Icon="clock" Tone="warning" Foot="@($"{data.MyDrafts} borradores")" Href="/solicitudes?bucket=open" />
+        <Kpi Label="Autorizadas / Rechazadas" Value="@data.MyApproved.ToString()" Unit="@($"/ {data.MyRejected}")" Icon="check-circle" Tone="success" Foot="Historial completo" Href="/solicitudes" />
+    </div>
+
+    @if (IsLeader)
+    {
+        <div class="grid grid-4 kpis" style="margin-bottom:20px">
+            <Kpi Label="Por autorizar" Value="@data.ApprovalsPending.ToString()" Icon="badge-check" Tone="brand" Foot="Solicitudes en tu filtro" Href="/aprobaciones" />
+            <Kpi Label="Urgentes" Value="@data.ApprovalsUrgent.ToString()" Icon="alert" Tone="danger" Foot="Más de 48 h en espera" Href="/aprobaciones" />
+            <Kpi Label="Equipo asignado" Value="@data.TeamSize.ToString()" Icon="users" Tone="brand" Foot="Personas a tu cargo" />
+            <Kpi Label="Tiempo extra del equipo" Value="@data.TeamOvertimeMonthHours.ToString("0.#")" Unit="h" Icon="timer" Tone="overtime" Foot="@($"{data.DecisionsThisMonth} decisiones este mes")" />
+        </div>
+        <div class="card" style="margin-bottom:20px">
+            <div class="card-header"><div><h2>Solicitudes por autorizar</h2><p>Ordenadas por antigüedad. Las urgentes se marcan en rojo.</p></div><a class="btn btn-sm" href="/aprobaciones">Ver bandeja</a></div>
+            <div class="card-body" style="padding:12px 0 0">
+                <RequestTable Items="data.ApprovalQueue.Take(6).ToList()" ShowEmployee="true" ShowApprover="false" EmptyIcon="badge-check" EmptyTitle="Todo al día" EmptyMessage="No tienes solicitudes pendientes de tu autorización." />
+            </div>
+        </div>
+        <div class="grid grid-3" style="margin-bottom:20px">
+            <div class="card"><div class="card-header"><h2>Solicitudes por tipo</h2></div><div class="card-body"><HBars Points="data.TeamRequestsByKind" /></div></div>
+            <div class="card"><div class="card-header"><h2>Estado del equipo</h2></div><div class="card-body"><HBars Points="data.DepartmentStatus" /></div></div>
+            <div class="card"><div class="card-header"><div><h2>Tiempo extra del equipo</h2><p>Horas vigentes, últimos 6 meses</p></div></div><div class="card-body"><BarChart Points="data.OvertimeTrend" Caption="Horas de tiempo extra por mes" /></div></div>
+        </div>
+        <div style="margin-bottom:20px">
+            <div class="card">
+                <div class="card-header"><div><h2>Próximas ausencias del equipo</h2><p>Siguientes 30 días</p></div><a class="btn btn-sm" href="/calendario?scope=team">Calendario</a></div>
+                <div class="card-body">
+                    @if (data.UpcomingTeamAbsences.Count == 0) { <EmptyState Icon="calendar" Title="Sin ausencias próximas" /> }
+                    else
+                    {
+                        <ul class="timeline">
+                            @foreach (var e in data.UpcomingTeamAbsences)
+                            {
+                                <li><span class="dot" style="border-color:var(--@e.Tone)"></span><div class="what">@e.Title</div><div class="when">@Format.Date(e.Start)@(e.End != e.Start ? $" – {Format.Date(e.End)}" : "") · @(e.Status is RequestStatus s ? Labels.Status(s) : "")</div></li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (actor?.Has(UserRole.AdministrativeRegistrar) == true || actor?.Has(UserRole.ProductAdmin) == true)
+    {
+        <div class="grid grid-4 kpis" style="margin-bottom:20px">
+            <Kpi Label="Pendientes de registro" Value="@data.AdminPendingRegistration.ToString()" Icon="archive" Tone="warning" Foot="Autorizadas por ambos filtros" Href="/registro" />
+            <Kpi Label="Con observaciones" Value="@data.AdminObserved.ToString()" Icon="alert" Tone="danger" Href="/registro?tab=observed" />
+            <Kpi Label="Registradas" Value="@data.AdminRegistered.ToString()" Icon="check-circle" Tone="success" Foot="Por marcar como procesadas" Href="/registro?tab=registered" />
+            @if (actor?.Has(UserRole.ProductAdmin) == true)
+            {
+                <Kpi Label="Correos en cola / fallidos" Value="@data.EmailsPending.ToString()" Unit="@($"/ {data.EmailsFailed}")" Icon="mail" Tone="@(data.EmailsFailed > 0 ? "danger" : "brand")" Foot="@($"{data.ActiveEmployees} empleados activos")" Href="/admin/correos" />
+            }
+            else
+            {
+                <Kpi Label="Exportar a Excel" Value="XLSX" Icon="table" Tone="brand" Foot="Solicitudes autorizadas" Href="/reportes" />
+            }
+        </div>
+    }
+
+    <div class="card">
+        <div class="card-header"><div><h2>Mis solicitudes recientes</h2><p>Últimos movimientos de tus solicitudes</p></div><a class="btn btn-sm" href="/solicitudes">Ver todas</a></div>
+        <div class="card-body" style="padding:12px 0 0">
+            <RequestTable Items="data.MyRecent" ShowApprover="true" EmptyIcon="file" EmptyTitle="Aún no tienes solicitudes" EmptyMessage="Crea tu primera solicitud de tiempo extra, vacaciones o permiso.">
+                <EmptyAction><a class="btn btn-primary" href="/solicitudes/nueva"><Icon Name="plus" /> Nueva solicitud</a></EmptyAction>
+            </RequestTable>
+        </div>
+    </div>
+}
+
+@code {
+    private DashboardDto? data;
+    private Actor? actor;
+    private bool IsLeader => actor?.Has(UserRole.DirectSupervisor) == true || actor?.Has(UserRole.SeniorManager) == true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { data = await Runner.Run<RequestQueryService, DashboardDto>(async (s, a) => { actor = a; return await s.GetDashboardAsync(a); }); }
+        catch (Exception ex) { Toasts.Error(ex); }
+    }
+}

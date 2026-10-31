@@ -1,0 +1,64 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    App móvil .NET MAUI Blazor Hybrid de GPV Product TimeFlow (Android / iOS).
+    NO forma parte de GPV.ProductTimeFlow.sln: requiere el workload de MAUI (`dotnet workload install maui-android maui-ios`).
+    Ver README.md de esta carpeta.
+  -->
+
+  <PropertyGroup>
+    <!-- Directory.Build.props fija TargetFramework=net10.0 para todo el repositorio; aquí se limpia para permitir multi-target. -->
+    <TargetFramework></TargetFramework>
+    <TargetFrameworks>net10.0-android</TargetFrameworks>
+    <!-- iOS solo se puede compilar en macOS (o Windows emparejado con una Mac); en Linux no existe el workload de iOS. -->
+    <TargetFrameworks Condition="!$([MSBuild]::IsOSPlatform('linux'))">$(TargetFrameworks);net10.0-ios</TargetFrameworks>
+
+    <OutputType>Exe</OutputType>
+    <RootNamespace>GPV.ProductTimeFlow.Mobile</RootNamespace>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableDefaultCssItems>false</EnableDefaultCssItems>
+
+    <!-- Identidad de la app -->
+    <ApplicationTitle>GPV TimeFlow</ApplicationTitle>
+    <ApplicationId>com.gpvamericas.producttimeflow</ApplicationId>
+    <ApplicationDisplayVersion>4.0.0</ApplicationDisplayVersion>
+    <ApplicationVersion>4</ApplicationVersion>
+
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <!-- Android: APK firmado para distribución interna (no AAB de Play Store). La firma se pasa por línea de comandos; ver README. -->
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' and '$(Configuration)' == 'Release'">
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+  </PropertyGroup>
+
+  <!-- iOS: entitlements (Keychain para SecureStorage) y manifiesto de privacidad exigido por Apple. -->
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+    <CodesignEntitlements>Platforms\iOS\Entitlements.plist</CodesignEntitlements>
+  </PropertyGroup>
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+    <BundleResource Include="Platforms\iOS\PrivacyInfo.xcprivacy" LogicalName="PrivacyInfo.xcprivacy" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Ícono y splash (se generan a partir de SVG para cada plataforma). -->
+    <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#1F4FD8" />
+    <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#1F4FD8" BaseSize="128,128" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.120" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="10.0.120" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.14" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.14" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GPV.ProductTimeFlow.Shared\GPV.ProductTimeFlow.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,16 @@
+<div>
+    @foreach (var p in Points)
+    {
+        <div class="hbar">
+            <span>@p.Label</span>
+            <div class="hbar-track" role="progressbar" aria-label="@p.Label" aria-valuenow="@p.Value" aria-valuemin="0" aria-valuemax="@Max">
+                <div class="hbar-fill @p.Tone" style="width:@(Max == 0 ? 0 : (double)(p.Value / Max) * 100)%"></div>
+            </div>
+            <strong class="right">@p.Value.ToString("0.#")</strong>
+        </div>
+    }
+</div>
+@code {
+    [Parameter] public IReadOnlyList<ChartPointDto> Points { get; set; } = [];
+    private decimal Max => Points.Count == 0 ? 0 : Math.Max(1, Points.Max(p => p.Value));
+}

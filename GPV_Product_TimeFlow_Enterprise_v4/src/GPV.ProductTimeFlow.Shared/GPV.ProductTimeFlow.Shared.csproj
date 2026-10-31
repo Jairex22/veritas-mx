@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Contratos compartidos (enums, DTOs, etiquetas en español y cliente HTTP) usados por Web, API y Mobile. Sin dependencias externas. -->
+  <PropertyGroup>
+    <RootNamespace>GPV.ProductTimeFlow.Shared</RootNamespace>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,51 @@
+@* Selector visual de rango de fechas (vacaciones). Marca fines de semana, festivos y días con ausencias del equipo. *@
+<div class="range-cal" aria-label="Calendario de selección de días">
+    <div class="row between" style="margin-bottom:10px">
+        <button type="button" class="icon-btn" @onclick="() => Move(-1)" aria-label="Mes anterior"><Icon Name="chevron-left" /></button>
+        <strong style="text-transform:capitalize">@Format.Month(month.Year, month.Month)</strong>
+        <button type="button" class="icon-btn" @onclick="() => Move(1)" aria-label="Mes siguiente"><Icon Name="chevron-right" /></button>
+    </div>
+    <div class="rc-grid">
+        @foreach (var d in new[] { "Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do" }) { <div class="rc-dow">@d</div> }
+        @for (var i = 0; i < Offset; i++) { <div></div> }
+        @for (var day = 1; day <= DateTime.DaysInMonth(month.Year, month.Month); day++)
+        {
+            var date = new DateOnly(month.Year, month.Month, day);
+            var holiday = Holidays.FirstOrDefault(h => h.Date == date);
+            var weekend = !WorkingDays.Contains(date.DayOfWeek);
+            var css = $"rc-day {(weekend ? "weekend" : "")} {(holiday is not null ? "holiday" : "")} {(InRange(date) ? "in-range" : "")} {(date == Start || date == End ? "edge" : "")} {(BusyDays.Contains(date) ? "busy" : "")} {(date == Today ? "today" : "")}";
+            <button type="button" class="@css" disabled="@(date < MinDate)" @onclick="() => Pick(date)"
+                    aria-pressed="@(InRange(date) || date == Start)" aria-label="@($"{Format.DateLong(date)}{(holiday is not null ? ", festivo: " + holiday.Name : "")}{(weekend ? ", inhábil" : "")}{(BusyDays.Contains(date) ? ", hay compañeros ausentes" : "")}")"
+                    title="@(holiday?.Name)">@day</button>
+        }
+    </div>
+    <div class="legend" style="margin-top:12px">
+        <span><span class="kind-dot" style="background:var(--brand)"></span>Seleccionado</span>
+        <span><span class="kind-dot" style="background:var(--holiday)"></span>Festivo</span>
+        <span><span class="kind-dot" style="background:var(--peer);border-radius:50%"></span>Ausencias en tu equipo</span>
+    </div>
+</div>
+@code {
+    [Parameter] public DateOnly? Start { get; set; }
+    [Parameter] public DateOnly? End { get; set; }
+    [Parameter] public EventCallback<(DateOnly Start, DateOnly End)> OnRangeChanged { get; set; }
+    [Parameter] public IReadOnlyList<HolidayDto> Holidays { get; set; } = [];
+    [Parameter] public IReadOnlySet<DayOfWeek> WorkingDays { get; set; } = new HashSet<DayOfWeek> { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday };
+    [Parameter] public IReadOnlySet<DateOnly> BusyDays { get; set; } = new HashSet<DateOnly>();
+    [Parameter] public DateOnly MinDate { get; set; } = DateOnly.MinValue;
+    [Parameter] public DateOnly Today { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly month;
+    private bool pickingEnd;
+
+    protected override void OnInitialized() => month = new DateOnly((Start ?? Today).Year, (Start ?? Today).Month, 1);
+    private int Offset => ((int)month.DayOfWeek + 6) % 7;
+    private void Move(int delta) => month = month.AddMonths(delta);
+    private bool InRange(DateOnly d) => Start is not null && End is not null && d >= Start && d <= End;
+
+    private async Task Pick(DateOnly d)
+    {
+        if (!pickingEnd || Start is null || d < Start) { Start = d; End = d; pickingEnd = true; }
+        else { End = d; pickingEnd = false; }
+        await OnRangeChanged.InvokeAsync((Start!.Value, End!.Value));
+    }
+}

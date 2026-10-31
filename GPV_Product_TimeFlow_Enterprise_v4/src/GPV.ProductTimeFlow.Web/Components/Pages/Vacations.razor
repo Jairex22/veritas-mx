@@ -1,0 +1,105 @@
+@page "/vacaciones"
+@attribute [Authorize]
+@inject ServiceRunner Runner
+@inject ToastService Toasts
+@inject LocalClock Clock
+@inject NavigationManager Nav
+
+<PageTitle>Vacaciones · GPV Product TimeFlow</PageTitle>
+<PageHeader Title="Vacaciones" Eyebrow="Saldo" Subtitle="Saldo del periodo, días en trámite y movimientos. Selecciona días en el calendario para iniciar una solicitud.">
+    <Actions>
+        <select class="select-sm" @bind="year" @bind:after="Load" aria-label="Periodo">
+            @for (var y = Clock.Today.Year - 1; y <= Clock.Today.Year + 1; y++) { <option value="@y">Periodo @y</option> }
+        </select>
+    </Actions>
+</PageHeader>
+
+@if (b is null) { <div class="card"><div class="card-body"><div class="skeleton"></div></div></div> }
+else
+{
+    <div class="grid grid-4 kpis" style="margin-bottom:18px">
+        <Kpi Label="Disponibles" Value="@b.Available.ToString("0.#")" Unit="días" Icon="palm" Tone="vacation" Foot="Después de restar lo que está en trámite" />
+        <Kpi Label="Utilizadas" Value="@b.Used.ToString("0.#")" Unit="días" Icon="check-circle" Tone="success" Foot="Autorizadas y ya disfrutadas" />
+        <Kpi Label="Aprobadas por disfrutar" Value="@b.ApprovedUpcoming.ToString("0.#")" Unit="días" Icon="calendar" Tone="brand" Foot="Autorizadas con fecha futura" />
+        <Kpi Label="En trámite" Value="@b.Pending.ToString("0.#")" Unit="días" Icon="clock" Tone="warning" Foot="@($"{b.PendingRequests} solicitudes · {b.RejectedRequests} rechazadas")" />
+    </div>
+    <div class="grid grid-main">
+        <div class="stack">
+            <div class="card">
+                <div class="card-header"><div><h2>Uso del periodo @b.PeriodYear</h2><p>Asignación: @b.Entitled.ToString("0.#") días@(b.Adjustments != 0 ? $" · ajustes {b.Adjustments:+0.#;-0.#} días" : "")</p></div></div>
+                <div class="card-body stack" style="gap:8px">
+                    @{ var total = Math.Max(1m, b.Entitled + b.Adjustments); }
+                    <div class="progress" aria-label="Porcentaje utilizado"><span style="width:@(Math.Min(100, (double)((b.Used + b.ApprovedUpcoming) / total * 100)))%"></span></div>
+                    <div class="row between small muted"><span>@((b.Used + b.ApprovedUpcoming).ToString("0.#")) días autorizados</span><span>@total.ToString("0.#") días totales</span></div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h2>Solicitudes de vacaciones</h2><a class="btn btn-sm btn-primary" href="/solicitudes/nueva/Vacation"><Icon Name="plus" Size="16" /> Solicitar</a></div>
+                <div class="card-body" style="padding:12px 0 0"><RequestTable Items="b.Requests" EmptyIcon="palm" EmptyTitle="Sin solicitudes en este periodo" /></div>
+            </div>
+            <div class="card">
+                <div class="card-header"><div><h2>Movimientos del saldo</h2><p>Los descuentos se aplican una sola vez, al autorizar el jefe superior.</p></div></div>
+                <div class="table-wrap">
+                    @if (b.Transactions.Count == 0) { <EmptyState Icon="table" Title="Sin movimientos" Message="La asignación del periodo y los descuentos autorizados aparecerán aquí." /> }
+                    else
+                    {
+                        <table class="data"><thead><tr><th>Fecha</th><th>Movimiento</th><th>Folio</th><th class="right">Días</th><th>Registró</th></tr></thead><tbody>
+                            @foreach (var t in b.Transactions)
+                            {
+                                <tr><td class="nowrap">@Format.DateTime(t.CreatedAtUtc)</td><td>@t.TypeLabel<div class="cell-sub">@t.Description</div></td><td>@(t.Folio ?? "—")</td>
+                                    <td class="right"><strong style="color:@(t.Days < 0 ? "var(--danger)" : "var(--success)")">@t.Days.ToString("+0.#;-0.#")</strong></td><td>@t.CreatedByName</td></tr>
+                            }
+                        </tbody></table>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="stack">
+            <div class="card"><div class="card-header"><div><h2>Planear vacaciones</h2><p>Elige inicio y fin para calcular días hábiles.</p></div></div>
+                <div class="card-body stack">
+                    <RangeCalendar Start="start" End="end" OnRangeChanged="OnRange" Holidays="holidays" MinDate="Clock.Today" Today="Clock.Today" />
+                    @if (preview is not null)
+                    {
+                        <div class="calc-box">
+                            <div><div class="label">Días hábiles</div><div class="value">@preview.BusinessDays.ToString("0.#")</div></div>
+                            <div><div class="label">Saldo después</div><div class="value">@preview.AvailableAfter.ToString("0.#")</div></div>
+                        </div>
+                        <PreviewMessages Errors="preview.Errors" Warnings="preview.Warnings" ShowOk="false" />
+                        <button class="btn btn-primary" @onclick="RequestRange"><Icon Name="send" Size="16" /> Solicitar estas fechas</button>
+                    }
+                </div>
+            </div>
+            <p class="small muted">Las políticas de acumulación, vigencia y ajustes las administra Producto en coordinación con RH. La tabla de días por antigüedad es configurable y debe validarse con RH.</p>
+        </div>
+    </div>
+}
+
+@code {
+    private VacationBalanceDto? b;
+    private int year;
+    private DateOnly? start, end;
+    private VacationPreviewDto? preview;
+    private IReadOnlyList<HolidayDto> holidays = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        year = Clock.Today.Year;
+        holidays = await Runner.Run<SettingsAdminService, IReadOnlyList<HolidayDto>>((s, _) => s.HolidaysAsync(null));
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        try { b = await Runner.Run<VacationService, VacationBalanceDto>((s, a) => s.GetBalanceAsync(a, null, year)); }
+        catch (Exception ex) { Toasts.Error(ex); }
+    }
+
+    private async Task OnRange((DateOnly Start, DateOnly End) r)
+    {
+        start = r.Start; end = r.End;
+        try { preview = await Runner.Run<VacationService, VacationPreviewDto>((s, a) => s.PreviewAsync(a, new VacationPreviewRequest { StartDate = r.Start, EndDate = r.End })); }
+        catch (Exception ex) { Toasts.Error(ex); }
+    }
+
+    private void RequestRange() => Nav.NavigateTo($"/solicitudes/nueva/Vacation?start={start:yyyy-MM-dd}&end={end:yyyy-MM-dd}");
+}

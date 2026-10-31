@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Pantalla de inicio: misma marca del ícono, en blanco sobre el color de fondo definido en el .csproj. -->
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <g fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="64" cy="56" r="34" stroke-width="8"/>
+    <path d="M64 36 V56 L78 65" stroke-width="8"/>
+  </g>
+  <g fill="#FFFFFF">
+    <circle cx="44" cy="110" r="5"/>
+    <circle cx="64" cy="110" r="5"/>
+    <circle cx="84" cy="110" r="5" fill="#7CF0C1"/>
+  </g>
+</svg>

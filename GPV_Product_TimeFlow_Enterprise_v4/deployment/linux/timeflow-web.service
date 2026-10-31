@@ -1,0 +1,16 @@
+# systemd · GPV Product TimeFlow Web (detrás de nginx/Apache con TLS)
+[Unit]
+Description=GPV Product TimeFlow Web
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/gpv/timeflow/web
+ExecStart=/usr/bin/dotnet /opt/gpv/timeflow/web/GPV.ProductTimeFlow.Web.dll
+Restart=always
+RestartSec=10
+User=timeflow
+EnvironmentFile=/etc/gpv/timeflow.env
+Environment=ASPNETCORE_URLS=http://127.0.0.1:5000
+
+[Install]
+WantedBy=multi-user.target

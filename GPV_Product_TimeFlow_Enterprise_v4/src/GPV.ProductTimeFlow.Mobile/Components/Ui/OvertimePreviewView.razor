@@ -1,0 +1,31 @@
+@* Resultado de OvertimePreviewAsync: horas calculadas por la API, cruce de medianoche, errores y advertencias. *@
+<div class="preview" aria-live="polite">
+    @if (Loading && Preview is null)
+    {
+        <p class="muted small"><span class="spinner spinner-sm" aria-hidden="true"></span> Calculando…</p>
+    }
+    else if (!string.IsNullOrEmpty(Error))
+    {
+        <div class="alert alert-attention small">@Error</div>
+    }
+    else if (Preview is not null)
+    {
+        <div class="preview-main @(Loading ? "is-stale" : "")">
+            <span class="preview-value">@Labels.Hours(Preview.Hours)</span>
+            <span class="muted small">@Preview.StartLocal.ToString("d MMM HH:mm", Fmt.Culture) → @Preview.EndLocal.ToString("d MMM HH:mm", Fmt.Culture)</span>
+        </div>
+        @if (Preview.CrossesMidnight)
+        {
+            <div class="alert alert-attention small" role="note">
+                <strong>El horario cruza la medianoche.</strong> Termina el @Preview.EndLocal.ToString("dddd d 'de' MMMM", Fmt.Culture) a las @Preview.EndLocal.ToString("HH:mm", Fmt.Culture).
+            </div>
+        }
+        <PreviewMessages Errors="Preview.Errors" Warnings="Preview.Warnings" />
+    }
+</div>
+
+@code {
+    [Parameter] public OvertimePreviewDto? Preview { get; set; }
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public string? Error { get; set; }
+}

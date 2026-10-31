@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Persistencia EF Core (SQLite/SQL Server), Microsoft Graph, PDF, Excel, almacenamiento y servicios en segundo plano. -->
+  <ItemGroup>
+    <ProjectReference Include="..\GPV.ProductTimeFlow.Application\GPV.ProductTimeFlow.Application.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.14" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.14" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.14">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <!-- Fija una versión sin vulnerabilidades conocidas de esta dependencia transitiva. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
+    <PackageReference Include="ClosedXML" Version="0.105.1" />
+    <!-- 6.2.4 = última versión con licencia MIT (6.5+ es AGPL-3.0 o comercial). -->
+    <PackageReference Include="PDFsharp-MigraDoc" Version="6.2.4" />
+    <PackageReference Include="QRCoder" Version="1.8.1" />
+    <PackageReference Include="Microsoft.Graph" Version="6.9.0" />
+    <PackageReference Include="Azure.Identity" Version="1.21.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Documents\Fonts\*.ttf" />
+    <EmbeddedResource Include="Email\Templates\*.html" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="GPV.ProductTimeFlow.UnitTests" />
+    <InternalsVisibleTo Include="GPV.ProductTimeFlow.IntegrationTests" />
+  </ItemGroup>
+</Project>

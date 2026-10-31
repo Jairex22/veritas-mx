@@ -1,0 +1,59 @@
+@inject NavigationManager Nav
+@if (Items.Count == 0)
+{
+    <EmptyState Icon="@EmptyIcon" Title="@EmptyTitle" Message="@EmptyMessage">@EmptyAction</EmptyState>
+}
+else
+{
+    <div class="table-wrap responsive">
+        <table class="data">
+            <thead>
+                <tr>
+                    <th>Folio</th>
+                    @if (ShowEmployee) { <th>Empleado</th> }
+                    <th>Tipo</th><th>Periodo</th><th>Duración</th><th>Estado</th>
+                    @if (ShowApprover) { <th>Responsable actual</th> }
+                    <th>@(ShowEmployee ? "Enviada" : "Actualizada")</th>
+                    <th><span class="sr-only">Acciones</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in Items)
+                {
+                    <tr class="clickable" @onclick="() => Nav.NavigateTo(Link(r))">
+                        <td><a href="@Link(r)" class="cell-title nowrap" @onclick:stopPropagation="true">@r.Folio</a>@if (r.IsUrgent) { <div class="urgent"><Icon Name="clock" Size="13" /> Urgente</div> }</td>
+                        @if (ShowEmployee) { <td><div class="cell-title">@r.EmployeeName</div><div class="cell-sub">@r.EmployeeNumber · @r.Area</div></td> }
+                        <td><KindTag Kind="r.Kind" /></td>
+                        <td class="nowrap">@Format.Period(r)</td>
+                        <td class="nowrap">@Format.Duration(r)</td>
+                        <td><StatusChip Status="r.Status" /></td>
+                        @if (ShowApprover) { <td>@(r.CurrentApproverName ?? "—")</td> }
+                        <td class="nowrap cell-sub">@Format.DateTime(ShowEmployee ? (r.SubmittedAtUtc ?? r.CreatedAtUtc) : r.UpdatedAtUtc)</td>
+                        <td class="right"><Icon Name="chevron-right" Size="18" Class="muted" /></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <div class="mobile-list">
+        @foreach (var r in Items)
+        {
+            <a class="list-card" href="@Link(r)">
+                <div class="row between"><strong>@r.Folio</strong><StatusChip Status="r.Status" /></div>
+                @if (ShowEmployee) { <div class="cell-title" style="margin-top:6px">@r.EmployeeName</div> }
+                <div class="row between" style="margin-top:6px"><KindTag Kind="r.Kind" /><span class="cell-sub">@Format.Duration(r)</span></div>
+                <div class="cell-sub" style="margin-top:4px">@Format.Period(r)@if (r.IsUrgent) { <span class="urgent"> · Urgente</span> }</div>
+            </a>
+        }
+    </div>
+}
+@code {
+    [Parameter] public IReadOnlyList<RequestSummaryDto> Items { get; set; } = [];
+    [Parameter] public bool ShowEmployee { get; set; }
+    [Parameter] public bool ShowApprover { get; set; } = true;
+    [Parameter] public string EmptyIcon { get; set; } = "inbox";
+    [Parameter] public string EmptyTitle { get; set; } = "Sin solicitudes";
+    [Parameter] public string? EmptyMessage { get; set; }
+    [Parameter] public RenderFragment? EmptyAction { get; set; }
+    private static string Link(RequestSummaryDto r) => $"/solicitudes/{r.Id}";
+}

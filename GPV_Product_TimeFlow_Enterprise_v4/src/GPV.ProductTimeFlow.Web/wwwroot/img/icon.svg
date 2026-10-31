@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="GPV Product TimeFlow">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1f4fd8"/><stop offset="1" stop-color="#6d28d9"/></linearGradient></defs>
+  <rect width="512" height="512" rx="112" fill="url(#g)"/>
+  <circle cx="256" cy="256" r="148" fill="none" stroke="#fff" stroke-width="34" opacity=".95"/>
+  <path d="M256 168v96l62 38" fill="none" stroke="#fff" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M120 392l56-56" stroke="#93c5fd" stroke-width="26" stroke-linecap="round"/>
+</svg>

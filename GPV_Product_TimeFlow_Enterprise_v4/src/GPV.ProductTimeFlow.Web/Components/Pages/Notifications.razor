@@ -1,0 +1,50 @@
+@page "/notificaciones"
+@attribute [Authorize]
+@inject ServiceRunner Runner
+@inject ToastService Toasts
+@inject NavigationManager Nav
+
+<PageTitle>Notificaciones · GPV Product TimeFlow</PageTitle>
+<PageHeader Title="Notificaciones" Eyebrow="Avisos" Subtitle="Historial de avisos internos. Se conservan en la base de datos aunque no estuvieras conectado.">
+    <Actions><button class="btn" @onclick="MarkAll"><Icon Name="check" Size="18" /> Marcar todo como leído</button></Actions>
+</PageHeader>
+<div class="card">
+    <div class="toolbar">
+        <div class="tabs"><button class="tab @(!unreadOnly ? "active" : "")" @onclick="() => Set(false)">Todas</button><button class="tab @(unreadOnly ? "active" : "")" @onclick="() => Set(true)">Sin leer</button></div>
+    </div>
+    @if (result is null) { <div class="card-body"><div class="skeleton"></div></div> }
+    else if (result.Items.Count == 0) { <EmptyState Icon="bell" Title="Sin notificaciones" Message="Aquí verás los avisos de tus solicitudes y de tu bandeja de autorización." /> }
+    else
+    {
+        <div>
+            @foreach (var n in result.Items)
+            {
+                <a class="notif-item @(n.IsRead ? "" : "unread")" href="@(n.Link ?? "#")" @onclick="() => Open(n)" @onclick:preventDefault="true">
+                    <Icon Name="@NotificationBell.IconFor(n.Type)" />
+                    <div class="grow"><div class="title">@n.Title</div><div class="msg">@n.Message</div><div class="time">@Format.DateTime(n.CreatedAtUtc)</div></div>
+                    @if (!n.IsRead) { <span class="chip info plain">Nuevo</span> }
+                </a>
+            }
+        </div>
+        <Pager Page="page" PageSize="20" Total="result.TotalCount" OnPage="Go" />
+    }
+</div>
+@code {
+    private bool unreadOnly;
+    private int page = 1;
+    private PagedResult<NotificationDto>? result;
+    protected override Task OnInitializedAsync() => Load();
+    private async Task Set(bool v) { unreadOnly = v; page = 1; await Load(); }
+    private async Task Go(int p) { page = p; await Load(); }
+    private async Task Load()
+    {
+        try { result = await Runner.Run<NotificationService, PagedResult<NotificationDto>>((s, a) => s.ListAsync(a, unreadOnly, page, 20)); }
+        catch (Exception ex) { Toasts.Error(ex); }
+    }
+    private async Task Open(NotificationDto n)
+    {
+        if (!n.IsRead) await Runner.Run<NotificationService>((s, a) => s.MarkReadAsync(a, n.Id));
+        if (n.Link is not null) Nav.NavigateTo(n.Link); else await Load();
+    }
+    private async Task MarkAll() { var c = await Runner.Run<NotificationService, int>((s, a) => s.MarkAllReadAsync(a)); Toasts.Success($"{c} notificaciones marcadas como leídas"); await Load(); }
+}

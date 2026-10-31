@@ -1,0 +1,26 @@
+<header class="page-header">
+    @if (BackHref is not null)
+    {
+        <a class="icon-button back" href="@BackHref" aria-label="Regresar">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+        </a>
+    }
+    <div class="page-header-text">
+        <h1 tabindex="-1">@Title</h1>
+        @if (!string.IsNullOrWhiteSpace(Subtitle))
+        {
+            <p class="page-subtitle">@Subtitle</p>
+        }
+    </div>
+    @if (ChildContent is not null)
+    {
+        <div class="page-header-actions">@ChildContent</div>
+    }
+</header>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string? BackHref { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

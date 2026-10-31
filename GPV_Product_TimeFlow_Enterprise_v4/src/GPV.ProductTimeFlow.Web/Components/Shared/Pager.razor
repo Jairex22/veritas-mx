@@ -1,0 +1,19 @@
+@if (Total > 0)
+{
+    <div class="pagination">
+        <span>Mostrando @(((Page - 1) * PageSize) + 1)–@Math.Min(Page * PageSize, Total) de @Total</span>
+        <div class="row">
+            <button class="btn btn-sm" disabled="@(Page <= 1)" @onclick="() => Go(Page - 1)" aria-label="Página anterior"><Icon Name="chevron-left" Size="16" /> Anterior</button>
+            <span>Página @Page de @Pages</span>
+            <button class="btn btn-sm" disabled="@(Page >= Pages)" @onclick="() => Go(Page + 1)" aria-label="Página siguiente">Siguiente <Icon Name="chevron-right" Size="16" /></button>
+        </div>
+    </div>
+}
+@code {
+    [Parameter] public int Page { get; set; } = 1;
+    [Parameter] public int PageSize { get; set; } = 20;
+    [Parameter] public int Total { get; set; }
+    [Parameter] public EventCallback<int> OnPage { get; set; }
+    private int Pages => Math.Max(1, (int)Math.Ceiling(Total / (double)PageSize));
+    private Task Go(int p) => OnPage.InvokeAsync(Math.Clamp(p, 1, Pages));
+}

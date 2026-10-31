@@ -1,0 +1,220 @@
+@page "/admin/empleados"
+@page "/admin/empleados/{FocusId:int}"
+@attribute [Authorize(Roles = "ProductAdmin")]
+@inject ServiceRunner Runner
+@inject ToastService Toasts
+@inject LocalClock Clock
+
+<PageTitle>Empleados · GPV Product TimeFlow</PageTitle>
+<PageHeader Title="Gestión de empleados" Eyebrow="Administración de Producto" Subtitle="Alta, jerarquía de autorización, roles y saldos. Número de empleado y correo son únicos.">
+    <Actions>
+        <button class="btn" @onclick="() => importOpen = true"><Icon Name="upload" Size="18" /> Importar Excel</button>
+        <button class="btn btn-primary" @onclick="New" data-testid="new-employee"><Icon Name="plus" Size="18" /> Nuevo empleado</button>
+    </Actions>
+</PageHeader>
+
+<div class="card">
+    <div class="toolbar">
+        <input class="input" style="max-width:320px;min-height:38px" type="search" placeholder="Nombre, número, correo o área" @bind="search" @bind:event="oninput" @bind:after="Debounced" aria-label="Buscar empleados" />
+        <label class="check"><input type="checkbox" @bind="includeInactive" @bind:after="Reload" /> Incluir inactivos</label>
+        <div class="grow"></div>
+        <span class="small muted">@(result?.TotalCount ?? 0) empleados</span>
+    </div>
+    @if (result is null) { <div class="card-body"><div class="skeleton"></div></div> }
+    else if (result.Items.Count == 0) { <EmptyState Icon="users" Title="Sin resultados" /> }
+    else
+    {
+        <div class="table-wrap">
+            <table class="data">
+                <thead><tr><th>Empleado</th><th>Área / puesto</th><th>Jefa directa</th><th>Jefe superior</th><th>Roles</th><th class="right">Vacaciones</th><th>Estado</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var e in result.Items)
+                    {
+                        <tr>
+                            <td><div class="cell-title">@e.FullName</div><div class="cell-sub">@e.EmployeeNumber · @e.Email</div></td>
+                            <td>@(e.Area ?? "—")<div class="cell-sub">@e.Position</div></td>
+                            <td>@(e.SupervisorName ?? "—")</td>
+                            <td>@(e.ManagerName ?? "—")</td>
+                            <td><div class="row" style="gap:4px">@foreach (var r in Labels.Roles(e.Roles).Where(r => r != "Empleado")) { <span class="chip info plain">@r</span> }</div></td>
+                            <td class="right">@e.VacationAvailable.ToString("0.#")</td>
+                            <td>@if (!e.IsActive) { <span class="chip muted">Inactivo</span> } else if (e.IsLockedOut) { <span class="chip danger">Bloqueado</span> } else { <span class="chip success">Activo</span> }</td>
+                            <td class="right nowrap">
+                                <button class="btn btn-sm" @onclick="() => Edit(e)" aria-label="@($"Editar {e.FullName}")"><Icon Name="edit" Size="16" /></button>
+                                <button class="btn btn-sm" @onclick="() => OpenAdjust(e)" title="Ajustar saldo de vacaciones" aria-label="@($"Ajustar vacaciones de {e.FullName}")"><Icon Name="palm" Size="16" /></button>
+                                @if (e.IsLockedOut) { <button class="btn btn-sm" @onclick="() => Unlock(e)">Desbloquear</button> }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <Pager Page="page" PageSize="25" Total="result.TotalCount" OnPage="Go" />
+    }
+</div>
+
+<Modal @bind-Open="editOpen" Title="@(editId is null ? "Nuevo empleado" : "Editar empleado")" Subtitle="Los cambios de jerarquía aplican a nuevas solicitudes; las solicitudes en trámite conservan sus aprobadores." Wide="true" Busy="busy">
+    <ChildContent>
+        <ErrorList Errors="errors" />
+        <div class="form-grid">
+            <div class="field"><label for="num">Número de empleado<span class="req">*</span></label><input id="num" @bind="input.EmployeeNumber" maxlength="20" data-testid="emp-number" /></div>
+            <div class="field"><label for="name">Nombre completo<span class="req">*</span></label><input id="name" @bind="input.FullName" maxlength="150" data-testid="emp-name" /></div>
+            <div class="field"><label for="mail">Correo corporativo<span class="req">*</span></label><input id="mail" type="email" @bind="input.Email" maxlength="200" data-testid="emp-email" /></div>
+            <div class="field"><label for="dept">Departamento<span class="req">*</span></label><select id="dept" @bind="input.DepartmentId">@foreach (var d in departments) { <option value="@d.Id">@d.Name</option> }</select></div>
+            <div class="field"><label for="area">Área</label><input id="area" @bind="input.Area" maxlength="100" /></div>
+            <div class="field"><label for="pos">Puesto</label><select id="pos" @bind="input.PositionId"><option value="">—</option>@foreach (var p in positions) { <option value="@p.Id">@p.Name</option> }</select></div>
+            <div class="field"><label for="sup">Jefa directa (filtro 1)</label><select id="sup" @bind="input.SupervisorId"><option value="">Sin asignar</option>@foreach (var l in supervisors) { <option value="@l.Id">@l.Name</option> }</select></div>
+            <div class="field"><label for="mgr">Jefe superior (filtro 2)</label><select id="mgr" @bind="input.ManagerId"><option value="">Sin asignar</option>@foreach (var l in managers) { <option value="@l.Id">@l.Name</option> }</select></div>
+            <div class="field"><label for="hire">Fecha de ingreso</label><input id="hire" type="date" @bind="input.HireDate" /><span class="hint">Solo si está autorizada; se usa como referencia de antigüedad.</span></div>
+            @if (editId is null) { <div class="field"><label for="vd">Días de vacaciones iniciales</label><input id="vd" type="number" min="0" max="60" step="0.5" @bind="input.InitialVacationDays" /><span class="hint">Vacío: se sugiere según antigüedad.</span></div> }
+            <div class="field full"><span class="label">Roles</span>
+                <div class="row">
+                    @foreach (var r in new[] { UserRole.DirectSupervisor, UserRole.SeniorManager, UserRole.ProductAdmin, UserRole.AdministrativeRegistrar })
+                    {
+                        var role = r;
+                        <label class="check"><input type="checkbox" checked="@input.Roles.HasFlag(role)" @onchange="e => ToggleRole(role, (bool)e.Value!)" /> @Labels.Role(role)</label>
+                    }
+                </div>
+                <span class="hint">Todos los usuarios tienen el rol Empleado. Registro administrativo no otorga facultades de aprobación gerencial.</span>
+            </div>
+            <div class="field full"><label class="check"><input type="checkbox" @bind="input.IsActive" /> Cuenta activa</label></div>
+        </div>
+    </ChildContent>
+    <Footer>
+        <button class="btn" @onclick="() => editOpen = false" disabled="@busy">Cancelar</button>
+        <button class="btn btn-primary" @onclick="Save" disabled="@busy" data-testid="save-employee">@if (busy) { <span class="spinner"></span> } Guardar</button>
+    </Footer>
+</Modal>
+
+<Modal @bind-Open="adjustOpen" Title="Ajuste de saldo de vacaciones" Subtitle="@adjustName" Busy="busy">
+    <ChildContent>
+        <ErrorList Errors="errors" />
+        <div class="form-grid">
+            <div class="field"><label for="ay">Periodo</label><input id="ay" type="number" @bind="adjustYear" /></div>
+            <div class="field"><label for="ad">Días (+ suma / − descuenta)</label><input id="ad" type="number" step="0.5" @bind="adjustDays" /></div>
+            <div class="field full"><label for="ar">Motivo<span class="req">*</span></label><textarea id="ar" @bind="adjustReason" maxlength="500"></textarea><span class="hint">Queda en la auditoría. Coordinar con RH antes de aplicar.</span></div>
+        </div>
+    </ChildContent>
+    <Footer><button class="btn" @onclick="() => adjustOpen = false">Cancelar</button><button class="btn btn-primary" @onclick="SaveAdjust" disabled="@busy">Aplicar ajuste</button></Footer>
+</Modal>
+
+<Modal @bind-Open="importOpen" Title="Importación controlada desde Excel" Subtitle="Valide primero (simulación). Nada se guarda hasta confirmar." Wide="true" Busy="busy">
+    <ChildContent>
+        <div class="row"><a class="btn btn-sm" href="/files/templates/employees.xlsx"><Icon Name="download" Size="16" /> Descargar plantilla</a>
+            <label class="btn btn-sm"><Icon Name="upload" Size="16" /> Elegir archivo .xlsx<InputFile class="sr-only" OnChange="PickFile" accept=".xlsx" /></label>
+            @if (importFile is not null) { <span class="small">@importName (@Format.Bytes(importFile.Length))</span> }</div>
+        @if (importResult is not null)
+        {
+            <div class="alert @(importResult.Failed > 0 ? "warning" : "success")"><Icon Name="info" /><div><strong>@(importResult.DryRun ? "Resultado de la validación" : "Importación aplicada")</strong>
+                @(importResult.DryRun ? $"{importResult.Rows.Count(r => r.Success)} filas válidas, {importResult.Failed} con errores." : $"{importResult.Created} creados, {importResult.Updated} actualizados, {importResult.Failed} con errores.")</div></div>
+            <div class="table-wrap" style="max-height:280px">
+                <table class="data"><thead><tr><th>Fila</th><th>Número</th><th>Resultado</th></tr></thead><tbody>
+                    @foreach (var r in importResult.Rows) { <tr><td>@r.RowNumber</td><td>@r.EmployeeNumber</td><td><span class="chip @(r.Success ? "success" : "danger") plain">@r.Message</span></td></tr> }
+                </tbody></table>
+            </div>
+        }
+    </ChildContent>
+    <Footer>
+        <button class="btn" @onclick="() => Import(true)" disabled="@(importFile is null || busy)">Validar (simulación)</button>
+        <button class="btn btn-primary" @onclick="() => Import(false)" disabled="@(importFile is null || busy || importResult is null || !importResult.DryRun)">Confirmar importación</button>
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter] public int? FocusId { get; set; }
+    private PagedResult<EmployeeDto>? result;
+    private string? search;
+    private bool includeInactive, editOpen, adjustOpen, importOpen, busy;
+    private int page = 1;
+    private int? editId;
+    private EmployeeInput input = new();
+    private List<string>? errors;
+    private IReadOnlyList<LookupDto> departments = [], positions = [], supervisors = [], managers = [];
+    private CancellationTokenSource? debounce;
+    private int adjustEmployee, adjustYear;
+    private decimal adjustDays;
+    private string? adjustReason, adjustName;
+    private byte[]? importFile;
+    private string? importName;
+    private ImportResultDto? importResult;
+
+    protected override async Task OnInitializedAsync()
+    {
+        departments = await Runner.Run<EmployeeAdminService, IReadOnlyList<LookupDto>>((s, _) => s.DepartmentsAsync());
+        positions = await Runner.Run<EmployeeAdminService, IReadOnlyList<LookupDto>>((s, _) => s.PositionsAsync());
+        supervisors = await Runner.Run<EmployeeAdminService, IReadOnlyList<LookupDto>>((s, _) => s.LeadersAsync(UserRole.DirectSupervisor));
+        managers = await Runner.Run<EmployeeAdminService, IReadOnlyList<LookupDto>>((s, _) => s.LeadersAsync(UserRole.SeniorManager));
+        await Reload();
+        if (FocusId is int id)
+        {
+            var e = await Runner.Run<EmployeeAdminService, EmployeeDto>((s, a) => s.GetAsync(a, id));
+            Edit(e);
+        }
+    }
+
+    private async Task Debounced() { debounce?.Cancel(); debounce = new(); try { await Task.Delay(300, debounce.Token); page = 1; await Reload(); } catch (TaskCanceledException) { } }
+    private async Task Go(int p) { page = p; await Reload(); }
+    private async Task Reload()
+    {
+        try { result = await Runner.Run<EmployeeAdminService, PagedResult<EmployeeDto>>((s, a) => s.ListAsync(a, search, includeInactive, page, 25)); }
+        catch (Exception ex) { Toasts.Error(ex); }
+    }
+
+    private void New() { editId = null; errors = null; input = new EmployeeInput { DepartmentId = departments.FirstOrDefault()?.Id ?? 0, Roles = UserRole.Employee }; editOpen = true; }
+    private void Edit(EmployeeDto e)
+    {
+        editId = e.Id; errors = null;
+        input = new EmployeeInput { EmployeeNumber = e.EmployeeNumber, FullName = e.FullName, Email = e.Email, DepartmentId = e.DepartmentId, Area = e.Area, PositionId = e.PositionId,
+            SupervisorId = e.SupervisorId, ManagerId = e.ManagerId, HireDate = e.HireDate, Roles = e.Roles, IsActive = e.IsActive };
+        editOpen = true;
+    }
+    private void ToggleRole(UserRole r, bool on) => input.Roles = on ? input.Roles | r : input.Roles & ~r;
+
+    private async Task Save()
+    {
+        busy = true; errors = null;
+        try
+        {
+            if (editId is int id) await Runner.Run<EmployeeAdminService>((s, a) => s.UpdateAsync(a, id, input));
+            else await Runner.Run<EmployeeAdminService, int>((s, a) => s.CreateAsync(a, input));
+            editOpen = false;
+            Toasts.Success("Empleado guardado", input.FullName);
+            await Reload();
+        }
+        catch (BusinessRuleException ex) { errors = ex.Errors.ToList(); }
+        catch (Exception ex) { Toasts.Error(ex); }
+        finally { busy = false; }
+    }
+
+    private async Task Unlock(EmployeeDto e) { try { await Runner.Run<EmployeeAdminService>((s, a) => s.UnlockAsync(a, e.Id)); Toasts.Success("Cuenta desbloqueada", e.FullName); await Reload(); } catch (Exception ex) { Toasts.Error(ex); } }
+
+    private void OpenAdjust(EmployeeDto e) { adjustEmployee = e.Id; adjustName = e.FullName; adjustYear = Clock.Today.Year; adjustDays = 0; adjustReason = null; errors = null; adjustOpen = true; }
+    private async Task SaveAdjust()
+    {
+        busy = true; errors = null;
+        try { await Runner.Run<VacationService>((s, a) => s.AdjustAsync(a, adjustEmployee, adjustYear, adjustDays, adjustReason ?? "")); adjustOpen = false; Toasts.Success("Saldo ajustado", adjustName); await Reload(); }
+        catch (BusinessRuleException ex) { errors = ex.Errors.ToList(); }
+        catch (Exception ex) { Toasts.Error(ex); }
+        finally { busy = false; }
+    }
+
+    private async Task PickFile(InputFileChangeEventArgs e)
+    {
+        importResult = null;
+        using var ms = new MemoryStream();
+        await e.File.OpenReadStream(5 * 1024 * 1024).CopyToAsync(ms);
+        importFile = ms.ToArray(); importName = e.File.Name;
+    }
+
+    private async Task Import(bool dryRun)
+    {
+        busy = true;
+        try
+        {
+            using var ms = new MemoryStream(importFile!);
+            importResult = await Runner.Run<EmployeeAdminService, ImportResultDto>((s, a) => s.ImportAsync(a, ms, dryRun));
+            if (!dryRun) { Toasts.Success("Importación aplicada"); await Reload(); }
+        }
+        catch (Exception ex) { Toasts.Error(ex); }
+        finally { busy = false; }
+    }
+}

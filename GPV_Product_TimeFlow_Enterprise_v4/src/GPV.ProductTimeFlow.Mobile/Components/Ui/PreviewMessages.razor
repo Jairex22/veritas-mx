@@ -1,0 +1,27 @@
+@if (Errors.Count > 0)
+{
+    <div class="alert alert-danger small" role="alert">
+        <ul class="alert-list">
+            @foreach (var e in Errors)
+            {
+                <li>@e</li>
+            }
+        </ul>
+    </div>
+}
+@if (Warnings.Count > 0)
+{
+    <div class="alert alert-attention small" role="note">
+        <ul class="alert-list">
+            @foreach (var w in Warnings)
+            {
+                <li>@w</li>
+            }
+        </ul>
+    </div>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<string> Errors { get; set; } = [];
+    [Parameter] public IReadOnlyList<string> Warnings { get; set; } = [];
+}

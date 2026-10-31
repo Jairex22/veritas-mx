@@ -1,0 +1,53 @@
+@page "/admin/correos"
+@attribute [Authorize(Roles = "ProductAdmin")]
+@inject ServiceRunner Runner
+@inject ToastService Toasts
+@inject GPV.ProductTimeFlow.Application.IntegrationStatus Integration
+
+<PageTitle>Correos · GPV Product TimeFlow</PageTitle>
+<PageHeader Title="Monitor de correo" Eyebrow="Integración Outlook" Subtitle="@($"Cola persistente con reintentos y prevención de duplicados. Proveedor actual: {Integration.EmailProvider}")">
+    <Actions><button class="btn" @onclick="Reload"><Icon Name="refresh" Size="18" /> Actualizar</button></Actions>
+</PageHeader>
+@if (Integration.EmailProvider.StartsWith("Mock"))
+{
+    <div class="alert warning" style="margin-bottom:16px"><Icon Name="info" /><div><strong>Modo de demostración</strong>Los mensajes se registran como «Registrado en buzón DEMO (no enviado)» y se guardan como HTML en la carpeta de datos. Ningún correo sale a Microsoft 365. Para envío real configure Microsoft Graph (ver docs/CONFIGURACION_OUTLOOK.md).</div></div>
+}
+<div class="card">
+    <div class="toolbar">
+        <select class="select-sm" @bind="status" @bind:after="Reload" aria-label="Estado">
+            <option value="">Todos los estados</option>
+            @foreach (var s in Enum.GetValues<EmailStatus>()) { <option value="@s">@Labels.EmailStatus(s)</option> }
+        </select>
+    </div>
+    @if (result is null) { <div class="card-body"><div class="skeleton"></div></div> }
+    else if (result.Items.Count == 0) { <EmptyState Icon="mail" Title="Sin mensajes" /> }
+    else
+    {
+        <div class="table-wrap"><table class="data">
+            <thead><tr><th>Creado</th><th>Evento</th><th>Para</th><th>Asunto</th><th>Estado</th><th>Intentos</th><th></th></tr></thead>
+            <tbody>@foreach (var m in result.Items)
+            {
+                <tr><td class="nowrap">@Format.DateTime(m.CreatedAtUtc)</td><td><code>@m.EventType</code></td><td class="small">@m.To</td><td>@m.Subject</td>
+                    <td><span class="chip @(m.Status switch { EmailStatus.Sent => "success", EmailStatus.MockDelivered => "info", EmailStatus.Failed => "danger", EmailStatus.Pending or EmailStatus.Sending => "warning", _ => "muted" }) plain">@m.StatusLabel</span>
+                        @if (m.LastError is not null) { <div class="cell-sub" style="color:var(--danger)">@m.LastError</div> }</td>
+                    <td>@m.Attempts</td>
+                    <td class="right nowrap"><button class="btn btn-sm" @onclick="() => preview = m.Id"><Icon Name="eye" Size="16" /> Ver</button>
+                        @if (m.Status == EmailStatus.Failed) { <button class="btn btn-sm" @onclick="() => Retry(m.Id)">Reintentar</button> }</td></tr>
+            }</tbody>
+        </table></div>
+        <Pager Page="page" PageSize="50" Total="result.TotalCount" OnPage="Go" />
+    }
+</div>
+<Modal Open="preview is not null" OpenChanged="v => { if (!v) preview = null; }" Title="Vista previa del correo" Wide="true">
+    <ChildContent>@if (preview is Guid id) { <iframe src="/files/emails/@id" title="Vista previa del correo" sandbox="" style="width:100%;height:560px;border:1px solid var(--border);border-radius:12px;background:#fff"></iframe> }</ChildContent>
+</Modal>
+@code {
+    private PagedResult<EmailOutboxDto>? result;
+    private string status = "";
+    private int page = 1;
+    private Guid? preview;
+    protected override Task OnInitializedAsync() => Reload();
+    private async Task Go(int p) { page = p; await Reload(); }
+    private async Task Reload() { try { result = await Runner.Run<EmailMonitorService, PagedResult<EmailOutboxDto>>((s, a) => s.ListAsync(a, Enum.TryParse<EmailStatus>(status, out var st) ? st : null, page, 50)); } catch (Exception ex) { Toasts.Error(ex); } }
+    private async Task Retry(Guid id) { try { await Runner.Run<EmailMonitorService>((s, a) => s.RetryAsync(a, id)); Toasts.Success("Correo reprogramado"); await Reload(); } catch (Exception ex) { Toasts.Error(ex); } }
+}

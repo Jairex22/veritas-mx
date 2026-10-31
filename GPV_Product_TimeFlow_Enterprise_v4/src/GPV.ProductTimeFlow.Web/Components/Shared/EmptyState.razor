@@ -1,0 +1,12 @@
+<div class="empty" role="status">
+    <div class="empty-icon"><Icon Name="@Icon" Size="26" /></div>
+    <h3>@Title</h3>
+    @if (Message is not null) { <p>@Message</p> }
+    @ChildContent
+</div>
+@code {
+    [Parameter] public string Icon { get; set; } = "inbox";
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

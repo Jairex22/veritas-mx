@@ -1,0 +1,242 @@
+@page "/solicitudes"
+@inherits TimeFlowComponentBase
+
+<div class="page stack">
+    <PageHeader Title="@Title" Subtitle="@SubtitleText">
+        <a class="btn btn-primary btn-sm" href="/solicitudes/nueva">Nueva</a>
+    </PageHeader>
+
+    @if (_views.Count > 1)
+    {
+        <div class="segmented" role="tablist" aria-label="Bandejas">
+            @foreach (var (key, label) in _views)
+            {
+                <a role="tab" class="@(key == _view ? "active" : "")" aria-selected="@(key == _view ? "true" : "false")" href="@Url(view: key)">@label</a>
+            }
+        </div>
+    }
+
+    @if (_scope == RequestScope.Mine)
+    {
+        <div class="filter-chips" role="group" aria-label="Filtrar por estado">
+            @foreach (var (key, label) in MineBuckets)
+            {
+                <a class="filter-chip @(key == Bucket ? "active" : "")" href="@Url(bucket: key ?? "")">@label</a>
+            }
+        </div>
+    }
+    else if (_scope == RequestScope.Administrative)
+    {
+        <div class="filter-chips" role="group" aria-label="Filtrar por estado">
+            @foreach (var (status, label) in AdminStatuses)
+            {
+                <a class="filter-chip @(status == _status ? "active" : "")" href="@Url(status: status?.ToString() ?? "")">@label</a>
+            }
+        </div>
+    }
+
+    <form class="search-row" @onsubmit="ApplySearch" @onsubmit:preventDefault role="search">
+        <input type="search" placeholder="@(_scope == RequestScope.Mine ? "Buscar por folio o motivo" : "Buscar por folio, nombre o número")"
+               aria-label="Buscar" @bind="_searchText" />
+        <select aria-label="Tipo de solicitud" @bind="_kindFilter" @bind:after="ApplySearch">
+            <option value="">Todos los tipos</option>
+            @foreach (var kind in Enum.GetValues<RequestKind>())
+            {
+                <option value="@kind">@Labels.KindShort(kind)</option>
+            }
+        </select>
+    </form>
+
+    <ErrorAlert Message="@ErrorMessage" Details="ErrorDetails" OnRetry="() => LoadAsync(append: false)" />
+
+    @if (_items.Count == 0)
+    {
+        if (_loading)
+        {
+            <LoadingState Rows="4" />
+        }
+        else if (ErrorMessage is null)
+        {
+            <EmptyState Title="@EmptyTitle" Text="@EmptyText" />
+        }
+    }
+    else
+    {
+        <p class="muted small" aria-live="polite">@_total @(_total == 1 ? "solicitud" : "solicitudes")</p>
+        <div class="list">
+            @foreach (var r in _items)
+            {
+                <RequestCard @key="r.Id" Request="r" ShowEmployee="@(_scope != RequestScope.Mine)" />
+            }
+        </div>
+        @if (_items.Count < _total)
+        {
+            <button type="button" class="btn btn-secondary btn-block" disabled="@_loading" @onclick="() => LoadAsync(append: true)">
+                @(_loading ? "Cargando…" : "Cargar más")
+            </button>
+        }
+    }
+</div>
+
+@code {
+    private static readonly (string? Key, string Label)[] MineBuckets =
+    [
+        (null, "Todas"), ("open", "En curso"), ("approved", "Aprobadas"), ("rejected", "Rechazadas"), ("returned", "Devueltas"), ("drafts", "Borradores"),
+    ];
+
+    private static readonly (RequestStatus? Status, string Label)[] AdminStatuses =
+    [
+        (null, "Todas"),
+        (RequestStatus.PendingAdministrativeRegistration, "Pendientes de registro"),
+        (RequestStatus.AdministrativeObserved, "Con observaciones"),
+        (RequestStatus.AdministrativeRegistered, "Registradas"),
+        (RequestStatus.Completed, "Procesadas"),
+    ];
+
+    private const int PageSize = 20;
+
+    private readonly List<RequestSummaryDto> _items = [];
+    private List<(string Key, string Label)> _views = [];
+    private RequestScope _scope = RequestScope.Mine;
+    private string _view = "mias";
+    private RequestStatus? _status;
+    private string? _searchText;
+    private string _kindFilter = "";
+    private int _page = 1;
+    private int _total;
+    private bool _loading;
+    private CancellationTokenSource? _loadCts;
+
+    // Filtros leídos de la URL (?vista=&bucket=&tipo=&estado=&q=).
+    private string? View;
+    private string? Bucket;
+    private string? Kind;
+    private string? Status;
+    private string? Search;
+
+
+    private string Title => _scope switch
+    {
+        RequestScope.ApprovalInbox => "Por aprobar",
+        RequestScope.Administrative => "Registro administrativo",
+        _ => "Mis solicitudes",
+    };
+
+    private string? SubtitleText => _scope switch
+    {
+        RequestScope.ApprovalInbox => "Solicitudes pendientes de tu decisión, las más antiguas primero.",
+        RequestScope.Administrative => "Solicitudes autorizadas por los dos filtros gerenciales.",
+        _ => null,
+    };
+
+    private string EmptyTitle => _scope switch
+    {
+        RequestScope.ApprovalInbox => "No tienes solicitudes por decidir",
+        RequestScope.Administrative => "No hay solicitudes en esta bandeja",
+        _ => "No hay solicitudes con este filtro",
+    };
+
+    private string? EmptyText => _scope == RequestScope.Mine && Bucket is null ? "Crea una solicitud con el botón Nueva." : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        View = QueryString.Get(Nav.Uri, "vista");
+        Bucket = QueryString.Get(Nav.Uri, "bucket");
+        Kind = QueryString.Get(Nav.Uri, "tipo");
+        Status = QueryString.Get(Nav.Uri, "estado");
+        Search = QueryString.Get(Nav.Uri, "q");
+
+        _views = [("mias", "Mías")];
+        if (Auth.IsApprover) _views.Add(("aprobaciones", "Por aprobar"));
+        if (Auth.CanUseAdministrativeInbox) _views.Add(("administrativo", "Administrativo"));
+
+        (_view, _scope) = View switch
+        {
+            "aprobaciones" when Auth.IsApprover => ("aprobaciones", RequestScope.ApprovalInbox),
+            "administrativo" when Auth.CanUseAdministrativeInbox => ("administrativo", RequestScope.Administrative),
+            _ => ("mias", RequestScope.Mine),
+        };
+        _status = Enum.TryParse<RequestStatus>(Status, out var s) ? s : null;
+        _searchText = Search;
+        _kindFilter = Kind ?? "";
+
+        await LoadAsync(append: false);
+    }
+
+    /// <summary>Construye la URL con los filtros. null = conservar el valor actual; "" = quitar el filtro.</summary>
+    private string Url(string? view = null, string? bucket = null, string? status = null, string? kind = null, string? search = null)
+    {
+        var v = view ?? _view;
+        // Cambiar de bandeja limpia los filtros propios de la bandeja anterior.
+        var sameView = v == _view;
+        var b = bucket ?? (sameView ? Bucket : null);
+        var st = status ?? (sameView ? _status?.ToString() : null);
+        var k = kind ?? Kind;
+        var q = search ?? (sameView ? Search : null);
+
+        var parts = new List<string>();
+        if (v != "mias") parts.Add($"vista={v}");
+        if (v == "mias" && !string.IsNullOrEmpty(b)) parts.Add($"bucket={b}");
+        if (v == "administrativo" && !string.IsNullOrEmpty(st)) parts.Add($"estado={st}");
+        if (!string.IsNullOrEmpty(k)) parts.Add($"tipo={k}");
+        if (!string.IsNullOrEmpty(q)) parts.Add($"q={Uri.EscapeDataString(q)}");
+        return parts.Count == 0 ? "/solicitudes" : "/solicitudes?" + string.Join('&', parts);
+    }
+
+    private void ApplySearch() => Nav.NavigateTo(Url(kind: _kindFilter, search: _searchText?.Trim() ?? ""));
+
+    private async Task LoadAsync(bool append)
+    {
+        _loadCts?.Cancel();
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(PageToken);
+        _loadCts = cts;
+        _loading = true;
+        ClearError();
+        if (!append)
+        {
+            _page = 1;
+            _items.Clear();
+            _total = 0;
+        }
+        StateHasChanged();
+
+        try
+        {
+            var query = new RequestQuery
+            {
+                Scope = _scope,
+                Bucket = _scope == RequestScope.Mine ? Bucket : null,
+                Status = _scope == RequestScope.Administrative ? _status : null,
+                Kind = Enum.TryParse<RequestKind>(Kind, out var k) ? k : null,
+                Search = string.IsNullOrWhiteSpace(Search) ? null : Search.Trim(),
+                Page = append ? _page + 1 : 1,
+                PageSize = PageSize,
+            };
+            var result = await Client.ListRequestsAsync(query, cts.Token);
+            if (cts.IsCancellationRequested) return;
+            _page = result.Page;
+            _total = result.TotalCount;
+            _items.AddRange(result.Items.Where(i => _items.All(x => x.Id != i.Id)));
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            // Se reemplazó por una consulta más reciente o se salió de la página.
+        }
+        catch (Exception ex)
+        {
+            await HandleErrorAsync(ex);
+        }
+        finally
+        {
+            if (ReferenceEquals(_loadCts, cts))
+            {
+                _loading = false;
+                _loadCts = null;
+            }
+            cts.Dispose();
+            StateHasChanged();
+        }
+    }
+
+    protected override void OnDispose() => _loadCts?.Cancel();
+}

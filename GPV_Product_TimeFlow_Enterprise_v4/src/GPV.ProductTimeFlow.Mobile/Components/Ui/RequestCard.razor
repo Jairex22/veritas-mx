@@ -1,0 +1,36 @@
+<a class="request-card" href="/solicitudes/@Request.Id">
+    <div class="request-card-top">
+        <span class="kind-tag kind-@Request.Kind.ToString().ToLowerInvariant()">@Labels.KindShort(Request.Kind)</span>
+        <span class="folio">@Request.Folio</span>
+        @if (Request.IsUrgent)
+        {
+            <span class="chip chip-danger chip-xs">Urgente</span>
+        }
+    </div>
+    @if (ShowEmployee)
+    {
+        <div class="request-card-employee">
+            <span class="avatar avatar-sm" aria-hidden="true">@Fmt.Initials(Request.EmployeeName)</span>
+            <span>@Request.EmployeeName</span>
+            <span class="muted">· @Request.EmployeeNumber</span>
+        </div>
+    }
+    <div class="request-card-period">
+        <span>@Fmt.Period(Request)</span>
+        <strong>@Fmt.Amount(Request)</strong>
+    </div>
+    <div class="request-card-bottom">
+        <StatusChip Status="Request.Status" />
+        @if (!string.IsNullOrWhiteSpace(Request.CurrentApproverName))
+        {
+            <span class="muted small">Con: @Request.CurrentApproverName</span>
+        }
+    </div>
+</a>
+
+@code {
+    [Parameter, EditorRequired] public RequestSummaryDto Request { get; set; } = default!;
+
+    /// <summary>Mostrar nombre del empleado (bandejas de aprobación y administrativa).</summary>
+    [Parameter] public bool ShowEmployee { get; set; }
+}

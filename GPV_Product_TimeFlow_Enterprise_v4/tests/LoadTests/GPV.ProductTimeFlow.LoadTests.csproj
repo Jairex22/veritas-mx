@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Generador de carga reproducible (usuarios virtuales concurrentes contra la API). Alternativa: k6/timeflow-load.js -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\GPV.ProductTimeFlow.Shared\GPV.ProductTimeFlow.Shared.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,64 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject AuthState Auth
+@inject NotificationCenter Notifications
+@inject ToastService Toasts
+
+<div class="app-shell @(Auth.IsAuthenticated ? "has-nav" : "")">
+    <header class="topbar">
+        <a class="topbar-brand" href="@(Auth.IsAuthenticated ? "/" : "/login")" aria-label="GPV TimeFlow, inicio">
+            <span class="brand-mark" aria-hidden="true"></span>
+            <span class="topbar-title">TimeFlow</span>
+            @if (IsDemo)
+            {
+                <span class="env-badge" title="Ambiente de demostración con datos sintéticos">DEMO</span>
+            }
+        </a>
+        @if (Auth.IsAuthenticated)
+        {
+            <a class="icon-button" href="/notificaciones" aria-label="@BellLabel">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>
+                @if (Notifications.UnreadCount > 0)
+                {
+                    <span class="badge">@(Notifications.UnreadCount > 99 ? "99+" : Notifications.UnreadCount.ToString())</span>
+                }
+            </a>
+        }
+    </header>
+
+    <main class="content">
+        @Body
+    </main>
+
+    @if (Auth.IsAuthenticated)
+    {
+        <BottomNav />
+    }
+
+    <ToastHost />
+</div>
+
+@code {
+    private bool IsDemo => Auth.Profile is { } p && p.EnvironmentMode.Equals("Demo", StringComparison.OrdinalIgnoreCase);
+
+    private string BellLabel => Notifications.UnreadCount > 0 ? $"Notificaciones: {Notifications.UnreadCount} sin leer" : "Notificaciones";
+
+    protected override void OnInitialized()
+    {
+        Notifications.Changed += OnChanged;
+        Notifications.Received += OnReceived;
+        Auth.Changed += OnChanged;
+    }
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void OnReceived(NotificationDto n) =>
+        Toasts.Show($"{n.Title}: {n.Message}", "info", n.RequestId is { } id ? $"/solicitudes/{id}" : "/notificaciones");
+
+    public void Dispose()
+    {
+        Notifications.Changed -= OnChanged;
+        Notifications.Received -= OnReceived;
+        Auth.Changed -= OnChanged;
+    }
+}

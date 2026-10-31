@@ -1,0 +1,34 @@
+@page "/admin/sistema"
+@attribute [Authorize(Roles = "ProductAdmin")]
+@inject ServiceRunner Runner
+@inject ToastService Toasts
+
+<PageTitle>Salud del sistema · GPV Product TimeFlow</PageTitle>
+<PageHeader Title="Salud del sistema" Eyebrow="Operación" Subtitle="Estado técnico del ambiente, integraciones y colas.">
+    <Actions><button class="btn" @onclick="Load"><Icon Name="refresh" Size="18" /> Actualizar</button></Actions>
+</PageHeader>
+@if (h is null) { <div class="card"><div class="card-body"><div class="skeleton"></div></div></div> }
+else
+{
+    <div class="grid grid-4 kpis" style="margin-bottom:18px">
+        <Kpi Label="Base de datos" Value="@(h.DatabaseReachable ? "En línea" : "Sin conexión")" Icon="database" Tone="@(h.DatabaseReachable ? "success" : "danger")" Foot="@h.DatabaseProvider" />
+        <Kpi Label="Correos en cola" Value="@h.PendingEmails.ToString()" Icon="mail" Tone="warning" Foot="@($"{h.FailedEmails} fallidos")" Href="/admin/correos" />
+        <Kpi Label="Registros de auditoría" Value="@h.AuditEntries.ToString("N0")" Icon="shield" Tone="brand" Href="/admin/auditoria" />
+        <Kpi Label="Memoria del proceso" Value="@h.WorkingSetMb.ToString()" Unit="MB" Icon="server" Tone="brand" />
+    </div>
+    <div class="card"><div class="card-body">
+        <dl class="kv">
+            <dt>Ambiente</dt><dd>@h.EnvironmentMode</dd>
+            <dt>Versión</dt><dd>GPV Product TimeFlow Enterprise @h.Version</dd>
+            <dt>Autenticación</dt><dd>@h.AuthenticationMode</dd>
+            <dt>Proveedor de correo</dt><dd>@h.EmailProvider</dd>
+            <dt>Base de datos</dt><dd>@h.DatabaseProvider</dd>
+            <dt>Hora del servidor</dt><dd>@Format.DateTime(h.ServerTimeUtc) (@h.TimeZone)</dd>
+        </dl>
+    </div></div>
+}
+@code {
+    private SystemHealthDto? h;
+    protected override Task OnInitializedAsync() => Load();
+    private async Task Load() { try { h = await Runner.Run<HealthService, SystemHealthDto>((s, a) => s.GetAsync(a)); } catch (Exception ex) { Toasts.Error(ex); } }
+}

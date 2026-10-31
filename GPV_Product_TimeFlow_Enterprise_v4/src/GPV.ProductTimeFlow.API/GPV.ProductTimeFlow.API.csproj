@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <!-- API REST (Minimal APIs) para la app móvil e integraciones. Documentada con OpenAPI. -->
+  <PropertyGroup>
+    <RootNamespace>GPV.ProductTimeFlow.API</RootNamespace>
+    <UserSecretsId>gpv-product-timeflow-api</UserSecretsId>
+    <OpenApiGenerateDocuments>false</OpenApiGenerateDocuments>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GPV.ProductTimeFlow.Infrastructure\GPV.ProductTimeFlow.Infrastructure.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.14" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
+    <PackageReference Include="Microsoft.Identity.Web" Version="4.16.1" />
+    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="GPV.ProductTimeFlow.IntegrationTests" />
+  </ItemGroup>
+</Project>

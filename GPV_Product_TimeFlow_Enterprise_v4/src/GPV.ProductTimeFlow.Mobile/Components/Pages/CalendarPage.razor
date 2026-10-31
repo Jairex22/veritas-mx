@@ -1,0 +1,153 @@
+@page "/calendario"
+@inherits TimeFlowComponentBase
+
+<div class="page stack">
+    <PageHeader Title="Calendario" />
+
+    <div class="segmented" role="tablist" aria-label="Alcance">
+        <button type="button" role="tab" class="@(_scope == CalendarScope.Mine ? "active" : "")" aria-selected="@(_scope == CalendarScope.Mine ? "true" : "false")" @onclick="() => SetScopeAsync(CalendarScope.Mine)">Mis solicitudes</button>
+        <button type="button" role="tab" class="@(_scope == CalendarScope.Team ? "active" : "")" aria-selected="@(_scope == CalendarScope.Team ? "true" : "false")" @onclick="() => SetScopeAsync(CalendarScope.Team)">Mi equipo</button>
+    </div>
+
+    <section class="card calendar">
+        <div class="calendar-head">
+            <button type="button" class="icon-button" aria-label="Mes anterior" @onclick="() => MoveAsync(-1)">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+            </button>
+            <h2 aria-live="polite">@Fmt.MonthTitle(_month.Year, _month.Month)</h2>
+            <button type="button" class="icon-button" aria-label="Mes siguiente" @onclick="() => MoveAsync(1)">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+            </button>
+        </div>
+
+        <div class="calendar-grid @(Busy ? "is-stale" : "")" role="grid" aria-label="@Fmt.MonthTitle(_month.Year, _month.Month)">
+            @foreach (var wd in WeekDays)
+            {
+                <div class="calendar-weekday" role="columnheader">@wd</div>
+            }
+            @for (var day = GridStart; day <= GridEnd; day = day.AddDays(1))
+            {
+                var d = day;
+                var events = EventsOn(d);
+                var holiday = events.Any(e => e.IsHoliday);
+                <button type="button" role="gridcell"
+                        class="calendar-day @(d.Month != _month.Month ? "other-month" : "") @(d == Fmt.Today ? "today" : "") @(d == _selected ? "selected" : "") @(holiday ? "holiday" : "") @(IsWeekend(d) ? "weekend" : "")"
+                        aria-label="@DayLabel(d, events.Count)" aria-selected="@(d == _selected ? "true" : "false")" @onclick="() => _selected = d">
+                    <span class="calendar-day-number">@d.Day</span>
+                    <span class="calendar-marks" aria-hidden="true">
+                        @foreach (var e in events.Where(x => !x.IsHoliday).Take(3))
+                        {
+                            <span class="calendar-mark kind-@e.Tone"></span>
+                        }
+                        @if (events.Count(x => !x.IsHoliday) > 3)
+                        {
+                            <span class="calendar-more">+</span>
+                        }
+                    </span>
+                </button>
+            }
+        </div>
+
+        <ul class="legend" aria-label="Simbología">
+            <li><span class="kind-dot kind-overtime"></span>Tiempo extra</li>
+            <li><span class="kind-dot kind-vacation"></span>Vacaciones</li>
+            <li><span class="kind-dot kind-paidleave"></span>Con goce</li>
+            <li><span class="kind-dot kind-unpaidleave"></span>Sin goce</li>
+            <li><span class="kind-dot kind-peer"></span>Ausencia en el equipo</li>
+            <li><span class="kind-dot kind-holiday"></span>Día festivo</li>
+        </ul>
+    </section>
+
+    <ErrorAlert Message="@ErrorMessage" Details="ErrorDetails" OnRetry="LoadAsync" />
+
+    <section class="card">
+        <h2 class="card-title">@Fmt.DateLong(_selected)</h2>
+        @{ var selectedEvents = EventsOn(_selected); }
+        @if (selectedEvents.Count == 0)
+        {
+            <p class="muted small">Sin solicitudes ni días festivos.</p>
+        }
+        else
+        {
+            <ul class="event-list">
+                @foreach (var e in selectedEvents)
+                {
+                    <li class="event-item">
+                        <span class="kind-dot kind-@e.Tone" aria-hidden="true"></span>
+                        <div class="event-text">
+                            @if (e.RequestId is { } rid)
+                            {
+                                <a href="/solicitudes/@rid?desde=/calendario">@e.Title</a>
+                            }
+                            else
+                            {
+                                <span>@e.Title</span>
+                            }
+                            <span class="muted small">
+                                @(e.IsHoliday ? "Día festivo" : e.End > e.Start ? $"{Fmt.Date(e.Start)} – {Fmt.Date(e.End)}" : Fmt.Date(e.Start))
+                            </span>
+                        </div>
+                        @if (e.Status is { } st)
+                        {
+                            <StatusChip Status="st" />
+                        }
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+</div>
+
+@code {
+    private static readonly string[] WeekDays = ["L", "M", "M", "J", "V", "S", "D"];
+
+    private DateOnly _month = new(Fmt.Today.Year, Fmt.Today.Month, 1);
+    private DateOnly _selected = Fmt.Today;
+    private CalendarScope _scope = CalendarScope.Mine;
+    private IReadOnlyList<CalendarEventDto> _events = [];
+
+    /// <summary>Lunes de la semana del día 1.</summary>
+    private DateOnly GridStart => _month.AddDays(-(((int)_month.DayOfWeek + 6) % 7));
+
+    /// <summary>Domingo de la semana del último día del mes.</summary>
+    private DateOnly GridEnd
+    {
+        get
+        {
+            var last = _month.AddMonths(1).AddDays(-1);
+            return last.AddDays((7 - (int)last.DayOfWeek) % 7);
+        }
+    }
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var from = GridStart;
+        var to = GridEnd;
+        var scope = _scope;
+        await RunAsync(async ct => _events = await Client.CalendarAsync(from, to, scope, ct));
+    }
+
+    private async Task MoveAsync(int months)
+    {
+        if (Busy) return;
+        _month = _month.AddMonths(months);
+        _selected = _month.Year == Fmt.Today.Year && _month.Month == Fmt.Today.Month ? Fmt.Today : _month;
+        await LoadAsync();
+    }
+
+    private async Task SetScopeAsync(CalendarScope scope)
+    {
+        if (Busy || scope == _scope) return;
+        _scope = scope;
+        await LoadAsync();
+    }
+
+    private List<CalendarEventDto> EventsOn(DateOnly day) => _events.Where(e => e.Start <= day && day <= e.End).ToList();
+
+    private static bool IsWeekend(DateOnly d) => d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+
+    private static string DayLabel(DateOnly d, int count) =>
+        count == 0 ? Fmt.DateLong(d) : $"{Fmt.DateLong(d)}, {count} {(count == 1 ? "evento" : "eventos")}";
+}

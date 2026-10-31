@@ -1,0 +1,143 @@
+@page "/"
+@inherits TimeFlowComponentBase
+
+<div class="page stack">
+    <header class="greeting">
+        <div>
+            <h1 tabindex="-1">Hola, @(Profile?.FirstName)</h1>
+            <p class="muted">@SubtitleText</p>
+        </div>
+        <button type="button" class="icon-button" aria-label="Actualizar" disabled="@Busy" @onclick="LoadAsync">
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="@(Busy ? "spin" : "")"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 4v5h-5" /></svg>
+        </button>
+    </header>
+
+    <ErrorAlert Message="@ErrorMessage" Details="ErrorDetails" OnRetry="LoadAsync" />
+
+    @if (_data is null)
+    {
+        if (Busy)
+        {
+            <LoadingState Rows="4" />
+        }
+    }
+    else
+    {
+        <section class="quick-actions" aria-label="Acciones rápidas">
+            <a class="quick-action" href="/solicitudes/nueva?tipo=Overtime"><span class="kind-dot kind-overtime"></span>Tiempo extra</a>
+            <a class="quick-action" href="/solicitudes/nueva?tipo=Vacation"><span class="kind-dot kind-vacation"></span>Vacaciones</a>
+            <a class="quick-action" href="/solicitudes/nueva?tipo=PaidLeave"><span class="kind-dot kind-paidleave"></span>Permiso con goce</a>
+            <a class="quick-action" href="/solicitudes/nueva?tipo=UnpaidLeave"><span class="kind-dot kind-unpaidleave"></span>Permiso sin goce</a>
+        </section>
+
+        <section class="grid-2">
+            <a class="card stat-card" href="/vacaciones">
+                <span class="stat-label">Vacaciones disponibles</span>
+                <span class="stat-value">@Fmt.Number(_data.VacationAvailable) <small>días</small></span>
+                @if (_data.VacationPending > 0)
+                {
+                    <span class="stat-foot">@Labels.Days(_data.VacationPending) en trámite</span>
+                }
+            </a>
+            <a class="card stat-card" href="/solicitudes?tipo=Overtime">
+                <span class="stat-label">Tiempo extra del mes</span>
+                <span class="stat-value">@Fmt.Number(_data.OvertimeMonthHours) <small>h</small></span>
+                <span class="stat-foot">@Fmt.Number(_data.OvertimeMonthApprovedHours) h autorizadas</span>
+            </a>
+        </section>
+
+        <section class="card">
+            <h2 class="card-title">Mis solicitudes</h2>
+            <div class="kpi-grid">
+                <KpiTile Value="@_data.MyInProgress.ToString()" Label="En curso" Tone="warning" Href="/solicitudes?bucket=open" />
+                <KpiTile Value="@_data.MyApproved.ToString()" Label="Aprobadas" Tone="success" Href="/solicitudes?bucket=approved" />
+                <KpiTile Value="@_data.MyRejected.ToString()" Label="Rechazadas" Tone="danger" Href="/solicitudes?bucket=rejected" />
+                <KpiTile Value="@_data.MyReturned.ToString()" Label="Devueltas" Tone="attention" Href="/solicitudes?bucket=returned" />
+                <KpiTile Value="@_data.MyDrafts.ToString()" Label="Borradores" Tone="neutral" Href="/solicitudes?bucket=drafts" />
+            </div>
+        </section>
+
+        @if (Auth.IsApprover)
+        {
+            <section class="card">
+                <div class="card-title-row">
+                    <h2 class="card-title">Aprobaciones</h2>
+                    <a class="link" href="/solicitudes?vista=aprobaciones">Ver bandeja</a>
+                </div>
+                <div class="kpi-grid">
+                    <KpiTile Value="@_data.ApprovalsPending.ToString()" Label="Por decidir" Tone="warning" Href="/solicitudes?vista=aprobaciones" />
+                    <KpiTile Value="@_data.ApprovalsUrgent.ToString()" Label="Urgentes" Tone="danger" Href="/solicitudes?vista=aprobaciones" />
+                    <KpiTile Value="@_data.DecisionsThisMonth.ToString()" Label="Decididas este mes" Tone="info" />
+                    <KpiTile Value="@_data.TeamSize.ToString()" Label="Personas en el equipo" Tone="neutral" />
+                </div>
+                @if (_data.ApprovalQueue.Count > 0)
+                {
+                    <div class="list">
+                        @foreach (var r in _data.ApprovalQueue.Take(3))
+                        {
+                            <RequestCard Request="r" ShowEmployee="true" />
+                        }
+                    </div>
+                }
+                @if (_data.UpcomingTeamAbsences.Count > 0)
+                {
+                    <h3 class="section-subtitle">Próximas ausencias del equipo</h3>
+                    <ul class="plain-list">
+                        @foreach (var e in _data.UpcomingTeamAbsences.Take(5))
+                        {
+                            <li><span class="kind-dot kind-@e.Tone"></span>@e.Title <span class="muted small">· @Fmt.Date(e.Start)@(e.End > e.Start ? $" – {Fmt.Date(e.End)}" : "")</span></li>
+                        }
+                    </ul>
+                }
+            </section>
+        }
+
+        @if (Auth.HasRole(UserRole.AdministrativeRegistrar))
+        {
+            <section class="card">
+                <div class="card-title-row">
+                    <h2 class="card-title">Registro administrativo</h2>
+                    <a class="link" href="/solicitudes?vista=administrativo">Ver bandeja</a>
+                </div>
+                <div class="kpi-grid">
+                    <KpiTile Value="@_data.AdminPendingRegistration.ToString()" Label="Pendientes de registro" Tone="warning" Href="/solicitudes?vista=administrativo" />
+                    <KpiTile Value="@_data.AdminObserved.ToString()" Label="Con observaciones" Tone="attention" Href="/solicitudes?vista=administrativo&estado=AdministrativeObserved" />
+                    <KpiTile Value="@_data.AdminRegistered.ToString()" Label="Registradas" Tone="info" Href="/solicitudes?vista=administrativo&estado=AdministrativeRegistered" />
+                </div>
+            </section>
+        }
+
+        <section class="card">
+            <div class="card-title-row">
+                <h2 class="card-title">Recientes</h2>
+                <a class="link" href="/solicitudes">Ver todas</a>
+            </div>
+            @if (_data.MyRecent.Count == 0)
+            {
+                <EmptyState Title="Aún no tienes solicitudes" Text="Crea tu primera solicitud con el botón Nueva." />
+            }
+            else
+            {
+                <div class="list">
+                    @foreach (var r in _data.MyRecent)
+                    {
+                        <RequestCard Request="r" />
+                    }
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private DashboardDto? _data;
+
+    private string SubtitleText => Profile is null ? "" : string.Join(" · ", new[] { Profile.Position, Profile.Department }.Where(s => !string.IsNullOrWhiteSpace(s)));
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await RunAsync(async ct => _data = await Client.DashboardAsync(ct));
+    }
+}

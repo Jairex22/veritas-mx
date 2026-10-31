@@ -1,0 +1,32 @@
+@* Hoja modal inferior (diálogos de decisión, cancelación, acciones administrativas). *@
+@if (Visible)
+{
+    <div class="sheet-backdrop" @onclick="CloseAsync"></div>
+    <section class="sheet" role="dialog" aria-modal="true" aria-label="@Title">
+        <div class="sheet-handle" aria-hidden="true"></div>
+        <header class="sheet-header">
+            <h2>@Title</h2>
+            <button type="button" class="icon-button" aria-label="Cerrar" disabled="@Busy" @onclick="CloseAsync">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+            </button>
+        </header>
+        <div class="sheet-body">
+            @ChildContent
+        </div>
+        @if (Footer is not null)
+        {
+            <footer class="sheet-footer">@Footer</footer>
+        }
+    </section>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? Footer { get; set; }
+
+    private Task CloseAsync() => Busy ? Task.CompletedTask : OnClose.InvokeAsync();
+}

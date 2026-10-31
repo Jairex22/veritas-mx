@@ -1,0 +1,82 @@
+@implements IDisposable
+@inject ServiceRunner Runner
+@inject NavigationManager Nav
+@inject UserSession Session
+
+<div class="search" role="search">
+    <Icon Name="search" Size="18" />
+    <input type="search" placeholder="Buscar folio, empleado o sección…" aria-label="Búsqueda global" value="@term"
+           @oninput="OnInput" @onkeydown="OnKey" @onfocus="() => focused = true" @onblur="Blur" autocomplete="off" />
+    <kbd>/</kbd>
+    @if (focused && term.Length >= 2)
+    {
+        <div class="search-results" role="listbox">
+            @foreach (var p in pageMatches)
+            {
+                <a class="search-item" href="@p.Link" @onmousedown="() => Go(p.Link)" @onmousedown:preventDefault="true"><span class="kind">Sección</span><span class="grow"><strong>@p.Title</strong><div class="cell-sub">@p.Subtitle</div></span></a>
+            }
+            @foreach (var r in results)
+            {
+                <a class="search-item" href="@r.Link" @onmousedown="() => Go(r.Link)" @onmousedown:preventDefault="true"><span class="kind">@r.Kind</span><span class="grow"><strong>@r.Title</strong><div class="cell-sub">@r.Subtitle</div></span></a>
+            }
+            @if (!loading && results.Count == 0 && pageMatches.Count == 0) { <div class="search-item muted">Sin resultados para «@term».</div> }
+            @if (loading) { <div class="search-item muted"><span class="spinner"></span> Buscando…</div> }
+        </div>
+    }
+</div>
+
+@code {
+    private string term = "";
+    private bool focused, loading;
+    private List<SearchResultDto> results = [];
+    private List<SearchResultDto> pageMatches = [];
+    private CancellationTokenSource? debounce;
+
+    private static readonly (string Title, string Subtitle, string Link, UserRole? Role)[] Pages =
+    [
+        ("Inicio", "Panel principal", "/", null), ("Mis solicitudes", "Historial y estado", "/solicitudes", null),
+        ("Nueva solicitud", "Tiempo extra, vacaciones o permisos", "/solicitudes/nueva", null), ("Calendario", "Ausencias y tiempo extra", "/calendario", null),
+        ("Vacaciones", "Saldo y movimientos", "/vacaciones", null), ("Tiempo extra", "Resumen mensual", "/tiempo-extra", null),
+        ("Notificaciones", "Historial de avisos", "/notificaciones", null), ("Por autorizar", "Bandeja de aprobación", "/aprobaciones", null),
+        ("Registro administrativo", "Recepción y procesamiento", "/registro", UserRole.AdministrativeRegistrar), ("Reportes y exportación", "Excel autorizado", "/reportes", null),
+        ("Empleados", "Gestión de usuarios", "/admin/empleados", UserRole.ProductAdmin), ("Organigrama", "Jerarquía de autorización", "/admin/organigrama", UserRole.ProductAdmin),
+        ("Configuración", "Políticas, festivos, catálogos", "/admin/configuracion", UserRole.ProductAdmin), ("Correos", "Monitor de entrega", "/admin/correos", UserRole.ProductAdmin),
+        ("Auditoría", "Bitácora inmutable", "/admin/auditoria", UserRole.ProductAdmin), ("Salud del sistema", "Estado técnico", "/admin/sistema", UserRole.ProductAdmin),
+    ];
+
+    private async Task OnInput(ChangeEventArgs e)
+    {
+        term = e.Value?.ToString() ?? "";
+        var t = term.Trim().ToLowerInvariant();
+        var actor = await Session.GetActorAsync();
+        pageMatches = t.Length < 2 ? [] : Pages.Where(p => (p.Role is null || actor.Has(p.Role.Value)) && (p.Title.ToLowerInvariant().Contains(t) || p.Subtitle.ToLowerInvariant().Contains(t)))
+            .Take(4).Select(p => new SearchResultDto("Sección", p.Title, p.Subtitle, p.Link)).ToList();
+        debounce?.Cancel();
+        debounce = new CancellationTokenSource();
+        var token = debounce.Token;
+        if (t.Length < 2) { results = []; return; }
+        loading = true;
+        try
+        {
+            await Task.Delay(250, token);
+            results = (await Runner.Run<RequestQueryService, IReadOnlyList<SearchResultDto>>((s, a) => s.SearchAsync(a, term, token))).ToList();
+        }
+        catch (OperationCanceledException) { }
+        finally { loading = false; }
+    }
+
+    private void OnKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            var first = pageMatches.Concat(results).FirstOrDefault();
+            if (first is not null) Go(first.Link);
+            else if (term.Trim().Length > 0) Go($"/solicitudes?q={Uri.EscapeDataString(term.Trim())}");
+        }
+        if (e.Key == "Escape") { term = ""; results = []; pageMatches = []; }
+    }
+
+    private async Task Blur() { await Task.Delay(150); focused = false; }
+    private void Go(string link) { focused = false; term = ""; results = []; pageMatches = []; Nav.NavigateTo(link); }
+    public void Dispose() => debounce?.Cancel();
+}

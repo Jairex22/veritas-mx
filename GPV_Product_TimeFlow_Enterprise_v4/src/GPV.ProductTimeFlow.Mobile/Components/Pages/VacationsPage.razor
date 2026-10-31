@@ -1,0 +1,104 @@
+@page "/vacaciones"
+@inherits TimeFlowComponentBase
+
+<div class="page stack">
+    <PageHeader Title="Vacaciones" Subtitle="@(_balance is null ? null : $"Periodo {_balance.PeriodYear}")" BackHref="/mas">
+        <a class="btn btn-primary btn-sm" href="/solicitudes/nueva?tipo=Vacation">Solicitar</a>
+    </PageHeader>
+
+    <ErrorAlert Message="@ErrorMessage" Details="ErrorDetails" OnRetry="LoadAsync" />
+
+    @if (_balance is null)
+    {
+        if (Busy)
+        {
+            <LoadingState Rows="4" />
+        }
+    }
+    else
+    {
+        var b = _balance;
+        var total = b.Entitled + b.Adjustments;
+
+        <section class="card balance-hero">
+            <span class="stat-label">Días disponibles</span>
+            <span class="balance-value @(b.Available < 0 ? "text-danger" : "")">@Fmt.Number(b.Available)</span>
+            <div class="meter" role="img" aria-label="@($"Usados {Fmt.Number(b.Used)}, aprobados por disfrutar {Fmt.Number(b.ApprovedUpcoming)}, en trámite {Fmt.Number(b.Pending)} de {Fmt.Number(total)} días")">
+                <span class="meter-used" style="width:@Pct(b.Used, total)"></span>
+                <span class="meter-upcoming" style="width:@Pct(b.ApprovedUpcoming, total)"></span>
+                <span class="meter-pending" style="width:@Pct(b.Pending, total)"></span>
+            </div>
+            <ul class="legend">
+                <li><span class="legend-swatch meter-used"></span>Usados</li>
+                <li><span class="legend-swatch meter-upcoming"></span>Aprobados por disfrutar</li>
+                <li><span class="legend-swatch meter-pending"></span>En trámite</li>
+            </ul>
+        </section>
+
+        <section class="card">
+            <dl class="facts">
+                <div><dt>Días del periodo</dt><dd>@Labels.Days(b.Entitled)</dd></div>
+                @if (b.Adjustments != 0)
+                {
+                    <div><dt>Ajustes autorizados</dt><dd>@(b.Adjustments > 0 ? "+" : "")@Fmt.Number(b.Adjustments)</dd></div>
+                }
+                <div><dt>Usados</dt><dd>@Labels.Days(b.Used)</dd></div>
+                <div><dt>Aprobados por disfrutar</dt><dd>@Labels.Days(b.ApprovedUpcoming)</dd></div>
+                <div><dt>En trámite</dt><dd>@Labels.Days(b.Pending) <span class="muted">· @b.PendingRequests @(b.PendingRequests == 1 ? "solicitud" : "solicitudes")</span></dd></div>
+                <div><dt>Disponibles</dt><dd><strong>@Labels.Days(b.Available)</strong></dd></div>
+                @if (b.RejectedRequests > 0)
+                {
+                    <div><dt>Rechazadas</dt><dd>@b.RejectedRequests</dd></div>
+                }
+            </dl>
+        </section>
+
+        <section class="card">
+            <h2 class="card-title">Movimientos</h2>
+            @if (b.Transactions.Count == 0)
+            {
+                <p class="muted small">Sin movimientos en el periodo.</p>
+            }
+            else
+            {
+                <ul class="ledger">
+                    @foreach (var t in b.Transactions.OrderByDescending(x => x.CreatedAtUtc))
+                    {
+                        <li>
+                            <div class="ledger-main">
+                                <strong>@t.TypeLabel</strong>
+                                <span class="ledger-amount @(t.Days < 0 ? "negative" : "positive")">@(t.Days > 0 ? "+" : "")@Fmt.Number(t.Days)</span>
+                            </div>
+                            <div class="muted small">@t.Description</div>
+                            <div class="muted small">@Fmt.Local(t.CreatedAtUtc)@(t.Folio is null ? "" : $" · {t.Folio}") · @t.CreatedByName</div>
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+
+        @if (b.Requests.Count > 0)
+        {
+            <section class="card">
+                <h2 class="card-title">Solicitudes de vacaciones</h2>
+                <div class="list">
+                    @foreach (var r in b.Requests)
+                    {
+                        <RequestCard Request="r" />
+                    }
+                </div>
+            </section>
+        }
+    }
+</div>
+
+@code {
+    private VacationBalanceDto? _balance;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync() => await RunAsync(async ct => _balance = await Client.VacationBalanceAsync(ct));
+
+    private static string Pct(decimal part, decimal total) =>
+        total <= 0 ? "0%" : $"{Math.Clamp(part / total * 100m, 0m, 100m).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}%";
+}

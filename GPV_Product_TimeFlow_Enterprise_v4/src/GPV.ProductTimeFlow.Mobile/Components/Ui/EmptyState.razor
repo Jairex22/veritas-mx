@@ -1,0 +1,17 @@
+<div class="empty-state">
+    <div class="empty-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M4 7h16v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zM4 7l2-3h12l2 3M9 11h6" /></svg>
+    </div>
+    <p class="empty-title">@Title</p>
+    @if (!string.IsNullOrWhiteSpace(Text))
+    {
+        <p class="muted">@Text</p>
+    }
+    @ChildContent
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

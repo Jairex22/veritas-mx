@@ -1,0 +1,25 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Web (DEMO) · https://localhost:7101",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/GPV.ProductTimeFlow.Web/bin/Debug/net10.0/GPV.ProductTimeFlow.Web.dll",
+      "cwd": "${workspaceFolder}/src/GPV.ProductTimeFlow.Web",
+      "env": { "ASPNETCORE_ENVIRONMENT": "Development", "ASPNETCORE_URLS": "https://localhost:7101;http://localhost:5101" },
+      "serverReadyAction": { "action": "openExternally", "pattern": "\\bNow listening on:\\s+(https?://\\S+)" }
+    },
+    {
+      "name": "API (DEMO) · http://localhost:5201",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/GPV.ProductTimeFlow.API/bin/Debug/net10.0/GPV.ProductTimeFlow.API.dll",
+      "cwd": "${workspaceFolder}/src/GPV.ProductTimeFlow.API",
+      "env": { "ASPNETCORE_ENVIRONMENT": "Development", "ASPNETCORE_URLS": "http://localhost:5201" }
+    }
+  ],
+  "compounds": [ { "name": "Web + API (DEMO)", "configurations": ["Web (DEMO) · https://localhost:7101", "API (DEMO) · http://localhost:5201"] } ]
+}

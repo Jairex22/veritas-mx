@@ -1,0 +1,179 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject ServiceRunner Runner
+@inject UserSession Session
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@inject EnvironmentInfo Env
+
+<a class="skip-link" href="#main">Saltar al contenido</a>
+@if (Env.Mode != EnvironmentMode.Production)
+{
+    <div class="env-banner" role="note"><Icon Name="alert" Size="15" /> AMBIENTE @Env.Label — Usuarios, solicitudes y firmas sintéticos. Los correos NO se envían: se registran en el buzón de demostración.</div>
+}
+<div class="app-shell @(collapsed ? "collapsed" : "") @(mobileOpen ? "mobile-open" : "")">
+    <aside class="sidebar" aria-label="Navegación principal">
+        <a class="brand" href="/">
+            <span class="brand-mark"><Icon Name="clock" Size="20" Stroke="2.4" /></span>
+            <span class="brand-text"><strong>GPV Product TimeFlow</strong><span>Producto · v4.0</span></span>
+        </a>
+        <nav @onclick="() => mobileOpen = false">
+            <NavLink class="nav-link" href="/" Match="NavLinkMatch.All" title="Inicio"><Icon Name="home" /><span>Inicio</span></NavLink>
+            <NavLink class="nav-link" href="/solicitudes/nueva" title="Nueva solicitud"><Icon Name="plus" /><span>Nueva solicitud</span></NavLink>
+            <NavLink class="nav-link" href="/solicitudes" Match="NavLinkMatch.All" title="Mis solicitudes"><Icon Name="file" /><span>Mis solicitudes</span></NavLink>
+            <NavLink class="nav-link" href="/calendario" title="Calendario"><Icon Name="calendar" /><span>Calendario</span></NavLink>
+            <NavLink class="nav-link" href="/vacaciones" title="Vacaciones"><Icon Name="palm" /><span>Vacaciones</span></NavLink>
+            <NavLink class="nav-link" href="/tiempo-extra" title="Tiempo extra"><Icon Name="timer" /><span>Tiempo extra</span></NavLink>
+            @if (IsLeader)
+            {
+                <div class="nav-section">Autorización</div>
+                <NavLink class="nav-link" href="/aprobaciones" title="Por autorizar"><Icon Name="badge-check" /><span>Por autorizar</span>@if (pendingApprovals > 0) { <span class="nav-badge">@pendingApprovals</span> }</NavLink>
+            }
+            @if (Has(UserRole.AdministrativeRegistrar) || Has(UserRole.ProductAdmin))
+            {
+                @if (!IsLeader) { <div class="nav-section">Administrativo</div> }
+                <NavLink class="nav-link" href="/registro" title="Registro administrativo"><Icon Name="archive" /><span>Registro administrativo</span>@if (adminPending > 0) { <span class="nav-badge">@adminPending</span> }</NavLink>
+            }
+            @if (IsLeader || Has(UserRole.AdministrativeRegistrar) || Has(UserRole.ProductAdmin))
+            {
+                <NavLink class="nav-link" href="/reportes" title="Reportes y exportación"><Icon Name="chart" /><span>Reportes y Excel</span></NavLink>
+            }
+            @if (Has(UserRole.ProductAdmin))
+            {
+                <div class="nav-section">Administración de Producto</div>
+                <NavLink class="nav-link" href="/admin/empleados" title="Empleados"><Icon Name="users" /><span>Empleados</span></NavLink>
+                <NavLink class="nav-link" href="/admin/organigrama" title="Organigrama"><Icon Name="org" /><span>Organigrama</span></NavLink>
+                <NavLink class="nav-link" href="/admin/configuracion" title="Configuración"><Icon Name="settings" /><span>Configuración</span></NavLink>
+                <NavLink class="nav-link" href="/admin/correos" title="Correos"><Icon Name="mail" /><span>Correos</span></NavLink>
+                <NavLink class="nav-link" href="/admin/auditoria" title="Auditoría"><Icon Name="shield" /><span>Auditoría</span></NavLink>
+                <NavLink class="nav-link" href="/admin/sistema" title="Salud del sistema"><Icon Name="activity" /><span>Salud del sistema</span></NavLink>
+            }
+        </nav>
+        <div class="sidebar-footer">
+            <button class="nav-link btn-ghost" style="width:100%;border:0;background:none;cursor:pointer;font:inherit" @onclick="ToggleCollapse" title="Contraer o expandir menú">
+                <Icon Name="sidebar" /><span class="label">Contraer menú</span>
+            </button>
+        </div>
+    </aside>
+    @if (mobileOpen) { <div class="sidebar-scrim" @onclick="() => mobileOpen = false"></div> }
+
+    <div class="main">
+        <header class="topbar">
+            <button class="icon-btn mobile-only" @onclick="() => mobileOpen = !mobileOpen" aria-label="Abrir menú"><Icon Name="menu" /></button>
+            <GlobalSearch />
+            <div class="grow desktop-only"></div>
+            <button class="icon-btn" @onclick="ToggleTheme" aria-label="@(theme == "dark" ? "Cambiar a tema claro" : "Cambiar a tema oscuro")" title="Tema claro / oscuro">
+                <Icon Name="@(theme == "dark" ? "sun" : "moon")" />
+            </button>
+            <NotificationBell />
+            <div style="position:relative">
+                <button class="user-chip" @onclick="() => menuOpen = !menuOpen" aria-expanded="@menuOpen" aria-haspopup="menu" data-testid="user-menu">
+                    <span class="avatar">@Initials</span>
+                    <span class="user-meta"><strong>@(profile?.FullName ?? "…")</strong><small>@(profile is null ? "" : string.Join(" · ", profile.RoleLabels.Where(r => r != "Empleado").DefaultIfEmpty("Empleado")))</small></span>
+                    <Icon Name="chevron-down" Size="16" Class="desktop-only" />
+                </button>
+                @if (menuOpen)
+                {
+                    <div class="menu" role="menu">
+                        <div style="padding:10px">
+                            <strong>@profile?.FullName</strong>
+                            <div class="cell-sub">@profile?.Email</div>
+                            <div class="cell-sub">No. @profile?.EmployeeNumber · @profile?.Area</div>
+                        </div>
+                        <div class="menu-sep"></div>
+                        <div style="padding:4px 10px" class="small">
+                            <div><span class="muted">Jefa directa:</span> @(profile?.SupervisorName ?? "No asignada")</div>
+                            <div><span class="muted">Jefe superior:</span> @(profile?.ManagerName ?? "No asignado")</div>
+                        </div>
+                        <div class="menu-sep"></div>
+                        <a class="menu-item" href="/notificaciones" @onclick="() => menuOpen = false"><Icon Name="bell" Size="18" /> Notificaciones</a>
+                        <form method="post" action="/account/logout" data-enhance="false">
+                            <AntiforgeryToken />
+                            <button class="menu-item" type="submit" role="menuitem" data-testid="logout"><Icon Name="logout" Size="18" /> Cerrar sesión</button>
+                        </form>
+                    </div>
+                }
+            </div>
+        </header>
+        <main id="main" class="content" tabindex="-1">
+            <CascadingValue Value="profile" Name="Profile">
+                @Body
+            </CascadingValue>
+        </main>
+    </div>
+</div>
+
+<nav class="bottom-nav" aria-label="Navegación rápida">
+    <NavLink href="/" Match="NavLinkMatch.All"><Icon Name="home" /><span>Inicio</span></NavLink>
+    <NavLink href="/solicitudes" Match="NavLinkMatch.All"><Icon Name="file" /><span>Solicitudes</span></NavLink>
+    <NavLink href="/solicitudes/nueva" aria-label="Nueva solicitud"><span class="fab"><Icon Name="plus" /></span></NavLink>
+    @if (IsLeader) { <NavLink href="/aprobaciones"><Icon Name="badge-check" /><span>Autorizar</span></NavLink> }
+    else { <NavLink href="/calendario"><Icon Name="calendar" /><span>Calendario</span></NavLink> }
+    <a href="#" @onclick="() => mobileOpen = true" @onclick:preventDefault="true"><Icon Name="menu" /><span>Más</span></a>
+</nav>
+
+<ToastHost />
+
+<div id="blazor-error-ui" data-nosnippet hidden>
+    Ocurrió un error inesperado. <a href="." class="reload">Recargar</a>
+</div>
+
+@code {
+    private UserProfileDto? profile;
+    private bool collapsed, mobileOpen, menuOpen;
+    private string theme = "light";
+    private int pendingApprovals, adminPending;
+    private IJSObjectReference? module;
+    private Actor? actor;
+
+    private bool Has(UserRole r) => actor?.Has(r) ?? false;
+    private bool IsLeader => Has(UserRole.DirectSupervisor) || Has(UserRole.SeniorManager);
+    private string Initials => profile is null ? "" : string.Concat(profile.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(p => p[0]));
+
+    protected override async Task OnInitializedAsync()
+    {
+        actor = await Session.GetActorAsync();
+        profile = await Runner.Run<RequestQueryService, UserProfileDto>((s, a) => s.GetProfileAsync(a.EmployeeId));
+        Session.Profile = profile;
+        await RefreshCounters();
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    private async Task RefreshCounters()
+    {
+        if (IsLeader)
+            pendingApprovals = (await Runner.Run<RequestQueryService, PagedResult<RequestSummaryDto>>((s, a) => s.ListAsync(a, new RequestQuery { Scope = RequestScope.ApprovalInbox, PageSize = 1 }))).TotalCount;
+        if (Has(UserRole.AdministrativeRegistrar) || Has(UserRole.ProductAdmin))
+            adminPending = (await Runner.Run<RequestQueryService, PagedResult<RequestSummaryDto>>((s, a) => s.ListAsync(a, new RequestQuery { Scope = RequestScope.Administrative, Status = RequestStatus.PendingAdministrativeRegistration, PageSize = 1 }))).TotalCount;
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        menuOpen = false;
+        mobileOpen = false;
+        _ = InvokeAsync(async () => { try { await RefreshCounters(); StateHasChanged(); } catch { } });
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/app.js");
+        theme = await module.InvokeAsync<string>("getTheme");
+        collapsed = await module.InvokeAsync<bool>("getSidebarCollapsed");
+        StateHasChanged();
+    }
+
+    private async Task ToggleTheme()
+    {
+        theme = theme == "dark" ? "light" : "dark";
+        if (module is not null) await module.InvokeVoidAsync("setTheme", theme);
+    }
+
+    private async Task ToggleCollapse()
+    {
+        collapsed = !collapsed;
+        if (module is not null) await module.InvokeVoidAsync("setSidebarCollapsed", collapsed);
+    }
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+}

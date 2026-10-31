@@ -1,0 +1,61 @@
+@page "/aprobaciones"
+@attribute [Authorize(Roles = "DirectSupervisor,SeniorManager")]
+@inject ServiceRunner Runner
+@inject ToastService Toasts
+
+<PageTitle>Por autorizar · GPV Product TimeFlow</PageTitle>
+<PageHeader Title="Bandeja de autorización" Eyebrow="Autorización" Subtitle="Solicitudes asignadas a tu filtro (jefa directa o jefe superior) y el historial de tu equipo." />
+
+<div class="card">
+    <div class="toolbar">
+        <div class="tabs" role="tablist">
+            <button class="tab @(tab == "inbox" ? "active" : "")" role="tab" @onclick='() => SetTab("inbox")'>Pendientes <span class="count">@(inboxCount)</span></button>
+            <button class="tab @(tab == "history" ? "active" : "")" role="tab" @onclick='() => SetTab("history")'>Historial del equipo</button>
+        </div>
+        <div class="grow"></div>
+        <select class="select-sm" @bind="kind" @bind:after="Reload" aria-label="Tipo">
+            <option value="">Todos los tipos</option>
+            @foreach (var k in Enum.GetValues<RequestKind>()) { <option value="@k">@Labels.Kind(k)</option> }
+        </select>
+        @if (tab == "history")
+        {
+            <select class="select-sm" @bind="bucket" @bind:after="Reload" aria-label="Situación">
+                <option value="">Todas</option><option value="open">En trámite</option><option value="approved">Autorizadas</option><option value="rejected">Rechazadas</option><option value="returned">Devueltas</option>
+            </select>
+        }
+        <input class="input" style="max-width:220px;min-height:38px" type="search" placeholder="Empleado o folio" @bind="search" @bind:after="Reload" aria-label="Buscar" />
+    </div>
+    @if (result is null) { <div class="card-body"><div class="skeleton"></div></div> }
+    else
+    {
+        <RequestTable Items="result.Items" ShowEmployee="true" ShowApprover="@(tab == "history")" EmptyIcon="badge-check"
+                      EmptyTitle="@(tab == "inbox" ? "No tienes solicitudes por autorizar" : "Sin registros")" EmptyMessage="@(tab == "inbox" ? "Cuando un integrante de tu equipo envíe una solicitud aparecerá aquí." : null)" />
+        <Pager Page="page" PageSize="20" Total="result.TotalCount" OnPage="Go" />
+    }
+</div>
+
+@code {
+    private string tab = "inbox", kind = "", bucket = "";
+    private string? search;
+    private int page = 1, inboxCount;
+    private PagedResult<RequestSummaryDto>? result;
+
+    protected override Task OnInitializedAsync() => Reload();
+    private async Task SetTab(string t) { tab = t; page = 1; await Reload(); }
+    private async Task Go(int p) { page = p; await Reload(); }
+
+    private async Task Reload()
+    {
+        try
+        {
+            var q = new RequestQuery
+            {
+                Scope = tab == "inbox" ? RequestScope.ApprovalInbox : RequestScope.TeamHistory, Kind = Enum.TryParse<RequestKind>(kind, out var k) ? k : null,
+                Bucket = bucket == "" ? null : bucket, Search = search, Page = page, PageSize = 20
+            };
+            result = await Runner.Run<RequestQueryService, PagedResult<RequestSummaryDto>>((s, a) => s.ListAsync(a, q));
+            if (tab == "inbox" && kind == "" && string.IsNullOrEmpty(search)) inboxCount = result.TotalCount;
+        }
+        catch (Exception ex) { Toasts.Error(ex); }
+    }
+}

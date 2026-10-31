@@ -1,0 +1,138 @@
+@page "/ajustes"
+@attribute [PublicPage]
+@inherits TimeFlowComponentBase
+@inject ServerSettings Settings
+@inject NotificationCenter Notifications
+@using Microsoft.Maui.ApplicationModel
+
+<div class="page stack">
+    <PageHeader Title="Ajustes" BackHref="@(Auth.IsAuthenticated ? "/mas" : "/login")" />
+
+    <section class="card stack">
+        <h2 class="card-title">Servidor</h2>
+        <form class="stack" @onsubmit="SaveServer" @onsubmit:preventDefault>
+            <div class="field">
+                <label for="server">Dirección de la API</label>
+                <input id="server" type="url" inputmode="url" autocapitalize="none" spellcheck="false" @bind="_serverUrl" @bind:event="oninput" />
+                <p class="hint">
+                    Por defecto (DEMO): <code>@ServerSettings.DefaultUrl</code>.
+                    Para cualquier servidor distinto de 10.0.2.2/localhost se requiere HTTPS.
+                </p>
+            </div>
+            @if (_serverError is not null)
+            {
+                <div class="alert alert-danger" role="alert">@_serverError</div>
+            }
+            @if (Auth.IsAuthenticated)
+            {
+                <p class="hint">Al cambiar de servidor se cerrará tu sesión.</p>
+            }
+            <div class="button-row">
+                <button type="submit" class="btn btn-primary" disabled="@(!IsDirty)">Guardar</button>
+                <button type="button" class="btn btn-ghost" disabled="@Settings.IsDefault" @onclick="ResetServer">Restablecer</button>
+            </div>
+        </form>
+        <dl class="facts">
+            <div><dt>Servidor actual</dt><dd class="break">@Settings.BaseUri</dd></div>
+            @if (Auth.IsAuthenticated)
+            {
+                <div><dt>Notificaciones en tiempo real</dt><dd>@(Notifications.IsRealtimeConnected ? "Conectado" : "Sin conexión en tiempo real (se consulta cada 60 s)")</dd></div>
+                <div><dt>Ambiente</dt><dd>@(Profile?.EnvironmentMode)</dd></div>
+            }
+        </dl>
+    </section>
+
+    <section class="card">
+        <h2 class="card-title">Apariencia</h2>
+        <p class="small">El tema claro u oscuro sigue la configuración del sistema del dispositivo.</p>
+    </section>
+
+    @if (Auth.SecureStorageUnavailable)
+    {
+        <div class="alert alert-attention">El almacenamiento seguro del dispositivo no está disponible: tendrás que iniciar sesión cada vez que abras la app.</div>
+    }
+
+    <section class="card">
+        <h2 class="card-title">Acerca de</h2>
+        <dl class="facts">
+            <div><dt>Aplicación</dt><dd>GPV Product TimeFlow Enterprise</dd></div>
+            <div><dt>Versión</dt><dd>@_version</dd></div>
+        </dl>
+        <p class="hint">Uso interno — GPV Americas, Product Engineering.</p>
+    </section>
+
+    @if (Auth.IsAuthenticated)
+    {
+        <button type="button" class="btn btn-danger-ghost btn-block" @onclick="LogoutAsync">Cerrar sesión</button>
+    }
+</div>
+
+@code {
+    private string _serverUrl = "";
+    private string? _serverError;
+    private string _version = "";
+
+    private bool IsDirty => !string.Equals(_serverUrl.Trim(), Settings.BaseUri.AbsoluteUri, StringComparison.OrdinalIgnoreCase);
+
+    protected override void OnInitialized()
+    {
+        _serverUrl = Settings.BaseUri.AbsoluteUri;
+        try
+        {
+            _version = $"{AppInfo.Current.VersionString} (compilación {AppInfo.Current.BuildString})";
+        }
+        catch (Exception)
+        {
+            _version = "4.0.0";
+        }
+        Notifications.Changed += OnChanged;
+    }
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private async Task SaveServer()
+    {
+        _serverError = null;
+        var wasAuthenticated = Auth.IsAuthenticated;
+        var previous = Settings.BaseUri;
+        if (!Settings.TryUpdate(_serverUrl, out var error))
+        {
+            _serverError = error;
+            return;
+        }
+        _serverUrl = Settings.BaseUri.AbsoluteUri;
+        if (Settings.BaseUri == previous) return;
+
+        Toasts.Show("Servidor actualizado.", "success");
+        if (wasAuthenticated)
+        {
+            // El token emitido por el servidor anterior no es válido en el nuevo.
+            await Auth.LogoutAsync();
+            Nav.NavigateTo("/login", replace: true);
+        }
+    }
+
+    private async Task ResetServer()
+    {
+        _serverError = null;
+        var wasAuthenticated = Auth.IsAuthenticated;
+        var previous = Settings.BaseUri;
+        Settings.ResetToDefault();
+        _serverUrl = Settings.BaseUri.AbsoluteUri;
+        if (Settings.BaseUri == previous) return;
+        Toasts.Show("Se restableció el servidor predeterminado.", "success");
+        if (wasAuthenticated)
+        {
+            await Auth.LogoutAsync();
+            Nav.NavigateTo("/login", replace: true);
+        }
+    }
+
+    private async Task LogoutAsync()
+    {
+        await Auth.LogoutAsync();
+        Nav.NavigateTo("/login", replace: true);
+    }
+
+    protected override void OnDispose() => Notifications.Changed -= OnChanged;
+}

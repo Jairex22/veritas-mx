@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Política de red de GPV TimeFlow.
+  - Por defecto: solo HTTPS (cleartextTrafficPermitted="false").
+  - Excepción EXCLUSIVA PARA DEMO: HTTP sin cifrar hacia el host de desarrollo visto desde el emulador (10.0.2.2)
+    y localhost. En producción el servidor debe publicarse con HTTPS y esta excepción no se usa.
+-->
+<network-security-config>
+	<base-config cleartextTrafficPermitted="false">
+		<trust-anchors>
+			<certificates src="system" />
+		</trust-anchors>
+	</base-config>
+	<domain-config cleartextTrafficPermitted="true">
+		<domain includeSubdomains="false">10.0.2.2</domain>
+		<domain includeSubdomains="false">localhost</domain>
+	</domain-config>
+</network-security-config>

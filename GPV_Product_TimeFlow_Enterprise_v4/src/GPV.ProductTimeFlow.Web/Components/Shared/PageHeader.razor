@@ -1,0 +1,14 @@
+<header class="page-header">
+    <div>
+        @if (Eyebrow is not null) { <div class="eyebrow">@Eyebrow</div> }
+        <h1 tabindex="-1">@Title</h1>
+        @if (Subtitle is not null) { <p>@Subtitle</p> }
+    </div>
+    @if (Actions is not null) { <div class="page-actions">@Actions</div> }
+</header>
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string? Eyebrow { get; set; }
+    [Parameter] public RenderFragment? Actions { get; set; }
+}

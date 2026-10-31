@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Marca de GPV TimeFlow: reloj con flujo de aprobación (tres filtros). Contenido dentro de la zona segura central. -->
+<svg width="456" height="456" viewBox="0 0 456 456" xmlns="http://www.w3.org/2000/svg">
+  <g fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="228" cy="228" r="96" stroke-width="22"/>
+    <path d="M228 170 V228 L266 252" stroke-width="22"/>
+  </g>
+  <g fill="#FFFFFF">
+    <circle cx="164" cy="350" r="12"/>
+    <circle cx="228" cy="350" r="12"/>
+    <circle cx="292" cy="350" r="12" fill="#7CF0C1"/>
+  </g>
+</svg>

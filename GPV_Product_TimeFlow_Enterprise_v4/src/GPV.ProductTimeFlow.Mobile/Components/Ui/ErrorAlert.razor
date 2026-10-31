@@ -1,0 +1,26 @@
+@* Muestra ApiException.Message y la lista ApiException.Errors. *@
+@if (!string.IsNullOrWhiteSpace(Message))
+{
+    <div class="alert alert-danger" role="alert">
+        <div class="alert-title">@Message</div>
+        @if (Details is { Count: > 0 })
+        {
+            <ul class="alert-list">
+                @foreach (var d in Details)
+                {
+                    <li>@d</li>
+                }
+            </ul>
+        }
+        @if (OnRetry.HasDelegate)
+        {
+            <button type="button" class="btn btn-secondary btn-sm" @onclick="OnRetry">Reintentar</button>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public IReadOnlyList<string>? Details { get; set; }
+    [Parameter] public EventCallback OnRetry { get; set; }
+}

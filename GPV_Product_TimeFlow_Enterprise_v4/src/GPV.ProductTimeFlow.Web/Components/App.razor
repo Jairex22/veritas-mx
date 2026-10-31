@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="GPV Product TimeFlow · Solicitudes de tiempo extra, vacaciones y permisos del Departamento de Producto." />
+    <meta name="theme-color" content="#1f4fd8" />
+    <base href="/" />
+    <script src="js/theme-init.js"></script>
+    <ResourcePreloader />
+    <link rel="preload" href="fonts/Inter-Regular.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="@Assets["css/app.css"]" />
+    <link rel="stylesheet" href="@Assets["GPV.ProductTimeFlow.Web.styles.css"]" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="img/icon-192.png" />
+    <HeadOutlet @rendermode="PageRenderMode" />
+</head>
+<body>
+    <Routes @rendermode="PageRenderMode" ClientIp="@clientIp" UserAgent="@userAgent" />
+    <ReconnectModal />
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+</body>
+</html>
+
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    private string? clientIp;
+    private string? userAgent;
+
+    // Las páginas de cuenta (login) y la verificación pública se renderizan estáticamente (sin circuito).
+    private IComponentRenderMode? PageRenderMode => HttpContext.AcceptsInteractiveRouting() ? InteractiveServer : null;
+
+    protected override void OnInitialized()
+    {
+        clientIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+        userAgent = HttpContext.Request.Headers.UserAgent.ToString();
+    }
+}
