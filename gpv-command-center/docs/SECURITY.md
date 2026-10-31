@@ -18,6 +18,7 @@
 | Imprimir etiquetas | ✔ |  | ✔ | ✔ |
 | Reimprimir etiquetas (con justificación) |  |  | ✔ | ✔ |
 | Auditoría, ver conectores |  | ✔ | ✔ | ✔ |
+| Consulta directa OData (credenciales por sesión, en memoria) |  | ✔ | ✔ | ✔ |
 | Probar conectores |  | ✔ |  | ✔ |
 | Reiniciar DEMO |  |  |  | ✔ |
 

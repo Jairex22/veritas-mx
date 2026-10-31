@@ -50,6 +50,7 @@ Linux/macOS: `pip install -r requirements-dev.txt && scripts/run_tests.sh && scr
 | Login DEMO + login corporativo vía IIS (Windows Auth) | Funcional |
 | Dashboard / Production Intelligence | Funcional (DEMO, OData mapeado, CSV) |
 | Trazabilidad (9 campos de búsqueda, historial, flujo de estaciones, defectos, reparaciones, síntomas, componentes, escaneos, panel) | Funcional |
+| Consulta directa OData (caja/serial/orden → seriales, con el $metadata real) | Funcional |
 | Rework inteligente (8 reglas) | Funcional |
 | Centro de Operaciones | Flujo completo **simulado** en DEMO; **NO DISPONIBLE** en REAL |
 | Packing Intelligence | Validación funcional; empaque simulado en DEMO |
@@ -57,7 +58,15 @@ Linux/macOS: `pip install -r requirements-dev.txt && scripts/run_tests.sh && scr
 | Conectores (OData, xTend, FactoryLogixAPI, archivos) | Pruebas de conexión y diagnóstico; **asistente de mapeo OData** (descubrir → mapear → probar → activar) |
 | Auditoría | Funcional (cadena SHA-256 verificable) |
 
-## Conectar a FactoryLogix (modo REAL, sólo lectura)
+## Consulta directa OData (la forma más rápida de ver datos reales)
+
+Sin configurar nada en el servidor: entre con cualquier acceso de Ingeniería, Calidad o Administrador
+(también el DEMO), abra **Consulta directa OData**, escriba la URL (p. ej. `10.62.54.10/odata`), las credenciales
+si el servicio las pide, y pulse **Conectar**. Luego escanee o escriba una **caja, serial u orden**: la aplicación busca
+en todas las entidades del `$metadata` real y lista los **seriales relacionados** (copiar / CSV) junto con las filas
+encontradas. Sólo lectura; las credenciales viven en memoria durante la sesión y nunca se guardan.
+
+## Conectar a FactoryLogix como fuente permanente (modo REAL, sólo lectura)
 
 1. En `.env`: `GPV_MODE=REAL`, `GPV_REAL_DATA_SOURCE=odata`, `GPV_ODATA_BASE_URL=https://<servidor>/<ruta-odata>`,
    `GPV_ODATA_AUTH=basic|bearer|ntlm|none` y credenciales. Para entrar sin DEMO: `GPV_PROXY_AUTH_HEADER` + IIS

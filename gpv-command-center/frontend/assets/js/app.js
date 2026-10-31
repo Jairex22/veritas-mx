@@ -4,6 +4,7 @@ import { brandMark, h, icon, mount, toast } from "./ui.js";
 import * as Login from "./pages/login.js";
 import * as Dashboard from "./pages/dashboard.js";
 import * as Trace from "./pages/trace.js";
+import * as Explorer from "./pages/explorer.js";
 import * as Rework from "./pages/rework.js";
 import * as Operations from "./pages/operations.js";
 import * as Packing from "./pages/packing.js";
@@ -16,6 +17,7 @@ const NAV = [
   { group: "OPERACIÓN" },
   { id: "dashboard", label: "Dashboard", icon: "dashboard", page: Dashboard },
   { id: "trace", label: "Trazabilidad", icon: "trace", page: Trace },
+  { id: "explorer", label: "Consulta directa OData", icon: "database", page: Explorer, perm: "odata.explore" },
   { id: "rework", label: "Rework inteligente", icon: "rework", page: Rework, badge: true },
   { id: "operations", label: "Operaciones", icon: "ops", page: Operations },
   { id: "packing", label: "Packing", icon: "box", page: Packing, perm: "packing.use" },
@@ -59,7 +61,7 @@ function applyRibbon() {
   document.body.classList.toggle("has-ribbon", !!demo);
   let rib = document.querySelector(".demo-ribbon");
   if (demo && !rib) {
-    rib = h("div", { class: "demo-ribbon", role: "note" }, "MODO DEMO · DATOS SINTÉTICOS · SIN CONEXIÓN A FACTORYLOGIX · LAS OPERACIONES SON SIMULADAS");
+    rib = h("div", { class: "demo-ribbon", role: "note" }, "MODO DEMO · TRAZABILIDAD Y KPI CON DATOS SINTÉTICOS · OPERACIONES SIMULADAS · LA CONSULTA DIRECTA ODATA SÍ LEE EL SERVIDOR REAL");
     document.body.prepend(rib);
   } else if (!demo && rib) rib.remove();
 }

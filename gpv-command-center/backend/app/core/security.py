@@ -40,6 +40,7 @@ PERMISSIONS: dict[str, set[Role]] = {
     "audit.read": {Role.ENGINEERING, Role.QUALITY, Role.ADMIN},
     "connectors.read": {Role.ENGINEERING, Role.QUALITY, Role.ADMIN},
     "connectors.probe": {Role.ENGINEERING, Role.ADMIN},
+    "odata.explore": {Role.ENGINEERING, Role.QUALITY, Role.ADMIN},
     "connectors.configure": {Role.ADMIN},
     "demo.reset": {Role.ADMIN},
 }

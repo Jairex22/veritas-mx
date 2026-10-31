@@ -86,6 +86,6 @@ Para correlacionar un error reportado por un usuario, buscar el *ID de correlaci
 scripts\run_tests.bat
 ```
 
-74 pruebas: aislamiento DEMO/producción, operaciones (CSRF, roles, confirmación, token, idempotencia,
+80 pruebas: aislamiento DEMO/producción, operaciones (CSRF, roles, confirmación, token, idempotencia,
 concurrencia, flujo), diagnóstico, conectores (401/500/timeout/TLS/metadata/mapeo), API, etiquetas,
-autenticación corporativa, asistente de mapeo OData (v2/v4, guardado y activación) y frontend servido.
+autenticación corporativa, asistente de mapeo OData (v2/v4, guardado y activación), consulta directa OData y frontend servido.

@@ -12,6 +12,7 @@
 | Integración | Estado v1.0 | Detalle |
 |-------------|-------------|---------|
 | Generador DEMO | ✅ Implementado | Datos sintéticos deterministas, prefijo `DEMO`. Sólo en `GPV_MODE=DEMO`. |
+| OData – consulta directa (explorador) | ✅ Implementado | Conexión por sesión, búsqueda automática de caja/serial/orden en todas las entidades, seriales relacionados. Sólo GET. |
 | OData – prueba de conexión | ✅ Implementado y probado (con servidor simulado) | `GET <base>/$metadata`. Diagnóstico de 401 (incluye esquemas `WWW-Authenticate`), 403, 404, 5xx, TLS, timeout. Sin reintentos con credenciales alternativas. Descubre EntitySets. |
 | OData – lectura de trazabilidad | ✅ Implementado con **asistente de mapeo** (probado con servidor OData simulado v2 y v4) | El asistente (Conectores) lee el `$metadata` real, muestra propiedades y datos de muestra, prueba el mapeo y lo activa sin reiniciar. Sólo `GET` con `$select`, `$filter`, `$top`, `$format`. Pendiente: ejecutarlo contra la instalación de GPV. |
 | OData – auth Windows NTLM | 🟡 Opcional | `GPV_ODATA_AUTH=ntlm` + `pip install httpx-ntlm` (aprobación de TI). Negotiate/Kerberos: pendiente. |

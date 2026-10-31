@@ -8,6 +8,7 @@ from pathlib import Path
 import httpx
 
 from .connectors.base import HttpClientFactory
+from .connectors.explorer import ODataExplorer
 from .connectors.factorylogix import ConnectorRegistry, load_json_config
 from .core.db import Database
 from .core.security import AuthProviders, SessionStore
@@ -48,6 +49,7 @@ class Container:
                                   settings.config_dir / settings.user_roles_file)
         self.http = HttpClientFactory(settings.http_timeout_seconds, settings.verify_tls, settings.ca_bundle, http_transport)
         self.connectors = ConnectorRegistry(settings, self.http)
+        self.explorer = ODataExplorer(self.http)
         self.source_note: str = ""
         self.source = self._select_source(demo_source)
         self.diagnostics = DiagnosticsEngine()
