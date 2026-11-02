@@ -1,0 +1,8 @@
+<div class="kpi {% if m.status != 'ok' %}kpi-na{% endif %}" title="{{ m.definition }}">
+  <div class="kpi-label">{{ label }}</div>
+  {% if m.status == 'ok' %}<div class="kpi-value">{{ m.value|floatformat:2 }}<small>{{ m.unit }}</small></div>
+  {% if m.denominator is not None %}<div class="kpi-sub">{{ m.numerator|floatformat:"-3" }} / {{ m.denominator|floatformat:"-3" }}</div>{% endif %}
+  {% elif m.status == 'insufficient' %}<div class="kpi-value kpi-text">Datos insuficientes</div><div class="kpi-sub">{{ m.reason }}</div>
+  {% else %}<div class="kpi-value kpi-text">No calculable</div><div class="kpi-sub">{{ m.reason }}</div>{% endif %}
+  {% if m.status == 'ok' and m.reason %}<div class="kpi-sub">{{ m.reason }}</div>{% endif %}
+</div>

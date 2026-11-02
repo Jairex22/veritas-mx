@@ -1,0 +1,38 @@
+{% extends "base.html" %}{% load static %}{% block title %}{{ wb.name }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1 data-wbname>{{ wb.name }}</h1><div class="actions">
+<a class="btn" href="{% url 'sheets:versions' wb.pk %}">Versiones</a>
+{% if boot.can_publish %}<form method="post" action="{% url 'sheets:publish' wb.pk %}" data-confirm="Se enviará la hoja guardada al asistente de importación para validarla. ¿Continuar?">{% csrf_token %}<button class="btn" type="submit">Publicar al dataset «{{ boot.dataset }}»</button></form>{% endif %}
+{% if boot.is_owner %}<details class="usermenu"><summary class="btn">Compartir</summary><div class="usermenu-panel"><form method="post" action="{% url 'sheets:share' wb.pk %}">{% csrf_token %}<label class="check"><input type="checkbox" name="shared" {% if wb.shared %}checked{% endif %}> Compartir con mi área ({{ wb.area.code|default:"sin área" }})</label><button class="btn btn-sm" type="submit">Guardar</button></form></div></details>{% endif %}
+<a class="btn" href="{% url 'sheets:list' %}">Libros</a></div></div>
+{% for w in wb.import_warnings %}<div class="alert alert-warn small">{{ w }}</div>{% endfor %}
+<div data-sheet-app>
+<div class="sheet-toolbar" role="toolbar" aria-label="Herramientas de la hoja">
+  <button class="btn btn-sm btn-primary" data-act="save" title="Ctrl+S">Guardar</button>
+  <button class="btn btn-sm" data-act="undo" title="Ctrl+Z">Deshacer</button><button class="btn btn-sm" data-act="redo" title="Ctrl+Y">Rehacer</button>
+  <span class="sep"></span>
+  <button class="btn btn-sm" data-act="insrow">+ Fila</button><button class="btn btn-sm" data-act="delrow">− Fila</button><button class="btn btn-sm" data-act="duprow">Duplicar fila</button>
+  <button class="btn btn-sm" data-act="inscol">+ Columna</button><button class="btn btn-sm" data-act="delcol">− Columna</button>
+  <span class="sep"></span>
+  <button class="btn btn-sm" data-act="sortasc">Ordenar A→Z</button><button class="btn btn-sm" data-act="sortdesc">Z→A</button>
+  <button class="btn btn-sm" data-act="filter">Filtrar</button><button class="btn btn-sm" data-act="find">Buscar/Reemplazar</button>
+  <span class="sep"></span>
+  <select class="btn btn-sm" data-act="fmt" aria-label="Formato"><option value="">Formato…</option><option value="general">General</option><option value="text">Texto</option><option value="number">Número</option><option value="date">Fecha</option><option value="percent">Porcentaje</option></select>
+  <button class="btn btn-sm" data-act="decplus" title="Más decimales">.0+</button><button class="btn btn-sm" data-act="decminus" title="Menos decimales">.0−</button>
+  <button class="btn btn-sm" data-act="bold"><b>N</b></button>
+  <button class="btn btn-sm" data-act="cf">Formato condicional</button><button class="btn btn-sm" data-act="dv">Validación</button>
+  <button class="btn btn-sm" data-act="protect">Proteger columna</button><button class="btn btn-sm" data-act="group">Agrupar filas</button>
+  <button class="btn btn-sm" data-act="freeze">Congelar</button><button class="btn btn-sm" data-act="pivot">Tabla dinámica</button>
+  <span class="sep"></span>
+  <button class="btn btn-sm" data-act="xlsx">Exportar Excel</button><button class="btn btn-sm" data-act="csv">Exportar CSV</button>
+</div>
+<div class="formula-bar"><input class="addr" data-addr readonly aria-label="Celda"><input data-fx aria-label="Contenido de la celda" placeholder="Valor o =FÓRMULA"></div>
+<div class="grid-viewport" data-viewport tabindex="0" aria-label="Cuadrícula de la hoja"><div class="grid-canvas" data-canvas></div></div>
+<div class="sheet-tabs" data-tabs></div>
+<div class="status-line"><span data-status>Listo</span><span data-selinfo></span><span data-verinfo></span></div>
+<div class="jobbox" data-sheet-result hidden></div>
+<details class="card small"><summary>Funciones soportadas y reglas</summary><p>{{ functions|join:", " }}. Separador de argumentos «,» o «;», decimal «.». Referencias A1, $A$1, rangos A1:B5 y otras hojas Hoja2!A1 o 'Mi hoja'!A1. Al copiar, las referencias relativas se desplazan y las absolutas ($) se conservan. Errores: #DIV/0!, #REF!, #NAME? (función no soportada), #VALUE!, #N/A, #CIRC! (referencia circular). El servidor calcula todas las fórmulas; la cuadrícula muestra esos resultados.</p></details>
+</div>
+{{ boot|json_script:"sheet-boot" }}
+{% endblock %}
+{% block scripts %}<script src="{% static 'gpv/js/sheet.js' %}"></script>{% endblock %}

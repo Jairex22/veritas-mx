@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% block title %}Versiones{% endblock %}
+{% block content %}<div class="page-head"><h1>Versiones de «{{ wb.name }}»</h1><a class="btn" href="{% url 'sheets:edit' wb.pk %}">Volver a la hoja</a></div>
+<div class="table-wrap"><table class="data"><thead><tr><th>Versión</th><th>Usuario</th><th>Fecha</th><th>Celdas cambiadas</th><th>Resumen</th><th></th></tr></thead><tbody>
+{% for v in versions %}<tr><td>{{ v.version }}</td><td>{{ v.user.username|default:"—" }}</td><td>{{ v.ts|date:"d/m/Y H:i:s" }}</td><td>{{ v.changed_cells }}</td><td>{{ v.summary }}</td><td><a class="btn btn-sm" href="?v={{ v.version }}">Descargar XLSX</a></td></tr>{% endfor %}</tbody></table></div>{% endblock %}

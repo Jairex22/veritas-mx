@@ -1,0 +1,8 @@
+{% extends "base.html" %}{% block title %}Comunicado{% endblock %}
+{% block content %}<section class="card"><h1>{% if ann %}Editar comunicado{% else %}Nuevo comunicado{% endif %}</h1>
+<form method="post" enctype="multipart/form-data" data-dirty-check>{% csrf_token %}
+<div class="form-grid">{% for f in form %}<div class="{% if f.name == 'body' or f.name == 'title' %}full{% endif %}"><label for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}{{ f.errors }}</div>{% endfor %}
+<div class="full"><label>Adjuntos<input type="file" name="attachments" multiple></label></div>
+{% if ann %}<label class="check full"><input type="checkbox" name="renotify"> Volver a notificar a los destinatarios</label>{% endif %}</div>
+<p class="muted small">La publicación genera notificaciones internas; no se envían correos ni mensajes externos.</p>
+<button class="btn btn-primary" type="submit">Publicar</button> <a class="btn" href="{% url 'comms:list' %}">Cancelar</a></form></section>{% endblock %}

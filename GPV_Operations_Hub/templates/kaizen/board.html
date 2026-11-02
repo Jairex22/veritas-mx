@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block title %}Kaizen{% endblock %}
+{% block content %}<div class="page-head"><h1>Tablero Kaizen</h1><div class="actions">
+<form method="get" class="actions"><input type="search" name="q" value="{{ q }}" placeholder="Buscar" aria-label="Buscar"><select name="area" data-autosubmit aria-label="Área"><option value="">Todas las áreas</option>{% for a in areas %}<option value="{{ a.code }}" {% if request.GET.area == a.code %}selected{% endif %}>{{ a.code }}</option>{% endfor %}</select></form>
+<a class="btn" href="{% url 'reports:reports' %}">Reporte Kaizen</a><a class="btn btn-primary" href="{% url 'kaizen:create' %}">Nueva mejora Kaizen</a></div></div>
+<div class="kanban">{% for s, items in cols %}<div class="kanban-col"><h3>{{ s.label }} ({{ items|length }})</h3>
+{% for i in items %}<div class="kcard"><a href="{% url 'kaizen:detail' i.pk %}">{{ i.code }} · {{ i.title }}</a><br><span class="muted small">{{ i.area.code }} · {{ i.responsible.username|default:"sin responsable" }} · prioridad {{ i.get_priority_display }}{% if i.target_date %} · {{ i.target_date|date:"d/m/Y" }}{% endif %}</span></div>{% endfor %}
+</div>{% endfor %}</div>{% endblock %}

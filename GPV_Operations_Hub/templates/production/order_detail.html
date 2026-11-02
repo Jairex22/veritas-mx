@@ -1,0 +1,39 @@
+{% extends "base.html" %}{% block title %}Orden {{ wo.number }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Orden {{ wo.number }}</h1><a class="btn" href="{% url 'production:plan' %}">Volver al plan</a></div>
+{% for w in warnings %}<div class="alert alert-warn">{{ w }}</div>{% endfor %}
+<div class="grid grid-2">
+<section class="card"><h2>Resumen</h2>
+<table class="data"><tbody>
+<tr><th>Cliente</th><td>{{ wo.customer }}</td></tr><tr><th>Área / Línea</th><td>{{ wo.area }} / {{ wo.line }}</td></tr>
+<tr><th>Parte / Rev.</th><td>{{ wo.part_number }} {{ wo.revision }}</td></tr><tr><th>Meta</th><td>{{ wo.qty_planned|floatformat:"-3"|default:"Sin meta" }} {{ wo.unit }}</td></tr>
+<tr><th>Buenas</th><td>{{ row.good|floatformat:"-3" }} <span class="muted small">({{ row.source }})</span></td></tr>
+<tr><th>Pendiente</th><td>{% if row.pending is not None %}{{ row.pending|floatformat:"-3" }}{% else %}No calculable{% endif %}</td></tr>
+<tr><th>Cumplimiento</th><td>{% if row.compliance.status == 'ok' %}{{ row.compliance.value|floatformat:2 }} %{% else %}No calculable — {{ row.compliance.reason }}{% endif %}</td></tr>
+<tr><th>Vencimiento</th><td>{{ wo.due|date:"d/m/Y H:i"|default:"—" }} {% if row.late %}<span class="tag tag-err">Atrasada</span>{% endif %}</td></tr>
+<tr><th>Prioridad / Estado</th><td>{{ wo.priority }} / {{ wo.status }}</td></tr><tr><th>Responsable</th><td>{{ wo.responsible }}</td></tr>
+<tr><th>Asignados</th><td>{% for u in wo.assigned_users.all %}{{ u.username }} {% empty %}—{% endfor %}</td></tr>
+<tr><th>Actualizado</th><td>{{ wo.updated|date:"d/m/Y H:i" }} (versión {{ wo.version }})</td></tr>
+</tbody></table>
+{% if projection %}<h3>Proyección de cierre (estimación)</h3>
+{% if projection.status == 'estimate' %}<p>Fecha estimada: <strong>{{ projection.projected_date }}</strong> · ritmo {{ projection.rate_per_day }} {{ wo.unit }}/día en {{ projection.observed_days }} días con producción (ventana {{ projection.window_days }} días).</p>
+<p class="muted small">Fórmula: {{ projection.formula }}. Supuestos: {{ projection.assumptions }} No es producción confirmada.</p>
+{% else %}<p class="muted">{{ projection.reason }}</p>{% endif %}{% endif %}
+</section>
+<section class="card">
+{% if form %}<h2>Modificar meta / prioridad</h2>
+<form method="post" action="{% url 'production:order_edit' wo.pk %}" data-dirty-check>{% csrf_token %}<input type="hidden" name="version" value="{{ wo.version }}">{{ form.as_p }}<button class="btn btn-primary" type="submit">Guardar cambios</button></form>{% endif %}
+{% if can_capture %}<h2>Capturar avance</h2>
+<form method="post" action="{% url 'production:order_capture' wo.pk %}">{% csrf_token %}<div class="form-grid">
+<label>Fecha<input type="date" name="date" value="{{ today|date:'Y-m-d' }}"></label>
+<label>Turno<select name="shift">{% for s in shifts %}<option>{{ s.code }}</option>{% endfor %}</select></label>
+<label>Buenas<input type="number" name="qty_good" min="0" step="any" value="0"></label><label>Rechazo<input type="number" name="qty_reject" min="0" step="any" value="0"></label>
+<label>Scrap<input type="number" name="qty_scrap" min="0" step="any" value="0"></label><label>Estación<input name="station"></label>
+<label class="full">Observaciones<input name="notes"></label></div><button class="btn btn-primary" type="submit">Registrar avance</button></form>{% endif %}
+</section></div>
+<section class="card"><h2>Historial del plan</h2><div class="table-wrap"><table class="data"><thead><tr><th>Fecha</th><th>Campo</th><th>Anterior</th><th>Nuevo</th><th>Motivo</th><th>Usuario</th></tr></thead><tbody>
+{% for c in changes %}<tr><td class="nowrap">{{ c.ts|date:"d/m/Y H:i" }}</td><td>{{ c.field }}</td><td>{{ c.old_value|default:"—" }}</td><td>{{ c.new_value|default:"—" }}</td><td>{{ c.reason }}</td><td>{{ c.user.username|default:"—" }}</td></tr>{% empty %}<tr><td colspan="6" class="muted">Sin cambios.</td></tr>{% endfor %}</tbody></table></div></section>
+<section class="card"><h2>Registros de producción vigentes</h2><div class="table-wrap"><table class="data"><thead><tr><th>Fecha</th><th>Turno</th><th>Estación</th><th class="num">Buenas</th><th class="num">Rechazo</th><th class="num">Scrap</th><th>Dataset</th><th>Origen</th></tr></thead><tbody>
+{% for r in records %}<tr><td>{{ r.date|date:"d/m/Y" }}</td><td>{{ r.shift }}</td><td>{{ r.station }}</td><td class="num">{{ r.qty_good|floatformat:"-3" }}</td><td class="num">{{ r.qty_reject|floatformat:"-3" }}</td><td class="num">{{ r.qty_scrap|floatformat:"-3" }}</td><td>{{ r.dataset.name }}</td><td class="small">{% if r.batch_id %}<a href="{% url 'production:import_detail' r.batch_id %}">Lote #{{ r.batch_id }}</a> fila {{ r.row_number }}{% else %}Captura {{ r.entered_by.username }}{% endif %}</td></tr>
+{% empty %}<tr><td colspan="8" class="muted">Sin registros.</td></tr>{% endfor %}</tbody></table></div></section>
+{% include "partials/thread.html" %}{% endblock %}

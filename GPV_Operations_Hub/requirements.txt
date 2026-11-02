@@ -1,0 +1,24 @@
+# GPV Operations Hub — dependencias del NÚCLEO (versiones fijadas y verificadas con Python 3.11, 3.12 y 3.13).
+# Todas tienen ruedas (wheels) precompiladas para Windows x64; no requieren compilador ni privilegios de administrador.
+Django==5.2.18            # BSD-3-Clause · LTS (soporte hasta abril 2028)
+asgiref==3.12.1           # BSD-3-Clause (dependencia de Django)
+sqlparse==0.5.5           # BSD-3-Clause (dependencia de Django)
+tzdata==2026.5            # Apache-2.0 · zona America/Mexico_City en Windows
+openpyxl==3.1.5           # MIT · lectura/escritura XLSX
+et_xmlfile==2.0.0         # MIT (dependencia de openpyxl)
+pypdf==6.21.1             # BSD-3-Clause · operaciones PDF
+cryptography==50.0.2      # Apache-2.0 / BSD · PDF cifrados (AES)
+cffi==2.1.1               # MIT (dependencia de cryptography)
+pycparser==3.12           # BSD-3-Clause (dependencia de cffi)
+pypdfium2==5.13.0         # Apache-2.0 / BSD-3-Clause (PDFium) · miniaturas y PDF a imagen
+pdfplumber==0.11.10       # MIT · extracción de tablas de PDF
+pdfminer.six==20260107    # MIT (dependencia de pdfplumber)
+charset-normalizer==3.5.2 # MIT (dependencia de pdfminer/reportlab)
+reportlab==5.0.1          # BSD · PDF de reportes, A3 y etiquetas
+pillow==12.3.0            # MIT-CMU · imágenes
+python-docx==1.2.0        # MIT · Word
+python-pptx==1.0.2        # MIT · PowerPoint
+XlsxWriter==3.3.1         # BSD-2-Clause (dependencia de python-pptx)
+lxml==6.1.3               # BSD-3-Clause (dependencia de python-docx/pptx)
+typing_extensions==4.16.0 # PSF (dependencia)
+segno==1.6.6              # BSD-3-Clause · generación de QR

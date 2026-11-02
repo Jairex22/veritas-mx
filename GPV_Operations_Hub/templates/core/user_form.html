@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% block title %}{{ title }}{% endblock %}
+{% block content %}<section class="card narrow"><h1>{{ title }}</h1>
+<form method="post" data-dirty-check>{% csrf_token %}{{ form.as_p }}<button class="btn btn-primary" type="submit">Guardar</button> <a class="btn" href="{% url 'admin_home' %}">Cancelar</a></form>
+<p class="muted small">Las contraseñas se guardan con el hash del framework (PBKDF2). El usuario deberá cambiar la contraseña temporal al entrar.</p></section>{% endblock %}

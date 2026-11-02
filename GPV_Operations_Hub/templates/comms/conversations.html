@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block title %}Conversaciones{% endblock %}
+{% block content %}<div class="page-head"><h1>Conversaciones internas</h1></div>
+<div class="grid grid-2"><section class="card"><h2>Mis conversaciones</h2>
+{% for c, unread in items %}<p><a href="{% url 'comms:conversation' c.pk %}">{{ c.subject }}</a> {% if unread %}<span class="tag tag-info">Nuevo</span>{% endif %}<br><span class="muted small">{% for p in c.participants.all %}{{ p.username }} {% endfor %} · {{ c.updated|date:"d/m H:i" }}</span></p>
+{% empty %}<p class="muted">Sin conversaciones.</p>{% endfor %}</section>
+<section class="card"><h2>Nueva conversación</h2><form method="post" action="{% url 'comms:conversation_create' %}">{% csrf_token %}{{ form.as_p }}<button class="btn btn-primary" type="submit">Enviar</button></form></section></div>{% endblock %}

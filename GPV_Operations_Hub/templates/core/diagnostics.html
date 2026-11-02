@@ -1,0 +1,5 @@
+{% extends "base.html" %}{% block title %}Diagnóstico{% endblock %}
+{% block content %}<div class="page-head"><h1>Diagnóstico del sistema</h1><a class="btn" href="">Volver a verificar</a></div>
+{% for s in sections %}<section class="card"><h2>{{ s.title }}</h2><div class="table-wrap"><table class="data"><tbody>
+{% for i in s.items %}<tr><td style="width:30%"><strong>{{ i.name }}</strong></td><td><span class="tag {% if i.status == 'ok' %}tag-ok{% elif i.status == 'error' %}tag-err{% elif i.status == 'warn' %}tag-warn{% else %}tag-info{% endif %}">{{ i.status }}</span></td><td>{{ i.detail }}{% if i.fix %}<br><span class="muted small">Acción: {{ i.fix }}</span>{% endif %}</td></tr>{% endfor %}
+</tbody></table></div></section>{% endfor %}{% endblock %}

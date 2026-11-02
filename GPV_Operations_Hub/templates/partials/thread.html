@@ -1,0 +1,23 @@
+<section class="card" id="comentarios"><h2>Comentarios, dudas e incidencias</h2>
+{% for c in thread_comments %}
+<div class="card" id="c{{ c.pk }}" style="margin-bottom:.5rem">
+  <div><strong>{{ c.author.get_full_name|default:c.author.username }}</strong> <span class="muted small">{{ c.created|date:"d/m/Y H:i" }}</span>
+  <span class="tag {% if c.kind == 'incident' %}tag-err{% elif c.kind == 'question' %}tag-warn{% endif %}">{{ c.get_kind_display }}</span>
+  {% if c.kind != 'comment' %}{% if c.resolved %}<span class="tag tag-ok">Resuelta por {{ c.resolved_by.username }}</span>{% else %}<span class="tag">Abierta</span>{% endif %}{% endif %}</div>
+  <p style="white-space:pre-wrap">{{ c.body }}</p>
+  {% for f in c.attachments.all %}<a href="{% url 'download' f.pk %}">📎 {{ f.original_name }}</a> {% endfor %}
+  {% for r in c.replies.all %}<div style="margin-left:1.2rem;border-left:3px solid var(--border);padding-left:.6rem"><strong>{{ r.author.username }}</strong> <span class="muted small">{{ r.created|date:"d/m H:i" }}</span><p style="white-space:pre-wrap">{{ r.body }}</p></div>{% endfor %}
+  <details><summary class="small">Responder</summary>
+  <form method="post" action="{% url 'comms:comment' %}">{% csrf_token %}<input type="hidden" name="ct" value="{{ thread_ct }}"><input type="hidden" name="obj" value="{{ thread_obj }}"><input type="hidden" name="parent" value="{{ c.pk }}"><input type="hidden" name="next" value="{{ request.path }}">
+  <textarea name="body" required aria-label="Respuesta"></textarea><button class="btn btn-sm" type="submit">Enviar respuesta</button></form></details>
+  {% if can_resolve and c.kind != 'comment' and not c.resolved %}<form method="post" action="{% url 'comms:comment_resolve' c.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button class="btn btn-sm" type="submit">Marcar resuelta</button></form>{% endif %}
+</div>
+{% empty %}<p class="muted">Sin comentarios.</p>{% endfor %}
+{% if can_comment %}
+<form method="post" action="{% url 'comms:comment' %}" enctype="multipart/form-data">{% csrf_token %}
+<input type="hidden" name="ct" value="{{ thread_ct }}"><input type="hidden" name="obj" value="{{ thread_obj }}"><input type="hidden" name="next" value="{{ request.path }}">
+<div class="form-grid"><label>Tipo<select name="kind"><option value="comment">Comentario</option><option value="question">Duda</option><option value="incident">Incidencia</option></select></label>
+<label>Adjuntos<input type="file" name="attachments" multiple></label>
+<label class="full">Mensaje<textarea name="body" required></textarea></label></div>
+<button class="btn btn-primary" type="submit">Publicar</button></form>{% endif %}
+</section>

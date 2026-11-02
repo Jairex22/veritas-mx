@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% block title %}Programar reporte{% endblock %}
+{% block content %}<section class="card narrow"><h1>{% if sch %}Editar{% else %}Nueva{% endif %} programación</h1>
+<form method="post">{% csrf_token %}<div class="form-grid">
+<label class="full">Nombre<input name="name" value="{{ sch.name }}" required></label>
+<label>Plantilla<select name="kind">{% for v,l in kinds %}<option value="{{ v }}" {% if sch.kind == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
+<label>Frecuencia<select name="frequency">{% for v,l in frequencies %}<option value="{{ v }}" {% if sch.frequency == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
+<label>Hora (America/Mexico_City)<input type="time" name="time_of_day" value="{{ sch.time_of_day|time:'H:i'|default:'06:30' }}"></label>
+<label>Día (semanal)<select name="weekday"><option value="">—</option>{% for i,d in weekdays %}<option value="{{ i }}" {% if sch.weekday == i %}selected{% endif %}>{{ d }}</option>{% endfor %}</select></label>
+<label>Turno (por turno)<select name="shift"><option value="">—</option>{% for s in shifts %}<option value="{{ s.pk }}" {% if sch.shift_id == s.pk %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></label>
+<label>Periodo de datos<select name="period"><option value="today">Hoy</option><option value="week" {% if sch.filters.period == 'week' %}selected{% endif %}>Semana</option><option value="month" {% if sch.filters.period == 'month' %}selected{% endif %}>Mes</option></select></label>
+<label>Área<select name="area"><option value="">Todas</option>{% for a in areas %}<option value="{{ a.code }}" {% if sch.filters.area == a.code %}selected{% endif %}>{{ a.code }}</option>{% endfor %}</select></label>
+<label>Línea<input name="line" value="{{ sch.filters.line }}"></label>
+<fieldset class="full"><legend>Formatos</legend><ul class="checklist">{% for v,l in formats %}<li><label class="check"><input type="checkbox" name="formats" value="{{ v }}" {% if v in sch.formats or not sch and v == 'pdf' %}checked{% endif %}>{{ l }}</label></li>{% endfor %}</ul></fieldset>
+<label class="full">Destinatarios internos (notificación en el portal)<select name="recipients" multiple size="6">{% for u in users %}<option value="{{ u.pk }}" {% if sch and u in sch.recipients.all %}selected{% endif %}>{{ u.username }} {{ u.get_full_name }}</option>{% endfor %}</select></label>
+<label class="check full"><input type="checkbox" name="active" {% if not sch or sch.active %}checked{% endif %}> Activa</label></div>
+<p class="muted small">La generación la realiza el proceso <code>manage.py run_scheduler</code>, no el navegador. Si el servidor estuvo apagado, al reanudar se genera una sola vez la ocurrencia más reciente y se registran las omitidas.</p>
+<button class="btn btn-primary" type="submit">Guardar</button></form></section>{% endblock %}

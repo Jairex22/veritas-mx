@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% block title %}Administración{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Administración</h1><div class="actions">
+  <a class="btn btn-primary" href="{% url 'user_create' %}">Nuevo usuario</a>
+  <a class="btn" href="{% url 'capability_matrix' %}">Permisos por rol</a>
+  {% if caps.admin__settings %}<a class="btn" href="{% url 'settings' %}">Configuración</a><a class="btn" href="{% url 'diagnostics' %}">Diagnóstico</a><a class="btn" href="{% url 'audit' %}">Auditoría</a>{% endif %}
+  {% if caps.admin__printers %}<a class="btn" href="{% url 'labels:printers' %}">Impresoras</a>{% endif %}
+  <a class="btn" href="{% url 'production:datasets' %}">Datasets</a>
+</div></div>
+<section class="card"><h2>Usuarios</h2><div class="table-wrap"><table class="data"><thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Áreas</th><th>Turno</th><th>Activo</th><th></th></tr></thead><tbody>
+{% for u in users %}<tr><td>{{ u.username }}</td><td>{{ u.get_full_name }}</td><td>{{ u.profile.get_role_display }}</td>
+<td>{% if u.profile.all_areas or u.is_superuser %}Todas{% else %}{% for a in u.profile.areas.all %}{{ a.code }} {% endfor %}{% endif %}</td><td>{{ u.profile.shift.code|default:"—" }}</td><td>{{ u.is_active|yesno:"Sí,No" }}</td>
+<td><a class="btn btn-sm" href="{% url 'user_edit' u.pk %}">Editar</a></td></tr>{% endfor %}</tbody></table></div></section>
+<div class="grid grid-2">
+<section class="card"><h2>Áreas</h2>{% for a in areas %}<p><a href="{% url 'area_edit' a.pk %}">{{ a }}</a> {% if not a.active %}<span class="tag">inactiva</span>{% endif %}</p>{% endfor %}<a class="btn btn-sm" href="{% url 'area_create' %}">Nueva área</a></section>
+<section class="card"><h2>Turnos (calendario)</h2>{% for s in shifts %}<p><a href="{% url 'shift_edit' s.pk %}">{{ s }}</a> {{ s.name }}</p>{% endfor %}<a class="btn btn-sm" href="{% url 'shift_create' %}">Nuevo turno</a></section>
+</div>{% endblock %}

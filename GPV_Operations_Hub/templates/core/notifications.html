@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block title %}Notificaciones{% endblock %}
+{% block content %}<div class="page-head"><h1>Notificaciones</h1></div>
+<div class="table-wrap"><table class="data"><thead><tr><th>Fecha</th><th>Título</th><th>Detalle</th><th>Estado</th></tr></thead><tbody>
+{% for n in page %}<tr><td class="nowrap">{{ n.created|date:"d/m/Y H:i" }}</td><td>{% if n.url %}<a href="{{ n.url }}">{{ n.title }}</a>{% else %}{{ n.title }}{% endif %}</td><td>{{ n.body|truncatechars:160 }}</td><td>{% if n.read_at %}Leída{% else %}<strong>No leída</strong>{% endif %}</td></tr>
+{% empty %}<tr><td colspan="4" class="muted">Sin notificaciones.</td></tr>{% endfor %}</tbody></table></div>
+{% include "partials/pager.html" %}{% endblock %}

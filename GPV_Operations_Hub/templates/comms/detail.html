@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% block title %}{{ ann.title }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{{ ann.title }}</h1><div class="actions">
+{% if ann.author_id == user.pk or user.is_superuser %}<a class="btn" href="{% url 'comms:edit' ann.pk %}">Editar</a>
+<form method="post" action="{% url 'comms:unpublish' ann.pk %}" data-confirm="¿Retirar el comunicado? Se conserva el historial.">{% csrf_token %}<button class="btn btn-danger" type="submit">Retirar</button></form>{% endif %}</div></div>
+<section class="card">
+<p class="muted small">Prioridad {{ ann.get_priority_display }} · {{ ann.author.get_full_name|default:ann.author.username }} · publicado {{ ann.created|date:"d/m/Y H:i" }} · versión {{ ann.version }} · vigencia {{ ann.valid_from|date:"d/m/Y H:i" }} – {{ ann.valid_until|date:"d/m/Y H:i"|default:"sin fin" }}</p>
+<p class="muted small">Destinatarios: {% for a in ann.areas.all %}{{ a.code }} {% empty %}todas las áreas{% endfor %} · {% for s in ann.shifts.all %}{{ s.code }} {% empty %}todos los turnos{% endfor %} · {% if ann.roles %}roles {{ ann.roles|join:", " }}{% else %}todos los roles{% endif %}</p>
+<div style="white-space:pre-wrap">{{ ann.body }}</div>
+{% for f in ann.attachments.all %}<p><a href="{% url 'download' f.pk %}">📎 {{ f.original_name }}</a> <span class="muted small">{{ f.size|filesizeformat }}</span></p>{% endfor %}
+{% if ann.require_ack %}{% if read.ack_at %}<div class="alert alert-ok">Usted confirmó la lectura el {{ read.ack_at|date:"d/m/Y H:i" }}.</div>
+{% else %}<form method="post" action="{% url 'comms:ack' ann.pk %}">{% csrf_token %}<button class="btn btn-primary" type="submit">Confirmar lectura</button></form>{% endif %}{% endif %}
+</section>
+{% if receipts is not None %}<section class="card"><h2>Confirmaciones ({{ read_count }} leídos · {{ ack_count }} confirmados de {{ receipts|length }})</h2>
+<div class="table-wrap"><table class="data"><thead><tr><th>Usuario</th><th>Leído</th><th>Confirmado</th></tr></thead><tbody>
+{% for u, r in receipts %}<tr><td>{{ u.get_full_name|default:u.username }}</td><td>{{ r.read_at|date:"d/m H:i"|default:"—" }}</td><td>{{ r.ack_at|date:"d/m H:i"|default:"—" }}</td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
+{% include "partials/thread.html" %}{% endblock %}

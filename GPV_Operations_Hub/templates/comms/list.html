@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% block title %}Comunicados{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Comunicados</h1><div class="actions">
+<form method="get" class="actions"><input type="search" name="q" value="{{ q }}" placeholder="Buscar" aria-label="Buscar"><select name="ver" data-autosubmit aria-label="Mostrar"><option value="vigentes">Vigentes</option><option value="todos" {% if show == 'todos' %}selected{% endif %}>Incluir vencidos</option></select><button class="btn" type="submit">Buscar</button></form>
+<a class="btn" href="{% url 'comms:conversations' %}">Conversaciones</a>
+{% if can_publish %}<a class="btn btn-primary" href="{% url 'comms:create' %}">Nuevo comunicado</a>{% endif %}</div></div>
+{% for a, r in page %}
+<article class="card"><h2 style="margin-top:0"><a href="{% url 'comms:detail' a.pk %}">{{ a.title }}</a>
+{% if a.priority != 'normal' %}<span class="tag {% if a.priority == 'critical' %}tag-err{% else %}tag-warn{% endif %}">{{ a.get_priority_display }}</span>{% endif %}
+{% if not r %}<span class="tag tag-info">No leído</span>{% elif a.require_ack and not r.ack_at %}<span class="tag tag-warn">Pendiente de confirmar</span>{% endif %}
+{% if not a.is_active %}<span class="tag">Fuera de vigencia</span>{% endif %}</h2>
+<p class="muted small">{{ a.author.get_full_name|default:a.author.username }} · {{ a.created|date:"d/m/Y H:i" }} · vigente hasta {{ a.valid_until|date:"d/m/Y H:i"|default:"sin fecha" }}</p>
+<p>{{ a.body|truncatechars:280|linebreaksbr }}</p></article>
+{% empty %}<p class="muted">No hay comunicados.</p>{% endfor %}
+{% include "partials/pager.html" %}{% endblock %}

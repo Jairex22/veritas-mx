@@ -1,0 +1,46 @@
+{% extends "base.html" %}{% load static %}{% block title %}Diseñar {{ t.name }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Diseñar etiqueta · {{ t.name }}</h1><div class="actions">
+<button class="btn btn-primary" type="button" data-d="save">Guardar borrador</button>
+<a class="btn" href="{% url 'labels:export_file' t.pk 'pdf' %}?inline=1" target="_blank" rel="noopener" data-d-export>Vista previa PDF (tamaño exacto)</a>
+<a class="btn" href="{% url 'labels:export_file' t.pk 'svg' %}">SVG</a><a class="btn" href="{% url 'labels:export_file' t.pk 'zpl' %}">ZPL</a>
+<a class="btn" href="{% url 'labels:export_json' t.pk %}">Exportar JSON</a>
+{% if boot.can_publish %}<form method="post" action="{% url 'labels:publish' t.pk %}" data-confirm="Guarde el borrador antes de publicar. ¿Publicar el borrador guardado como nueva versión?">{% csrf_token %}<input type="hidden" name="notes" value=""><button class="btn" type="submit">Publicar versión</button></form>{% endif %}
+{% if t.published %}<a class="btn" href="{% url 'labels:print' t.pk %}">Imprimir</a>{% endif %}</div></div>
+<div class="designer" data-designer>
+  <aside class="card" style="margin:0">
+    <h3>Agregar</h3><div class="actions">
+      <button class="btn btn-sm" type="button" data-add="text">Texto</button><button class="btn btn-sm" type="button" data-add="field">Campo variable</button>
+      <button class="btn btn-sm" type="button" data-add="code128">Code 128</button><button class="btn btn-sm" type="button" data-add="qr">QR</button>
+      <button class="btn btn-sm" type="button" data-add="line">Línea</button><button class="btn btn-sm" type="button" data-add="rect">Rectángulo</button>
+      <label class="btn btn-sm">Imagen PNG<input type="file" accept="image/png" data-add-image hidden></label></div>
+    <h3>Etiqueta</h3>
+    <label>Nombre<input data-t="name"></label>
+    <div class="form-grid"><label>Ancho mm<input type="number" step="0.5" data-t="width_mm"></label><label>Alto mm<input type="number" step="0.5" data-t="height_mm"></label>
+    <label>DPI real<select data-t="dpi"><option>152</option><option>203</option><option>300</option><option>600</option></select></label><label>Margen mm<input type="number" step="0.5" data-t="margin_mm"></label></div>
+    <label>Contador de serial<select data-t="serial_counter"><option value="">— ninguno —</option>{% for c in boot.counters %}<option>{{ c }}</option>{% endfor %}</select></label>
+    <label>Campos solicitados al imprimir (nombre:Etiqueta, uno por línea)<textarea rows="3" data-prompts placeholder="lote:Lote&#10;operador:Operador"></textarea></label>
+    <h3>Vista</h3><div class="form-grid"><label>Zoom<input type="range" min="2" max="12" step="0.5" value="5" data-zoom></label><label class="check"><input type="checkbox" checked data-snap> Cuadrícula 1 mm</label></div>
+    <h3>Capas</h3><ul class="panel-list" data-layers></ul>
+    <div class="actions"><button class="btn btn-sm" type="button" data-d="up">Subir</button><button class="btn btn-sm" type="button" data-d="down">Bajar</button></div>
+  </aside>
+  <div>
+    <div class="actions" style="margin-bottom:.4rem">
+      <button class="btn btn-sm" type="button" data-d="undo">Deshacer</button><button class="btn btn-sm" type="button" data-d="redo">Rehacer</button>
+      <button class="btn btn-sm" type="button" data-d="dup">Duplicar</button><button class="btn btn-sm" type="button" data-d="del">Eliminar</button>
+      <button class="btn btn-sm" type="button" data-d="lock">Bloquear</button>
+      <button class="btn btn-sm" type="button" data-align="left">Alinear izq.</button><button class="btn btn-sm" type="button" data-align="hcenter">Centrar H</button><button class="btn btn-sm" type="button" data-align="right">Alinear der.</button>
+      <button class="btn btn-sm" type="button" data-align="top">Arriba</button><button class="btn btn-sm" type="button" data-align="vcenter">Centrar V</button><button class="btn btn-sm" type="button" data-align="bottom">Abajo</button>
+      <button class="btn btn-sm" type="button" data-align="dist-h">Distribuir H</button><button class="btn btn-sm" type="button" data-align="dist-v">Distribuir V</button>
+      <span class="muted small" data-dstatus></span></div>
+    <div class="designer-stage" data-stage><div class="ruler-h" data-ruler-h></div><div class="ruler-v" data-ruler-v></div><div class="label-paper" data-paper></div></div>
+    <div data-warnings></div>
+    <p class="muted small">La vista se renderiza en el servidor con el mismo motor que el PDF/ZPL. Clic para seleccionar, Shift+clic selección múltiple, arrastre para mover, esquina para redimensionar, flechas para mover 0.5 mm (Shift: 5 mm). Los códigos no se deforman: si no caben se marcan en rojo.</p>
+  </div>
+  <aside class="card" style="margin:0"><h3>Propiedades</h3><div data-props><p class="muted">Seleccione un elemento.</p></div>
+    <h3>Datos de prueba (vista previa)</h3><textarea rows="6" data-sample>{"work_order": "000123", "part_number": "GPV-PN-0451", "revision": "B", "lot": "L2611-07", "qty_good": "48", "customer": "Cliente Demo"}</textarea>
+    <p class="muted small">Variables: {campo} de los datos, {serial}, {consecutivo}, {copia}, {fecha}, {hora}. Transformaciones: {campo|upper}, |lower, |strip, |strip_prefix:GPV-, |strip_suffix:X, |left:4, |right:4, |pad:8, |replace:a:b, |default:N/A, |date:%d/%m/%Y</p></aside>
+</div>
+{{ boot|json_script:"designer-boot" }}
+{% endblock %}
+{% block scripts %}<script src="{% static 'gpv/js/designer.js' %}"></script>{% endblock %}

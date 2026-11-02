@@ -1,0 +1,131 @@
+{
+  "schema": "gpv-label/1",
+  "template": {
+    "schema": "gpv-label/1",
+    "name": "Etiqueta de caja",
+    "width_mm": 101.6,
+    "height_mm": 76.2,
+    "dpi": 203,
+    "margin_mm": 2,
+    "prompts": [
+      {
+        "name": "operador",
+        "label": "Operador",
+        "required": true
+      }
+    ],
+    "serial_counter": "",
+    "elements": [
+      {
+        "id": "r0",
+        "type": "rect",
+        "name": "Marco",
+        "x": 1,
+        "y": 1,
+        "w": 99.6,
+        "h": 74.2,
+        "rot": 0,
+        "stroke_mm": 0.5
+      },
+      {
+        "id": "t0",
+        "type": "text",
+        "name": "Cliente",
+        "x": 4,
+        "y": 3,
+        "w": 70,
+        "h": 8,
+        "rot": 0,
+        "content": "{customer|upper}",
+        "font_size": 14,
+        "bold": true,
+        "autofit": true
+      },
+      {
+        "id": "t1",
+        "type": "text",
+        "name": "Parte",
+        "x": 4,
+        "y": 13,
+        "w": 70,
+        "h": 6,
+        "rot": 0,
+        "content": "Parte: {part_number|strip_prefix:GPV-}  Rev {revision}",
+        "font_size": 11
+      },
+      {
+        "id": "t2",
+        "type": "text",
+        "name": "Cantidad",
+        "x": 4,
+        "y": 21,
+        "w": 70,
+        "h": 6,
+        "rot": 0,
+        "content": "Cantidad: {qty_good} pz   Caja {consecutivo}",
+        "font_size": 11
+      },
+      {
+        "id": "q1",
+        "type": "qr",
+        "name": "QR",
+        "x": 76,
+        "y": 3,
+        "w": 22,
+        "h": 22,
+        "rot": 0,
+        "content": "{part_number};{lot};{qty_good}",
+        "ec": "M"
+      },
+      {
+        "id": "l1",
+        "type": "line",
+        "name": "Separador",
+        "x": 3,
+        "y": 29,
+        "w": 95,
+        "h": 0,
+        "rot": 0,
+        "stroke_mm": 0.4
+      },
+      {
+        "id": "b1",
+        "type": "code128",
+        "name": "Orden",
+        "x": 3,
+        "y": 32,
+        "w": 95,
+        "h": 18,
+        "rot": 0,
+        "content": "{work_order}",
+        "module_mm": 0.375,
+        "show_text": true
+      },
+      {
+        "id": "b2",
+        "type": "code128",
+        "name": "Lote",
+        "x": 3,
+        "y": 52,
+        "w": 95,
+        "h": 15,
+        "rot": 0,
+        "content": "{lot}",
+        "module_mm": 0.375,
+        "show_text": true
+      },
+      {
+        "id": "t3",
+        "type": "text",
+        "name": "Operador",
+        "x": 4,
+        "y": 69,
+        "w": 92,
+        "h": 5,
+        "rot": 0,
+        "content": "Empacó: {operador} · {fecha} {hora}",
+        "font_size": 8
+      }
+    ]
+  }
+}

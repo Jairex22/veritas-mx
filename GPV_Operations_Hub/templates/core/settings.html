@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block title %}Configuración{% endblock %}
+{% block content %}<section class="card narrow"><h1>Configuración general</h1>
+<h2>Logotipo oficial</h2><p class="muted">PNG, JPG o SVG (sin scripts). Se muestra en la barra superior.</p>
+<form method="post" enctype="multipart/form-data">{% csrf_token %}<input type="file" name="logo" accept=".png,.jpg,.jpeg,.svg" required> <button class="btn btn-primary" type="submit">Cargar logotipo</button></form>
+{% if GPV_LOGO_ID %}<form method="post">{% csrf_token %}<input type="hidden" name="remove_logo" value="1"><button class="btn" type="submit">Quitar logotipo</button></form>{% endif %}
+<h2>Otros parámetros</h2><p class="muted">Intervalo de actualización de notificaciones: {{ GPV_POLL_SECONDS }} s (GPV_POLL_SECONDS). Zona horaria: America/Mexico_City. Los demás parámetros se definen en el archivo .env (ver INSTALACION_WINDOWS.md).</p></section>{% endblock %}

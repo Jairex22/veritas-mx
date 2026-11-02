@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% block title %}{{ run.title }}{% endblock %}
+{% block content %}<div class="page-head"><h1>{{ run.title|default:run.get_kind_display }}</h1><a class="btn" href="{% url 'reports:reports' %}">Reportes</a></div>
+<section class="card"><p>Estado: <strong>{{ run.get_status_display }}</strong> · Autor {{ run.author.username|default:"—" }} · Creado {{ run.created|date:"d/m/Y H:i:s" }} · Terminado {{ run.finished|date:"d/m/Y H:i:s"|default:"—" }} · Intentos {{ run.attempts }}</p>
+{% if run.schedule %}<p>Programación: {{ run.schedule.name }} · ocurrencia {{ run.scheduled_for|date:"d/m/Y H:i" }}{% if run.params._skipped_missed_occurrences %} · se omitieron {{ run.params._skipped_missed_occurrences }} ocurrencias anteriores por servidor apagado{% endif %}</p>{% endif %}
+<p>Periodo: {{ run.snapshot.period_text }} · Versión de datos <code>{{ run.data_version }}</code></p>
+{% if run.error %}<div class="alert alert-err">{{ run.error }}</div><form method="post" action="{% url 'reports:report_retry' run.pk %}">{% csrf_token %}<button class="btn btn-primary" type="submit">Reintentar</button></form>{% endif %}
+<h2>Descargas</h2><ul>{% for o in outputs %}<li><a href="{% url 'download' o.file.pk %}">{{ o.file.original_name }}</a> <span class="muted small">{{ o.fmt|upper }} · {{ o.file.size|filesizeformat }}</span>{% if o.fmt == 'pdf' %} · <a href="{% url 'download' o.file.pk %}?inline=1" target="_blank" rel="noopener">Vista previa</a>{% endif %}</li>{% empty %}<li class="muted">Sin archivos todavía.</li>{% endfor %}</ul>
+{% if run.snapshot.kpis %}<h2>Indicadores</h2><div class="kpis">{% for k in run.snapshot.kpis %}{% include "partials/metric.html" with label=k.label m=k %}{% endfor %}</div>{% endif %}
+{% if run.snapshot.observations %}<h2>Observaciones</h2><ul>{% for o in run.snapshot.observations %}<li>{{ o }}</li>{% endfor %}</ul>{% endif %}
+</section>
+{% if history %}<section class="card"><h2>Versiones anteriores de esta programación</h2><ul>{% for h in history %}<li><a href="{% url 'reports:report_detail' h.pk %}">{{ h.scheduled_for|date:"d/m/Y H:i" }}</a> · {{ h.get_status_display }}</li>{% endfor %}</ul></section>{% endif %}
+{% endblock %}

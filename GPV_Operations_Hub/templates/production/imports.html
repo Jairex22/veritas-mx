@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block title %}Historial de importaciones{% endblock %}
+{% block content %}<div class="page-head"><h1>Historial de importaciones</h1><a class="btn btn-primary" href="{% url 'production:import_start' %}">Nueva carga</a></div>
+<div class="table-wrap"><table class="data"><thead><tr><th>Lote</th><th>Archivo</th><th>Dataset</th><th>Modo</th><th>Estado</th><th class="num">Leídas</th><th class="num">Nuevas</th><th class="num">Actualizadas</th><th class="num">Rechazadas</th><th>Usuario</th><th>Fecha</th></tr></thead><tbody>
+{% for b in page %}<tr><td><a href="{% url 'production:import_detail' b.pk %}">#{{ b.pk }}</a></td><td>{{ b.source_file.original_name }}</td><td>{{ b.dataset.name }}</td><td>{{ b.get_mode_display }}</td><td>{{ b.get_status_display }}</td>
+<td class="num">{{ b.stats.read|default:"—" }}</td><td class="num">{{ b.stats.created|default:"—" }}</td><td class="num">{{ b.stats.updated|default:"—" }}</td><td class="num">{{ b.stats.rejected|default:"—" }}</td><td>{{ b.created_by.username }}</td><td class="nowrap">{{ b.created|date:"d/m/Y H:i" }}</td></tr>
+{% empty %}<tr><td colspan="11" class="muted">Sin importaciones.</td></tr>{% endfor %}</tbody></table></div>{% include "partials/pager.html" %}{% endblock %}

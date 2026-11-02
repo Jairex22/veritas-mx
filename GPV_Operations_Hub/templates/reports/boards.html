@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block title %}Dashboards{% endblock %}
+{% block content %}<div class="page-head"><h1>Dashboards personalizados</h1>
+{% if can_build %}<form method="post" action="{% url 'reports:board_create' %}" class="actions">{% csrf_token %}<input name="name" placeholder="Nombre" aria-label="Nombre"><button class="btn btn-primary" type="submit">Crear dashboard</button></form>{% endif %}</div>
+<div class="table-wrap"><table class="data"><thead><tr><th>Nombre</th><th>Propietario</th><th>Compartido</th><th>Actualizado</th><th></th></tr></thead><tbody>
+{% for b in items %}<tr><td><a href="{% url 'reports:board' b.pk %}">{{ b.name }}</a></td><td>{{ b.owner.username }}</td><td>{% if b.shared_all %}Todos{% else %}{{ b.shared_roles|join:", " }} {% for a in b.shared_areas.all %}{{ a.code }} {% endfor %}{% endif %}</td><td>{{ b.updated|date:"d/m/Y H:i" }}</td>
+<td>{% if can_build %}<form method="post" action="{% url 'reports:board_duplicate' b.pk %}">{% csrf_token %}<button class="btn btn-sm" type="submit">Duplicar</button></form>{% endif %}</td></tr>
+{% empty %}<tr><td colspan="5" class="muted">Sin dashboards.</td></tr>{% endfor %}</tbody></table></div>{% endblock %}

@@ -1,0 +1,20 @@
+<form class="filters" method="get" data-persist-filters="{{ persist_key|default:'filters' }}">
+  <label>Periodo
+    <select name="period">
+      {% for v,l in period_choices %}<option value="{{ v }}" {% if filters.period == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+    </select></label>
+  <label>Desde <input type="date" name="date_from" value="{{ filters.date_from|date:'Y-m-d' }}"></label>
+  <label>Hasta <input type="date" name="date_to" value="{{ filters.date_to|date:'Y-m-d' }}"></label>
+  <label>Cliente <input name="customer" value="{{ filters.customer }}" list="dl-customers"></label>
+  <label>Área <select name="area"><option value="">Todas</option>{% for a in areas %}<option value="{{ a.code }}" {% if filters.area == a.code %}selected{% endif %}>{{ a.code }}</option>{% endfor %}</select></label>
+  <label>Línea <input name="line" value="{{ filters.line }}" list="dl-lines"></label>
+  <label>Turno <select name="shift"><option value="">Todos</option>{% for s in shifts %}<option value="{{ s.code }}" {% if filters.shift == s.code %}selected{% endif %}>{{ s.code }}</option>{% endfor %}</select></label>
+  <label>Orden <input name="work_order" value="{{ filters.work_order }}"></label>
+  <label>Parte <input name="part_number" value="{{ filters.part_number }}"></label>
+  <label>Responsable <input name="responsible" value="{{ filters.responsible }}"></label>
+  <label class="check"><input type="checkbox" name="late_only" value="1" {% if filters.late_only %}checked{% endif %}> Solo atrasadas</label>
+  <div class="filters-actions"><button class="btn btn-primary" type="submit">Aplicar</button>
+    <a class="btn" href="?period=all" data-clear-filters>Limpiar</a></div>
+  <datalist id="dl-customers">{% for c in customers %}<option value="{{ c }}">{% endfor %}</datalist>
+  <datalist id="dl-lines">{% for l in lines %}<option value="{{ l }}">{% endfor %}</datalist>
+</form>

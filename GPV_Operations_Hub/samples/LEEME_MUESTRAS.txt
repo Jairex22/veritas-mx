@@ -1,0 +1,10 @@
+Archivos SINTÉTICOS generados por 'manage.py make_samples'. No contienen datos reales de GPV.
+Uso sugerido:
+- plan_produccion.xlsx → dataset 'Plan de producción'
+- produccion_turnos.csv → 'Producción por turno' (contiene 1 fecha inválida a propósito)
+- produccion_turno3_ingles.csv → mismo dataset con encabezados en inglés
+- snapshot_10h.csv y snapshot_14h.csv → 'Avance acumulado (snapshot)'
+- seriales_pruebas.csv → 'Resultados por serial'; seriales_danados.csv muestra la detección de seriales dañados
+- calidad_causas.csv → 'Calidad por causa'
+- muestra_5_paginas.pdf, presentacion_muestra.pptx, documento_muestra.docx, anexo_muestra.docx, libro_muestra.xlsx, datos_multilinea.csv → Centro de documentos
+- etiquetas_datos.csv y plantillas_etiquetas/*.json → Etiquetas

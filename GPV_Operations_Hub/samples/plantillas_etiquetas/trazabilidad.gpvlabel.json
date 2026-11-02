@@ -1,0 +1,79 @@
+{
+  "schema": "gpv-label/1",
+  "template": {
+    "schema": "gpv-label/1",
+    "name": "Trazabilidad",
+    "width_mm": 76.2,
+    "height_mm": 50.8,
+    "dpi": 300,
+    "margin_mm": 2,
+    "prompts": [],
+    "serial_counter": "serial-trazabilidad",
+    "elements": [
+      {
+        "id": "t0",
+        "type": "text",
+        "name": "Título",
+        "x": 3,
+        "y": 2,
+        "w": 50,
+        "h": 5,
+        "rot": 0,
+        "content": "TRAZABILIDAD",
+        "font_size": 10,
+        "bold": true
+      },
+      {
+        "id": "q1",
+        "type": "qr",
+        "name": "QR trazabilidad",
+        "x": 52,
+        "y": 2,
+        "w": 22,
+        "h": 22,
+        "rot": 0,
+        "content": "S={serial}|PN={part_number}|OT={work_order}|L={lot}",
+        "ec": "Q"
+      },
+      {
+        "id": "t1",
+        "type": "text",
+        "name": "Datos",
+        "x": 3,
+        "y": 8,
+        "w": 48,
+        "h": 16,
+        "rot": 0,
+        "content": "Serial: {serial}\nOT: {work_order}\nLote: {lot}\nFecha: {fecha}",
+        "font_size": 7.5,
+        "wrap": true,
+        "autofit": true
+      },
+      {
+        "id": "b1",
+        "type": "code128",
+        "name": "Serial",
+        "x": 2,
+        "y": 27,
+        "w": 68,
+        "h": 14,
+        "rot": 0,
+        "content": "{serial}",
+        "module_mm": 0.254,
+        "show_text": true
+      },
+      {
+        "id": "t2",
+        "type": "text",
+        "name": "Vertical",
+        "x": 71.5,
+        "y": 26,
+        "w": 22,
+        "h": 4,
+        "rot": 90,
+        "content": "GPV",
+        "font_size": 7
+      }
+    ]
+  }
+}

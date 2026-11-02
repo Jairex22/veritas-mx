@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% load static %}{% block title %}{{ board.name }}{% endblock %}
+{% block content %}
+<div data-board data-id="{{ board.pk }}" data-version="{{ board.version }}" data-can-edit="{{ can_edit|yesno:'1,0' }}">
+<div class="page-head"><h1 data-board-name>{{ board.name }}</h1><div class="actions">
+<button class="btn" type="button" data-refresh>Actualizar datos</button>
+{% if can_edit %}<button class="btn" type="button" data-add>Agregar widget</button><button class="btn btn-primary" type="button" data-save>Guardar</button>{% endif %}
+<a class="btn" href="{% url 'reports:boards' %}">Dashboards</a></div></div>
+{% include "partials/filters.html" %}
+{% if can_edit %}<details class="card"><summary><strong>Nombre y uso compartido</strong></summary>
+<div class="form-grid"><label>Nombre<input data-f-name value="{{ board.name }}"></label>
+<label class="check"><input type="checkbox" data-f-all {% if board.shared_all %}checked{% endif %}> Compartir con todos</label>
+<fieldset><legend>Roles</legend>{% for v,l in roles %}<label class="check"><input type="checkbox" data-f-role value="{{ v }}" {% if v in board.shared_roles %}checked{% endif %}>{{ l }}</label>{% endfor %}</fieldset>
+<fieldset><legend>Áreas</legend>{% for a in all_areas %}<label class="check"><input type="checkbox" data-f-area value="{{ a.code }}" {% if a in board.shared_areas.all %}checked{% endif %}>{{ a.code }}</label>{% endfor %}</fieldset></div>
+<p class="muted small">Los datos de cada usuario siempre se limitan a sus áreas autorizadas.</p></details>{% endif %}
+<div class="grid grid-2" data-widgets></div>
+</div>
+{{ config_json|json_script:"board-config" }}
+{{ dims|json_script:"board-dims" }}{{ measures|json_script:"board-measures" }}{{ aggs|json_script:"board-aggs" }}
+{% endblock %}
+{% block scripts %}<script src="{% static 'gpv/js/charts.js' %}"></script><script src="{% static 'gpv/js/board.js' %}"></script>{% endblock %}

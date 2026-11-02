@@ -1,0 +1,33 @@
+{% extends "base.html" %}{% block title %}Inicio{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Inicio</h1>
+  <div class="actions">
+    {% if caps.production__import %}<a class="btn" href="{% url 'production:import_start' %}">Cargar Excel / CSV</a>{% endif %}
+    {% if caps.reports__generate %}<a class="btn" href="{% url 'reports:reports' %}">Generar reporte</a>{% endif %}
+    <a class="btn" href="{% url 'kaizen:create' %}">Nueva mejora Kaizen</a>
+    <a class="btn btn-primary" href="{% url 'reports:dashboard' %}">Dashboard</a>
+  </div></div>
+<p class="muted small">Indicadores del mes actual. Datos actualizados por última importación: {% if kpis.last_import %}{{ kpis.last_import|date:"d/m/Y H:i" }}{% else %}sin importaciones{% endif %}. Los datos cambian cuando se importa un archivo o se captura avance (no es tiempo real).</p>
+<div class="kpis">
+  {% include "partials/metric.html" with label="Cumplimiento agrupado" m=kpis.compliance %}
+  <div class="kpi"><div class="kpi-label">Órdenes</div><div class="kpi-value">{{ kpis.orders }}</div><div class="kpi-sub">{{ kpis.late_count }} atrasadas</div></div>
+  <div class="kpi"><div class="kpi-label">Pendiente</div><div class="kpi-value">{% if kpis.pending_total is not None %}{{ kpis.pending_total|floatformat:"-2" }}{% else %}—{% endif %}</div><div class="kpi-sub">Σ máx(meta − buenas, 0)</div></div>
+  {% include "partials/metric.html" with label="Scrap" m=kpis.scrap_rate %}
+  <div class="kpi"><div class="kpi-label">Kaizen abiertas</div><div class="kpi-value">{{ kaizen_open }}</div></div>
+</div>
+{% for w in kpis.warnings %}<div class="alert alert-warn">{{ w }}</div>{% endfor %}
+<div class="grid grid-2">
+  <section class="card"><h2>Comunicados vigentes</h2>
+    {% for a in announcements %}<p><a href="{% url 'comms:detail' a.pk %}"><strong>{{ a.title }}</strong></a>
+      {% if a.priority != 'normal' %}<span class="tag {% if a.priority == 'critical' %}tag-err{% else %}tag-warn{% endif %}">{{ a.get_priority_display }}</span>{% endif %}
+      <br><span class="muted small">{{ a.author.get_full_name|default:a.author.username }} · {{ a.created|date:"d/m/Y H:i" }}</span></p>
+    {% empty %}<p class="muted">No hay comunicados vigentes.</p>{% endfor %}
+    <a href="{% url 'comms:list' %}">Ver todos</a></section>
+  <section class="card"><h2>Mis órdenes asignadas</h2>
+    {% for o in assigned %}<p><a href="{% url 'production:order' o.pk %}">{{ o.number }}</a> · {{ o.part_number }} · vence {{ o.due|date:"d/m H:i"|default:"—" }}</p>
+    {% empty %}<p class="muted">No tiene órdenes asignadas.</p>{% endfor %}</section>
+  <section class="card"><h2>Mis trabajos recientes</h2>
+    {% for j in jobs %}<p>{{ j.created|date:"d/m H:i" }} · {{ j.kind }} · <span class="tag {% if j.status == 'succeeded' %}tag-ok{% elif j.status == 'failed' %}tag-err{% endif %}">{{ j.get_status_display }}</span></p>
+    {% empty %}<p class="muted">Sin trabajos.</p>{% endfor %}</section>
+</div>
+{% endblock %}

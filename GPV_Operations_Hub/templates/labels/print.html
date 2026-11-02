@@ -1,0 +1,24 @@
+{% extends "base.html" %}{% load static hub_extras %}{% block title %}Imprimir {{ t.name }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Imprimir · {{ t.name }} v{{ version.version }}</h1><a class="btn" href="{% url 'labels:list' %}">Etiquetas</a></div>
+<section class="card"><h2>1 · Origen de datos</h2><div class="actions">
+<a class="btn {% if source == 'manual' %}btn-primary{% endif %}" href="?source=manual">Captura manual</a>
+<form method="get" class="actions"><input type="hidden" name="source" value="dataset"><select name="dataset" aria-label="Dataset">{% for d in datasets %}<option value="{{ d.pk }}" {% if request.GET.dataset == d.pk|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select><input name="q" value="{{ request.GET.q }}" placeholder="Filtrar orden/serial/parte" aria-label="Filtro"><button class="btn {% if source == 'dataset' %}btn-primary{% endif %}" type="submit">Registros autorizados</button></form>
+<form method="post" action="{% url 'labels:upload_data' t.pk %}" enctype="multipart/form-data" class="actions">{% csrf_token %}<input type="file" name="file" accept=".csv,.xlsx" required aria-label="Archivo de datos"><button class="btn {% if source == 'file' %}btn-primary{% endif %}" type="submit">Usar Excel/CSV</button></form></div>
+{% if desc %}<p class="muted small">{{ desc }} · {{ total_records }} registros{% if total_records > 500 %} (se muestran 500; use rango para el resto){% endif %}</p>{% endif %}</section>
+<form method="post" action="{% url 'labels:api_print' t.pk %}" data-print-form data-preview-url="{% url 'labels:api_print_preview' t.pk %}">{% csrf_token %}
+<input type="hidden" name="source" value="{{ source }}"><input type="hidden" name="dataset" value="{{ request.GET.dataset }}"><input type="hidden" name="q" value="{{ request.GET.q }}"><input type="hidden" name="file_id" value="{{ request.GET.file_id }}"><input type="hidden" name="confirm_total" value="0">
+{% if records %}<section class="card"><h2>2 · Selección</h2><div class="form-grid">
+<label><input type="radio" name="mode" value="selection" checked> Registros marcados</label><label><input type="radio" name="mode" value="range"> Rango <input name="range" placeholder="1-20"></label><label><input type="radio" name="mode" value="all"> Todos ({{ total_records }})</label></div>
+<div class="table-wrap" style="max-height:320px"><table class="data"><thead><tr><th><input type="checkbox" data-checkall aria-label="Todos"></th><th>#</th>{% for c in columns %}<th>{{ c }}</th>{% endfor %}</tr></thead><tbody>
+{% for i, r in records %}<tr><td><input type="checkbox" name="rec" value="{{ i }}" aria-label="Registro {{ forloop.counter }}"></td><td>{{ forloop.counter }}</td>{% for c in columns %}<td>{{ r|dictkey:c }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div></section>
+{% else %}<input type="hidden" name="mode" value="single">{% endif %}
+<section class="card"><h2>{% if records %}3{% else %}2{% endif %} · Valores solicitados, copias y destino</h2><div class="form-grid">
+{% for p in prompts %}<label>{{ p.label|default:p.name }}{% if p.required %} *{% endif %}<input name="prompt_{{ p.name }}" value="{{ p.default|default:'' }}" {% if p.required %}required{% endif %}></label>{% endfor %}
+<label>Copias por registro<input type="number" name="copies" value="1" min="1" max="100"></label>
+<label>Destino<select name="printer"><option value="">Navegador / PDF a tamaño exacto</option>{% for p in printers %}{% if p.kind != 'browser' %}<option value="{{ p.pk }}">{{ p.name }} · {{ p.get_kind_display }} · {{ p.dpi }} DPI</option>{% endif %}{% endfor %}</select></label></div>
+<p class="muted small">Ruta navegador: se genera un PDF del tamaño exacto de la etiqueta; ábralo e imprima con escala 100 % («Tamaño real»), sin márgenes y con el papel/etiqueta configurado en el controlador. El navegador no imprime silenciosamente ni elige la impresora USB por usted. La impresión directa solo aparece para impresoras registradas y validadas por un administrador.</p>
+<div class="actions"><button class="btn" type="button" data-print-preview>Vista previa</button><button class="btn btn-primary" type="submit">Imprimir</button></div>
+<div data-print-preview-out></div><div class="jobbox" hidden data-print-box></div></section></form>
+{% endblock %}
+{% block scripts %}<script src="{% static 'gpv/js/printwizard.js' %}"></script>{% endblock %}

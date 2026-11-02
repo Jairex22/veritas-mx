@@ -1,0 +1,73 @@
+{% load static %}<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}GPV Operations Hub{% endblock %} · GPV Operations Hub</title>
+  <link rel="icon" href="{% static 'gpv/img/favicon.svg' %}" type="image/svg+xml">
+  <link rel="stylesheet" href="{% static 'gpv/css/app.css' %}?v={{ GPV_VERSION }}">
+  {% block head %}{% endblock %}
+</head>
+<body class="{% block bodyclass %}{% endblock %}" data-poll-seconds="{{ GPV_POLL_SECONDS }}" data-csrf="{{ csrf_token }}">
+<a class="skip" href="#main">Saltar al contenido</a>
+{% if user.is_authenticated %}
+<header class="topbar">
+  <button class="icon-btn nav-toggle" type="button" aria-label="Abrir menú" aria-controls="sidebar" aria-expanded="false" data-nav-toggle>
+    <svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#menu"></use></svg>
+  </button>
+  <a class="brand" href="{% url 'home' %}">
+    {% if GPV_LOGO_ID %}<img src="{% url 'download' GPV_LOGO_ID %}?inline=1" alt="Logotipo" class="brand-logo">{% else %}<span class="brand-mark" aria-hidden="true">GPV</span>{% endif %}
+    <span class="brand-text">GPV Operations Hub</span>
+  </a>
+  <div class="topbar-right">
+    <span class="last-update" title="Hora de la última consulta al servidor" data-last-update>—</span>
+    <div class="notif" data-notif>
+      <button class="icon-btn" type="button" aria-label="Notificaciones" aria-haspopup="true" aria-expanded="false" data-notif-toggle>
+        <svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#bell"></use></svg>
+        <span class="badge" data-notif-count hidden>0</span>
+      </button>
+      <div class="notif-panel" data-notif-panel hidden>
+        <div class="notif-head"><strong>Notificaciones</strong>
+          <button class="link-btn" type="button" data-notif-readall>Marcar todo como leído</button></div>
+        <ul class="notif-list" data-notif-list><li class="muted">Cargando…</li></ul>
+        <a class="notif-all" href="{% url 'notifications' %}">Ver todas</a>
+      </div>
+    </div>
+    <details class="usermenu">
+      <summary>{{ user.get_full_name|default:user.username }} <small>{{ user.profile.get_role_display }}</small></summary>
+      <div class="usermenu-panel">
+        <a href="{% url 'password_change' %}">Cambiar contraseña</a>
+        <a href="{% url 'jobs' %}">Mis trabajos</a>
+        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="link-btn" type="submit">Cerrar sesión</button></form>
+      </div>
+    </details>
+  </div>
+</header>
+<nav class="sidebar" id="sidebar" aria-label="Menú principal" data-sidebar>
+  {% with p=request.path %}
+  <a href="{% url 'home' %}" class="{% if p == '/' %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#home"></use></svg>Inicio</a>
+  <a href="{% url 'comms:list' %}" class="{% if '/comunicados/' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#megaphone"></use></svg>Comunicados</a>
+  <a href="{% url 'production:plan' %}" class="{% if '/produccion/' in p and '/importar' not in p and '/importaciones' not in p and '/datasets' not in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#factory"></use></svg>Producción</a>
+  <a href="{% url 'production:import_start' %}" class="{% if '/importar' in p or '/importaciones' in p or '/datasets' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#upload"></use></svg>Cargar información</a>
+  <a href="{% url 'reports:dashboard' %}" class="{% if '/analitica/dashboard' in p or '/analitica/tableros' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#chart"></use></svg>Dashboard</a>
+  <a href="{% url 'reports:reports' %}" class="{% if '/analitica/reportes' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#report"></use></svg>Reportes</a>
+  <a href="{% url 'sheets:list' %}" class="{% if '/hojas/' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#grid"></use></svg>Hoja de cálculo</a>
+  <a href="{% url 'documents:list' %}" class="{% if '/documentos/' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#file"></use></svg>Documentos</a>
+  <a href="{% url 'labels:list' %}" class="{% if '/etiquetas/' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#tag"></use></svg>Etiquetas</a>
+  <a href="{% url 'kaizen:board' %}" class="{% if '/kaizen/' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#bulb"></use></svg>Kaizen</a>
+  {% if caps.admin__users or caps.admin__settings or caps.admin__printers %}
+  <a href="{% url 'admin_home' %}" class="{% if '/administracion/' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#gear"></use></svg>Administración</a>
+  {% endif %}
+  {% endwith %}
+  <div class="sidebar-foot">v{{ GPV_VERSION }}</div>
+</nav>
+{% endif %}
+<main id="main" class="{% if user.is_authenticated %}main{% else %}main-public{% endif %}" tabindex="-1">
+  {% if messages %}<div class="flash-wrap">{% for m in messages %}<div class="flash flash-{{ m.tags }}" role="status">{{ m }}</div>{% endfor %}</div>{% endif %}
+  {% block content %}{% endblock %}
+</main>
+<div class="toast-wrap" aria-live="polite" data-toasts></div>
+<script src="{% static 'gpv/js/app.js' %}?v={{ GPV_VERSION }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

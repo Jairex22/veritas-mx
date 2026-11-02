@@ -1,0 +1,55 @@
+{
+  "schema": "gpv-label/1",
+  "template": {
+    "schema": "gpv-label/1",
+    "name": "Identificación de producto",
+    "width_mm": 50.8,
+    "height_mm": 25.4,
+    "dpi": 203,
+    "margin_mm": 1.5,
+    "prompts": [],
+    "serial_counter": "serial-producto",
+    "elements": [
+      {
+        "id": "t1",
+        "type": "text",
+        "name": "Parte",
+        "x": 2,
+        "y": 1.5,
+        "w": 46,
+        "h": 4.5,
+        "rot": 0,
+        "content": "PN {part_number} Rev {revision}",
+        "font_size": 8,
+        "bold": true,
+        "autofit": true
+      },
+      {
+        "id": "b1",
+        "type": "code128",
+        "name": "Código serial",
+        "x": 1,
+        "y": 6.5,
+        "w": 48.8,
+        "h": 12,
+        "rot": 0,
+        "content": "{serial}",
+        "module_mm": 0.25,
+        "show_text": true
+      },
+      {
+        "id": "t2",
+        "type": "text",
+        "name": "Orden",
+        "x": 2,
+        "y": 20,
+        "w": 46,
+        "h": 4,
+        "rot": 0,
+        "content": "OT {work_order} · {fecha}",
+        "font_size": 6.5,
+        "autofit": true
+      }
+    ]
+  }
+}

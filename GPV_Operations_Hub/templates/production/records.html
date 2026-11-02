@@ -1,0 +1,8 @@
+{% extends "base.html" %}{% block title %}Registros{% endblock %}
+{% block content %}<div class="page-head"><h1>Registros que sustentan los indicadores</h1><div class="actions">
+<a class="btn" href="{% url 'reports:export' %}?{{ query }}&amp;fmt=xlsx&amp;table=records">Exportar Excel</a><a class="btn" href="{% url 'reports:export' %}?{{ query }}&amp;fmt=csv&amp;table=records">Exportar CSV</a></div></div>
+{% include "partials/filters.html" %}
+<div class="table-wrap"><table class="data"><thead><tr><th>Fecha</th><th>Turno</th><th>Área</th><th>Línea</th><th>Orden</th><th>Parte</th><th>Estación</th><th>Serial</th><th>Resultado</th><th>Causa</th><th class="num">Buenas</th><th class="num">Rechazo</th><th class="num">Scrap</th><th>Dataset</th><th>Origen</th></tr></thead><tbody>
+{% for r in page %}<tr><td class="nowrap">{{ r.date|date:"d/m/Y" }}</td><td>{{ r.shift }}</td><td>{{ r.area.code }}</td><td>{{ r.line }}</td><td>{{ r.work_order }}</td><td>{{ r.part_number }}</td><td>{{ r.station }}</td><td class="mono">{{ r.serial }}</td><td>{{ r.result }}</td><td>{{ r.cause }}</td>
+<td class="num">{{ r.qty_good|floatformat:"-3" }}</td><td class="num">{{ r.qty_reject|floatformat:"-3" }}</td><td class="num">{{ r.qty_scrap|floatformat:"-3" }}</td><td>{{ r.dataset.name }}</td><td class="small">{% if r.batch_id %}<a href="{% url 'production:import_detail' r.batch_id %}">#{{ r.batch_id }}</a>:{{ r.row_number }}{% else %}captura{% endif %}</td></tr>
+{% empty %}<tr><td colspan="15" class="muted">Sin registros.</td></tr>{% endfor %}</tbody></table></div>{% include "partials/pager.html" %}{% endblock %}

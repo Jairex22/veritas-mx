@@ -1,0 +1,27 @@
+{% extends "base.html" %}{% block title %}Reportes{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Reportes</h1>{% if can_schedule %}<a class="btn" href="{% url 'reports:schedule_create' %}">Programar reporte</a>{% endif %}</div>
+{% if can_generate %}<section class="card"><h2>Generar reporte</h2>
+<form method="post" action="{% url 'reports:report_generate' %}" data-job-form="#rep-box">{% csrf_token %}
+<div class="form-grid">
+<label>Plantilla<select name="kind">{% for v,l in kinds %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></label>
+<label>Título (opcional)<input name="title"></label>
+<label>Periodo<select name="period">{% for v,l in period_choices %}<option value="{{ v }}" {% if filters.period == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
+<label>Desde<input type="date" name="date_from" value="{{ filters.date_from|date:'Y-m-d' }}"></label><label>Hasta<input type="date" name="date_to" value="{{ filters.date_to|date:'Y-m-d' }}"></label>
+<label>Área<select name="area"><option value="">Todas</option>{% for a in areas %}<option value="{{ a.code }}" {% if filters.area == a.code %}selected{% endif %}>{{ a.code }}</option>{% endfor %}</select></label>
+<label>Línea<input name="line" value="{{ filters.line }}"></label><label>Cliente<input name="customer" value="{{ filters.customer }}"></label>
+<label>Turno<select name="shift"><option value="">Todos</option>{% for s in shifts %}<option value="{{ s.code }}">{{ s.code }}</option>{% endfor %}</select></label>
+<fieldset class="full"><legend>Formatos</legend><ul class="checklist">{% for v,l in formats %}<li><label class="check"><input type="checkbox" name="formats" value="{{ v }}" {% if v == 'pdf' or v == 'xlsx' %}checked{% endif %}>{{ l }}</label></li>{% endfor %}</ul></fieldset>
+<label class="full">Notas para el reporte<textarea name="notes" rows="2"></textarea></label></div>
+<button class="btn btn-primary" type="submit">Generar reporte</button>
+<div class="jobbox" id="rep-box" hidden></div></form>
+<p class="muted small">Se toma una instantánea consistente de los datos vigentes; todos los formatos del mismo reporte muestran los mismos totales.</p></section>{% endif %}
+<section class="card"><h2>Programaciones</h2><div class="table-wrap"><table class="data"><thead><tr><th>Nombre</th><th>Plantilla</th><th>Frecuencia</th><th>Próxima generación</th><th>Último resultado</th><th>Activa</th><th></th></tr></thead><tbody>
+{% for s in schedules %}<tr><td>{{ s.name }}</td><td>{{ s.get_kind_display }}</td><td>{{ s.get_frequency_display }} {% if s.time_of_day %}{{ s.time_of_day|time:"H:i" }}{% endif %}{% if s.shift %} {{ s.shift.code }}{% endif %}</td>
+<td>{{ s.next_run_at|date:"d/m/Y H:i"|default:"—" }}</td><td>{% if s.last_run %}<a href="{% url 'reports:report_detail' s.last_run.pk %}">{{ s.last_run.get_status_display }}</a>{% else %}—{% endif %}</td><td>{{ s.active|yesno:"Sí,No" }}</td>
+<td>{% if can_schedule %}<a class="btn btn-sm" href="{% url 'reports:schedule_edit' s.pk %}">Editar</a>{% endif %}</td></tr>
+{% empty %}<tr><td colspan="7" class="muted">Sin programaciones. Requieren que el proceso «run_scheduler» esté activo (ver DESPLIEGUE_INTERNO.md).</td></tr>{% endfor %}</tbody></table></div></section>
+<section class="card"><h2>Historial</h2><div class="table-wrap"><table class="data"><thead><tr><th>#</th><th>Título</th><th>Estado</th><th>Autor</th><th>Fecha</th><th>Versión de datos</th></tr></thead><tbody>
+{% for r in page %}<tr><td>{{ r.pk }}</td><td><a href="{% url 'reports:report_detail' r.pk %}">{{ r.title|default:r.get_kind_display }}</a>{% if r.schedule %} <span class="tag">programado</span>{% endif %}</td><td>{{ r.get_status_display }}</td><td>{{ r.author.username|default:"—" }}</td><td class="nowrap">{{ r.created|date:"d/m/Y H:i" }}</td><td class="mono small">{{ r.data_version }}</td></tr>
+{% empty %}<tr><td colspan="6" class="muted">Sin reportes.</td></tr>{% endfor %}</tbody></table></div>{% include "partials/pager.html" %}</section>
+{% endblock %}

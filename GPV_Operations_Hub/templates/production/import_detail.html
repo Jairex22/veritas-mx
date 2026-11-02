@@ -1,0 +1,16 @@
+{% extends "base.html" %}{% block title %}Lote #{{ batch.pk }}{% endblock %}
+{% block content %}<div class="page-head"><h1>Lote #{{ batch.pk }} · {{ batch.get_status_display }}</h1><a class="btn" href="{% url 'production:imports' %}">Historial</a></div>
+<section class="card"><h2>Resumen conciliado</h2>
+<p>Archivo original: <a href="{% url 'download' batch.source_file.pk %}">{{ batch.source_file.original_name }}</a> (conservado) · Dataset {{ batch.dataset.name }} · versión resultante {{ batch.dataset_version|default:"—" }} · Modo {{ batch.get_mode_display }}{% if batch.sheet %} · Hoja {{ batch.sheet }}{% endif %}</p>
+<p>Importado por {{ batch.created_by.username }} el {{ batch.committed_at|date:"d/m/Y H:i"|default:"—" }}</p>
+<table class="data" style="max-width:520px"><tbody>{% for k, v in batch.stats.items %}{% if k != 'revert' %}<tr><th>{{ k }}</th><td class="num">{{ v }}</td></tr>{% endif %}{% endfor %}</tbody></table>
+<p class="muted small">Conciliación: leídas = aceptadas + rechazadas; aceptadas = nuevas + actualizadas + capturas reemplazadas + sin cambios + omitidas.</p>
+{% if batch.error_file %}<p><a href="{% url 'download' batch.error_file.pk %}">Descargar errores (CSV)</a></p>{% endif %}
+{% if batch.error_message %}<div class="alert alert-err">{{ batch.error_message }}</div>{% endif %}
+{% if batch.stats.revert %}<div class="alert alert-info">Reversión: {{ batch.stats.revert.restored }} restaurados, {{ batch.stats.revert.deleted }} eliminados, {{ batch.stats.revert.conflicts }} conservados. Motivo: {{ batch.analysis.revert_reason }}</div>
+{% for c in batch.analysis.revert_conflicts %}<div class="small">• {{ c }}</div>{% endfor %}{% endif %}
+</section>
+{% if plan_changes %}<section class="card"><h2>Cambios al plan</h2><div class="table-wrap"><table class="data"><thead><tr><th>Orden</th><th>Campo</th><th>Anterior</th><th>Nuevo</th></tr></thead><tbody>{% for c in plan_changes %}<tr><td>{{ c.work_order.number }}</td><td>{{ c.field }}</td><td>{{ c.old_value|default:"—" }}</td><td>{{ c.new_value|default:"—" }}</td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
+{% if can_revert %}<section class="card"><h2>Revertir importación</h2><p class="muted">Se deshacen los cambios de este lote. Registros modificados después por otro lote o captura se conservan y se reportan.</p>
+<form method="post" action="{% url 'production:import_revert' batch.pk %}" data-confirm="¿Revertir el lote #{{ batch.pk }}?">{% csrf_token %}<label>Motivo<input name="reason" required minlength="5"></label><button class="btn btn-danger" type="submit">Revertir</button></form></section>{% endif %}
+{% endblock %}

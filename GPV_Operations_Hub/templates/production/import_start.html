@@ -1,0 +1,16 @@
+{% extends "base.html" %}{% block title %}Cargar información{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Cargar información</h1><div class="actions"><a class="btn" href="{% url 'production:imports' %}">Historial de importaciones</a><a class="btn" href="{% url 'production:datasets' %}">Datasets</a></div></div>
+<ol class="steps"><li class="cur">1 · Archivo</li><li>2 · Vista previa y mapeo</li><li>3 · Validación</li><li>4 · Importación</li></ol>
+<section class="card">
+<form method="post" enctype="multipart/form-data">{% csrf_token %}
+<div class="form-grid"><label class="full">Dataset destino
+<select name="dataset" required>{% for d in datasets %}<option value="{{ d.pk }}">{{ d.name }} — {{ d.get_kind_display }}</option>{% empty %}<option value="">No hay datasets: créelos en Datasets</option>{% endfor %}</select></label></div>
+<input type="file" id="importfile" name="file" accept=".xlsx,.csv,.txt,.tsv" hidden required>
+<div class="dropzone" data-dropzone="#importfile" tabindex="0" role="button" aria-label="Seleccionar archivo"><strong>Arrastre aquí su archivo o haga clic para seleccionarlo</strong><br><span class="muted" data-drop-label data-empty="Formatos: XLSX y CSV (UTF-8, Windows-1252; separador , ; o tabulador)">Formatos: XLSX y CSV (UTF-8, Windows-1252; separador , ; o tabulador)</span></div>
+<p class="muted small">XLS/XLSB/ODS: guárdelos como .xlsx o .csv antes de cargarlos. Los archivos con macros (.xlsm) se rechazan; nunca se ejecutan macros ni enlaces externos. La vista previa no modifica la base de datos.</p>
+<p class="actions"><button class="btn btn-primary" type="submit" name="kind" value="xlsx">Cargar Excel</button><button class="btn btn-primary" type="submit" name="kind" value="csv">Cargar CSV</button></p>
+</form></section>
+<section class="card"><h2>Cargas recientes</h2><div class="table-wrap"><table class="data"><thead><tr><th>Lote</th><th>Archivo</th><th>Dataset</th><th>Estado</th><th>Usuario</th><th>Fecha</th></tr></thead><tbody>
+{% for b in recent %}<tr><td><a href="{% if b.status == 'draft' or b.status == 'validated' %}{% url 'production:import_wizard' b.pk %}?paso=2{% else %}{% url 'production:import_detail' b.pk %}{% endif %}">#{{ b.pk }}</a></td><td>{{ b.source_file.original_name }}</td><td>{{ b.dataset.name }}</td><td>{{ b.get_status_display }}</td><td>{{ b.created_by.username }}</td><td>{{ b.created|date:"d/m/Y H:i" }}</td></tr>{% endfor %}</tbody></table></div></section>
+{% endblock %}

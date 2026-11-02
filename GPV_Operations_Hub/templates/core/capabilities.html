@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block title %}Permisos por rol{% endblock %}
+{% block content %}<div class="page-head"><h1>Matriz de permisos por rol</h1></div>
+<p class="muted">Los permisos se validan en el servidor en cada operación. Además del rol, cada usuario solo accede a sus áreas asignadas.</p>
+<form method="post" data-dirty-check>{% csrf_token %}<div class="table-wrap"><table class="data"><thead><tr><th>Permiso</th>{% for r,l in roles %}<th>{{ l }}</th>{% endfor %}</tr></thead><tbody>
+{% for row in rows %}<tr><td><strong>{{ row.desc }}</strong><br><code class="small">{{ row.cap }}</code></td>
+{% for role,on in row.cells %}<td><input type="checkbox" aria-label="{{ row.cap }} {{ role }}" name="{{ row.cap }}|{{ role }}" {% if on %}checked{% endif %} {% if role == 'admin' and 'admin.' in row.cap %}disabled{% endif %}></td>{% endfor %}</tr>{% endfor %}
+</tbody></table></div><p><button class="btn btn-primary" type="submit">Guardar matriz</button></p></form>{% endblock %}

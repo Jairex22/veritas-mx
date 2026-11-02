@@ -1,0 +1,16 @@
+{% extends "base.html" %}{% block title %}Etiquetas{% endblock %}
+{% block content %}<div class="page-head"><h1>Etiquetas</h1>{% if caps.admin__printers %}<a class="btn" href="{% url 'labels:printers' %}">Impresoras y contadores</a>{% endif %}</div>
+{% if can_design %}<section class="card"><h2>Diseñar etiqueta</h2><form method="post" action="{% url 'labels:create' %}" enctype="multipart/form-data" class="form-grid">{% csrf_token %}
+<label>Nombre<input name="name" value="Etiqueta nueva"></label><label>Ancho mm<input type="number" name="w" value="100" step="0.5" min="5"></label><label>Alto mm<input type="number" name="h" value="50" step="0.5" min="5"></label>
+<label>DPI real de la impresora<select name="dpi"><option>203</option><option>300</option><option>600</option><option>152</option></select></label>
+<label>o importar plantilla (.json)<input type="file" name="file" accept=".json"></label><div><button class="btn btn-primary" type="submit">Diseñar etiqueta</button></div></form>
+<p class="muted small">Formato propio versionado gpv-label/1 (JSON). No se importan archivos .btw de BarTender.</p></section>{% endif %}
+<section class="card"><h2>Plantillas</h2><div class="table-wrap"><table class="data"><thead><tr><th>Plantilla</th><th>Tamaño</th><th>Versión publicada</th><th>Borrador</th><th></th></tr></thead><tbody>
+{% for t in items %}<tr><td><strong>{{ t.name }}</strong><br><code class="small">{{ t.code }}</code></td><td>{{ t.draft.width_mm }}×{{ t.draft.height_mm }} mm · {{ t.draft.dpi }} DPI</td>
+<td>{% if t.published %}v{{ t.published.version }} · {{ t.published.published_at|date:"d/m/Y" }}{% else %}<span class="tag tag-warn">sin publicar</span>{% endif %}</td><td>rev. {{ t.draft_revision }} · {{ t.draft_updated|date:"d/m H:i" }}</td>
+<td class="actions">{% if t.published %}<a class="btn btn-sm btn-primary" href="{% url 'labels:print' t.pk %}">Imprimir</a>{% endif %}{% if can_design %}<a class="btn btn-sm" href="{% url 'labels:designer' t.pk %}">Diseñar</a><form method="post" action="{% url 'labels:duplicate' t.pk %}">{% csrf_token %}<button class="btn btn-sm" type="submit">Duplicar</button></form>{% endif %}<a class="btn btn-sm" href="{% url 'labels:export_json' t.pk %}">Exportar JSON</a></td></tr>
+{% empty %}<tr><td colspan="5" class="muted">Sin plantillas.</td></tr>{% endfor %}</tbody></table></div></section>
+<section class="card"><h2>Trabajos recientes</h2><div class="table-wrap"><table class="data"><thead><tr><th>#</th><th>Plantilla</th><th>Etiquetas</th><th>Ruta</th><th>Estado</th><th>Usuario</th><th>Fecha</th></tr></thead><tbody>
+{% for j in jobs %}<tr><td><a href="{% url 'labels:job' j.pk %}">#{{ j.number }}</a>{% if j.reprint_of %} <span class="tag">reimpresión</span>{% endif %}</td><td>{{ j.template_version }}</td><td>{{ j.total_labels }}</td><td>{% if j.printer %}{{ j.printer.name }}{% else %}Navegador/PDF{% endif %}</td>
+<td><span class="tag {% if j.status == 'confirmed' %}tag-ok{% elif j.status == 'failed' %}tag-err{% elif j.status == 'unknown' %}tag-warn{% endif %}">{{ j.get_status_display }}</span></td><td>{{ j.user.username }}</td><td class="nowrap">{{ j.created|date:"d/m/Y H:i" }}</td></tr>
+{% empty %}<tr><td colspan="7" class="muted">Sin trabajos.</td></tr>{% endfor %}</tbody></table></div></section>{% endblock %}

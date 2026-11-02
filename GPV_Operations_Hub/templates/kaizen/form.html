@@ -1,0 +1,2 @@
+{% extends "base.html" %}{% block title %}Nueva mejora Kaizen{% endblock %}
+{% block content %}<section class="card narrow"><h1>Nueva mejora Kaizen</h1><form method="post" data-dirty-check>{% csrf_token %}{{ form.as_p }}<button class="btn btn-primary" type="submit">Registrar propuesta</button></form></section>{% endblock %}

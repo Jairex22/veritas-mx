@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block title %}Hoja de cálculo{% endblock %}
+{% block content %}<div class="page-head"><h1>Hoja de cálculo</h1></div>
+<div class="grid grid-3">
+<section class="card"><h2>Libro nuevo</h2><form method="post" action="{% url 'sheets:create' %}">{% csrf_token %}<label>Nombre<input name="name" value="Libro nuevo"></label><button class="btn btn-primary" type="submit">Crear</button></form></section>
+<section class="card"><h2>Abrir XLSX / CSV</h2><form method="post" action="{% url 'sheets:create' %}" enctype="multipart/form-data">{% csrf_token %}<input type="file" name="file" accept=".xlsx,.csv" required aria-label="Archivo"><p class="muted small">Se reportan las características que no se importan (gráficos, imágenes, formatos avanzados). El original se conserva.</p><button class="btn btn-primary" type="submit">Importar</button></form></section>
+<section class="card"><h2>Editar datos de un dataset</h2><form method="post" action="{% url 'sheets:create' %}">{% csrf_token %}<select name="dataset" aria-label="Dataset">{% for d in datasets %}<option value="{{ d.pk }}">{{ d.name }}</option>{% endfor %}</select><p class="muted small">Los cambios afectan producción solo al «Publicar», que valida e importa con trazabilidad.</p><button class="btn" type="submit">Abrir en hoja</button></form></section>
+</div>
+<section class="card"><h2>Mis libros</h2><div class="table-wrap"><table class="data"><thead><tr><th>Nombre</th><th>Propietario</th><th>Versión</th><th>Actualizado</th><th>Dataset</th></tr></thead><tbody>
+{% for w in items %}<tr><td><a href="{% url 'sheets:edit' w.pk %}">{{ w.name }}</a>{% if w.shared %} <span class="tag">compartido</span>{% endif %}</td><td>{{ w.owner.username }}</td><td>{{ w.version }}</td><td>{{ w.updated|date:"d/m/Y H:i" }} · {{ w.updated_by.username }}</td><td>{{ w.dataset.name|default:"—" }}</td></tr>
+{% empty %}<tr><td colspan="5" class="muted">Sin libros.</td></tr>{% endfor %}</tbody></table></div></section>{% endblock %}

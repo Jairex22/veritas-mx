@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block title %}Trabajos{% endblock %}
+{% block content %}<div class="page-head"><h1>Trabajos en segundo plano</h1></div>
+<div class="table-wrap"><table class="data"><thead><tr><th>Creado</th><th>Tipo</th><th>Estado</th><th>Progreso</th><th>Mensaje / error</th><th>Resultado</th></tr></thead><tbody>
+{% for j in page %}<tr><td class="nowrap">{{ j.created|date:"d/m/Y H:i:s" }}</td><td>{{ j.kind }}</td><td><span class="tag {% if j.status == 'succeeded' %}tag-ok{% elif j.status == 'failed' %}tag-err{% elif j.status == 'running' %}tag-info{% endif %}">{{ j.get_status_display }}</span></td>
+<td>{{ j.progress }} %</td><td>{{ j.error|default:j.message }}</td><td>{% if j.result.url %}<a href="{{ j.result.url }}">Abrir</a>{% endif %}{% for f in j.result.files %}<a href="{{ f.url }}">{{ f.name }}</a> {% endfor %}</td></tr>
+{% empty %}<tr><td colspan="6" class="muted">Sin trabajos.</td></tr>{% endfor %}</tbody></table></div>{% include "partials/pager.html" %}{% endblock %}

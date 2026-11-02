@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% block title %}{{ conv.subject }}{% endblock %}
+{% block content %}<div class="page-head"><h1>{{ conv.subject }}</h1><a class="btn" href="{% url 'comms:conversations' %}">Volver</a></div>
+<section class="card">{% for m in msgs %}<div style="margin-bottom:.8rem"><strong>{{ m.author.get_full_name|default:m.author.username }}</strong> <span class="muted small">{{ m.created|date:"d/m/Y H:i" }}</span><div style="white-space:pre-wrap">{{ m.body }}</div></div>{% endfor %}
+<form method="post">{% csrf_token %}<textarea name="body" required aria-label="Mensaje"></textarea><button class="btn btn-primary" type="submit">Enviar</button></form></section>{% endblock %}

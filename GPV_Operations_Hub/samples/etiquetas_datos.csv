@@ -1,0 +1,7 @@
+work_order,part_number,revision,lot,qty_good,customer
+000001,GPV-PN-0401,B,L2611-01,48,Electrónica Álamo
+000002,GPV-PN-0402,C,L2611-02,48,Industrias Peña
+000003,GPV-PN-0403,A,L2611-03,48,Sensores del Bajío
+000004,GPV-PN-0404,B,L2611-04,48,Cliente Ñandú
+000005,GPV-PN-0405,C,L2611-05,48,Electrónica Álamo
+000006,GPV-PN-0406,A,L2611-06,48,Industrias Peña

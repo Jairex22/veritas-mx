@@ -1,0 +1,28 @@
+{% extends "base.html" %}{% load static %}{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div data-dashboard data-api="{% url 'reports:dashboard_data' %}">
+<div class="page-head"><h1>Dashboard de producción</h1><div class="actions">
+  <button class="btn" type="button" data-refresh>Actualizar datos</button>
+  <a class="btn" data-link="{% url 'production:records' %}" href="{% url 'production:records' %}">Ver registros (detalle)</a>
+  <a class="btn" data-link="{% url 'reports:export' %}?fmt=xlsx&table=orders" href="#">Exportar Excel</a>
+  <a class="btn" data-link="{% url 'reports:export' %}?fmt=csv&table=records" href="#">Exportar CSV</a>
+  <a class="btn" href="{% url 'reports:boards' %}">Mis dashboards</a>
+  {% if caps.reports__generate %}<a class="btn btn-primary" data-link="{% url 'reports:reports' %}" href="{% url 'reports:reports' %}">Generar reporte</a>{% endif %}
+</div></div>
+{% include "partials/filters.html" %}
+<p class="muted small" data-stamp>—</p>
+<div data-chips class="actions" style="margin-bottom:.5rem"></div>
+<div class="kpis" data-kpis></div>
+<div data-warnings></div>
+<p class="muted small">Haga clic en una barra (línea o turno) para filtrar las demás vistas. Las exportaciones y «Ver registros» usan exactamente la selección actual.</p>
+<div class="grid grid-2">
+  <section class="card"><h2>Meta vs. buenas por línea</h2><div class="legend"><span><i style="background:#9fb9cf"></i>Meta</span><span><i style="background:var(--primary)"></i>Buenas</span></div><div class="chart" data-chart="by_line"></div></section>
+  <section class="card"><h2>Producción buena por día</h2><div class="chart" data-chart="by_day"></div></section>
+  <section class="card"><h2>Por turno</h2><div class="chart" data-chart="by_shift"></div></section>
+  <section class="card"><h2>Por hora (registros con hora)</h2><div class="chart" data-chart="by_hour"></div></section>
+  <section class="card"><h2>Pareto de causas (rechazo + scrap)</h2><div class="chart" data-chart="pareto"></div></section>
+  <section class="card"><h2>Seguimiento Kaizen</h2><div class="chart" data-chart="kaizen"></div></section>
+</div>
+<section class="card"><h2>Órdenes atrasadas</h2><div class="table-wrap"><table class="data"><thead><tr><th>Orden</th><th>Línea</th><th class="num">Pendiente</th><th>Vencimiento</th></tr></thead><tbody data-late></tbody></table></div></section>
+</div>{% endblock %}
+{% block scripts %}<script src="{% static 'gpv/js/charts.js' %}"></script><script src="{% static 'gpv/js/dashboard.js' %}"></script>{% endblock %}

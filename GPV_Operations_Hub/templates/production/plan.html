@@ -1,0 +1,27 @@
+{% extends "base.html" %}{% block title %}Plan de producción{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Plan de producción</h1><div class="actions">
+  <a class="btn" href="{% url 'production:records' %}?{{ query }}">Ver registros</a>
+  <a class="btn" href="{% url 'reports:export' %}?{{ query }}&amp;fmt=xlsx&amp;table=orders">Exportar Excel</a>
+  <a class="btn" href="{% url 'reports:export' %}?{{ query }}&amp;fmt=csv&amp;table=orders">Exportar CSV</a>
+  {% if caps.production__import %}<a class="btn btn-primary" href="{% url 'production:import_start' %}">Actualizar datos</a>{% endif %}
+</div></div>
+{% include "partials/filters.html" %}
+<p class="muted small">{{ kpis.filters_text }} · Versión de datos <code>{{ kpis.data_version }}</code> · Última importación {{ kpis.last_import|date:"d/m/Y H:i"|default:"—" }}</p>
+<div class="kpis">
+  {% include "partials/metric.html" with label="Cumplimiento agrupado" m=kpis.compliance %}
+  <div class="kpi"><div class="kpi-label">Meta total</div><div class="kpi-value">{{ kpis.planned_total|floatformat:"-2" }}</div></div>
+  <div class="kpi"><div class="kpi-label">Buenas</div><div class="kpi-value">{{ kpis.good_total|floatformat:"-2" }}</div></div>
+  <div class="kpi"><div class="kpi-label">Pendiente</div><div class="kpi-value">{% if kpis.pending_total is not None %}{{ kpis.pending_total|floatformat:"-2" }}{% else %}—{% endif %}</div></div>
+  <div class="kpi"><div class="kpi-label">Atrasadas</div><div class="kpi-value">{{ kpis.late_count }}</div><div class="kpi-sub">de {{ kpis.orders }} órdenes</div></div>
+</div>
+{% for w in warnings %}<div class="alert alert-warn">{{ w }}</div>{% endfor %}
+<div class="table-wrap"><table class="data"><thead><tr><th>Orden</th><th>Cliente</th><th>Área/Línea</th><th>Parte</th><th class="num">Meta</th><th class="num">Buenas</th><th class="num">Pendiente</th><th>Avance</th><th>Vence</th><th>Estado</th><th>Prio.</th><th>Fuente / antigüedad</th></tr></thead><tbody>
+{% for r in page %}<tr class="{% if r.late %}late{% endif %}">
+<td><a href="{% url 'production:order' r.id %}"><strong>{{ r.number }}</strong></a></td><td>{{ r.customer }}</td><td>{{ r.area }} / {{ r.line }}</td><td>{{ r.part_number }} {{ r.revision }}</td>
+<td class="num">{{ r.planned|floatformat:"-2"|default:"—" }} {{ r.unit }}</td><td class="num">{{ r.good|floatformat:"-2" }}</td><td class="num">{% if r.pending is not None %}{{ r.pending|floatformat:"-2" }}{% else %}—{% endif %}</td>
+<td style="min-width:110px">{% if r.compliance.status == 'ok' %}<div class="progress {% if r.compliance.value >= 100 %}done{% endif %}"><span style="width:{% if r.compliance.value > 100 %}100{% else %}{{ r.compliance.value|floatformat:0 }}{% endif %}%"></span></div><span class="small">{{ r.compliance.value|floatformat:2 }} %</span>{% else %}<span class="tag" title="{{ r.compliance.reason }}">No calculable</span>{% endif %}</td>
+<td class="nowrap">{{ r.due|date:"d/m/Y H:i"|default:"—" }}{% if r.late %} <span class="tag tag-err">Atrasada</span>{% endif %}</td><td>{{ r.status }}</td><td>{{ r.priority }}</td>
+<td class="small">{{ r.source }}<br><span class="muted">{% if r.data_updated %}hace {{ r.data_updated|timesince }}{% endif %}</span></td></tr>
+{% empty %}<tr><td colspan="12" class="muted">No hay órdenes para los filtros seleccionados. Cargue un plan en «Cargar información».</td></tr>{% endfor %}
+</tbody></table></div>{% include "partials/pager.html" %}{% endblock %}

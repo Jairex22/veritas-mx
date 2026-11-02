@@ -1,0 +1,72 @@
+{% extends "base.html" %}{% block title %}Importación #{{ batch.pk }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Importación #{{ batch.pk }} · {{ batch.dataset.name }}</h1><a class="btn" href="{% url 'production:import_start' %}">Nueva carga</a></div>
+<ol class="steps"><li class="done">1 · Archivo</li><li class="{% if step == '2' %}cur{% else %}done{% endif %}">2 · Vista previa y mapeo</li><li class="{% if step == '3' %}cur{% endif %}">3 · Validación</li><li>4 · Importación</li></ol>
+<section class="card"><h2>Archivo</h2>
+<p><strong>{{ analysis.file }}</strong> · {{ analysis.ext|upper }} · {{ analysis.size|filesizeformat }} · SHA-256 <code class="small">{{ analysis.sha256|truncatechars:20 }}</code>
+{% if analysis.encoding %} · Codificación <strong>{{ analysis.encoding }}</strong>{% endif %}{% if analysis.delimiter %} · Separador <strong>{% if analysis.delimiter == '	' %}tabulador{% else %}«{{ analysis.delimiter }}»{% endif %}</strong>{% endif %}
+· Hojas: {% for s in analysis.sheets %}{{ s.name }} ({{ s.rows }} filas){% if not forloop.last %}, {% endif %}{% endfor %}</p>
+{% for p in analysis.previous_imports %}<div class="alert alert-warn">Este mismo archivo (hash idéntico) ya se importó en el lote <a href="{% url 'production:import_detail' p.id %}">#{{ p.id }}</a> ({{ p.dataset }}, {{ p.when }}). Volver a importarlo no duplica datos: las filas existentes se identifican por clave y quedarán como «sin cambios» u «omitidas».</div>{% endfor %}
+{% if sheet %}{% if sheet.formula_cells %}<div class="alert alert-info">La hoja contiene {{ sheet.formula_cells }} celdas con fórmula: se usa el valor almacenado por Excel (puede estar desactualizado); {{ sheet.formula_computed }} se calcularon con el motor interno; {{ sheet.formula_missing }} no tienen resultado y se reportarán como error (no se convierten en cero).</div>{% endif %}
+{% for f in sheet.features %}<div class="alert alert-warn">{{ f }}</div>{% endfor %}
+{% if sheet.duplicate_headers %}<div class="alert alert-warn">Encabezados repetidos: {{ sheet.duplicate_headers|join:", " }}. Solo se puede mapear la primera aparición.</div>{% endif %}{% endif %}
+</section>
+
+{% if step == '2' %}
+<form method="post" data-dirty-check>{% csrf_token %}
+<section class="card"><h2>Lectura del archivo</h2><div class="form-grid">
+{% if analysis.ext == 'xlsx' %}<label>Hoja<select name="sheet">{% for s in analysis.sheets %}<option {% if s.name == batch.sheet %}selected{% endif %}>{{ s.name }}</option>{% endfor %}</select></label>{% endif %}
+<label>Fila de encabezados<input type="number" name="header_row" min="1" max="50" value="{{ batch.options.header_row|default:1 }}"></label>
+{% if analysis.ext != 'xlsx' %}<label>Codificación<select name="encoding"><option value="">Detectar ({{ analysis.encoding }})</option><option value="utf-8-sig" {% if batch.options.encoding == 'utf-8-sig' %}selected{% endif %}>UTF-8</option><option value="cp1252" {% if batch.options.encoding == 'cp1252' %}selected{% endif %}>Windows-1252</option><option value="latin-1" {% if batch.options.encoding == 'latin-1' %}selected{% endif %}>ISO-8859-1</option></select></label>
+<label>Separador<select name="delimiter"><option value="">Detectar</option><option value="," {% if batch.options.delimiter == ',' %}selected{% endif %}>Coma ,</option><option value=";" {% if batch.options.delimiter == ';' %}selected{% endif %}>Punto y coma ;</option><option value="tab" {% if batch.options.delimiter == '	' %}selected{% endif %}>Tabulador</option><option value="|" {% if batch.options.delimiter == '|' %}selected{% endif %}>Barra |</option></select></label>{% endif %}
+<label>Orden de fechas<select name="date_order"><option value="auto">Detectar (error si es ambiguo)</option><option value="DMY" {% if batch.options.date_order == 'DMY' %}selected{% endif %}>DD/MM/AAAA</option><option value="MDY" {% if batch.options.date_order == 'MDY' %}selected{% endif %}>MM/DD/AAAA</option></select></label>
+<label>Separador decimal<select name="decimal_sep"><option value="auto">Detectar (error si es ambiguo)</option><option value="." {% if batch.options.decimal_sep == '.' %}selected{% endif %}>Punto (1,234.5)</option><option value="," {% if batch.options.decimal_sep == ',' %}selected{% endif %}>Coma (1.234,5)</option></select></label>
+</div><p class="muted small">Si cambia hoja, fila de encabezados, codificación o separador, el archivo se vuelve a leer.</p></section>
+
+{% if sheet %}<section class="card"><h2>Vista previa (sin modificar la base)</h2><div class="table-wrap" style="max-height:340px"><table class="data"><thead><tr>{% for h in sheet.headers %}<th>{{ h|default:"(sin encabezado)" }}</th>{% endfor %}</tr></thead><tbody>
+{% for r in sheet.sample %}<tr>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div><p class="muted small">Primeras {{ sheet.sample|length }} de {{ sheet.rows }} filas.</p></section>
+
+<section class="card"><h2>Mapeo de columnas</h2><p class="muted small">Tipo de dataset: <strong>{{ batch.dataset.get_kind_display }}</strong>. Los campos marcados con * son obligatorios para este tipo; no es necesario inventar datos para los demás.</p>
+<div class="form-grid">{% for f in fields %}<label>{{ f.label }}{% if f.required %} *{% endif %} <span class="muted small">({{ f.type }})</span>
+<select name="map_{{ f.name }}"><option value="">— no importar —</option>{% for h in sheet.headers %}{% if h %}<option value="{{ h }}" {% if h == f.mapped %}selected{% endif %}>{{ h }}</option>{% endif %}{% endfor %}</select></label>{% endfor %}</div></section>{% endif %}
+
+<section class="card"><h2>Significado de las filas y claves</h2>
+{% if is_snapshot %}<div class="alert alert-info">Dataset de <strong>capturas acumuladas</strong>: cada fila reemplaza la captura vigente de su clave; nunca se suma a la anterior.</div>{% endif %}
+<p>Campos clave (identifican un registro): {% if can_configure %}<ul class="checklist">{% for f in fields %}<li><label class="check"><input type="checkbox" name="key_fields" value="{{ f.name }}" {% if f.name in key_fields %}checked{% endif %}>{{ f.label }}</label></li>{% endfor %}</ul>{% else %}<strong>{{ key_fields|join:", " }}</strong>{% endif %}</p>
+<div class="form-grid"><label>Modo
+<select name="mode">{% for v,l in modes %}<option value="{{ v }}" {% if batch.mode == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
+<label>Alcance a reemplazar: desde<input type="date" name="scope_date_from" value="{{ batch.scope.date_from }}"></label>
+<label>hasta<input type="date" name="scope_date_to" value="{{ batch.scope.date_to }}"></label><label>línea<input name="scope_line" value="{{ batch.scope.line }}"></label>
+<label class="check full"><input type="checkbox" name="allow_partial" {% if batch.options.allow_partial %}checked{% endif %}> Importar solo filas válidas (las filas con error se excluyen y se reportan)</label>
+<label class="full">Guardar este mapeo como perfil reutilizable (opcional)<input name="profile_name" placeholder="Ej. Reporte de turno MES"></label></div>
+<p class="actions"><button class="btn btn-primary" type="submit">Validar</button></p></section>
+</form>
+{% endif %}
+
+{% if step == '3' %}
+{% if validation %}<section class="card"><h2>Resultado de la validación</h2>
+<div class="kpis">
+<div class="kpi"><div class="kpi-label">Leídas</div><div class="kpi-value">{{ validation.stats.read }}</div></div>
+<div class="kpi"><div class="kpi-label">Aceptadas</div><div class="kpi-value">{{ validation.stats.accepted }}</div></div>
+<div class="kpi {% if validation.stats.rejected %}kpi-na{% endif %}"><div class="kpi-label">Rechazadas</div><div class="kpi-value">{{ validation.stats.rejected }}</div></div>
+<div class="kpi"><div class="kpi-label">Nuevas</div><div class="kpi-value">{{ validation.stats.created }}</div></div>
+<div class="kpi"><div class="kpi-label">Actualizadas</div><div class="kpi-value">{{ validation.stats.updated }}</div></div>
+<div class="kpi"><div class="kpi-label">Capturas reemplazadas</div><div class="kpi-value">{{ validation.stats.superseded }}</div></div>
+<div class="kpi"><div class="kpi-label">Sin cambios</div><div class="kpi-value">{{ validation.stats.unchanged }}</div></div>
+<div class="kpi"><div class="kpi-label">Omitidas</div><div class="kpi-value">{{ validation.stats.skipped }}</div></div>
+<div class="kpi"><div class="kpi-label">Retiradas (alcance)</div><div class="kpi-value">{{ validation.stats.removed }}</div></div></div>
+{% if validation.errors_total %}<div class="alert alert-err">{{ validation.errors_total }} errores. {% if batch.error_file %}<a href="{% url 'download' batch.error_file.pk %}">Descargar errores (CSV)</a>{% endif %}</div>
+<div class="table-wrap" style="max-height:360px"><table class="data"><thead><tr><th>Hoja</th><th>Fila</th><th>Columna</th><th>Valor</th><th>Error y cómo corregirlo</th></tr></thead><tbody>
+{% for e in validation.errors|slice:":300" %}<tr><td>{{ e.sheet }}</td><td>{{ e.row }}</td><td>{{ e.column }}</td><td><code>{{ e.value }}</code></td><td>{{ e.message }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% if validation.warnings %}<details><summary>{{ validation.warnings|length }} advertencias</summary><ul>{% for w in validation.warnings|slice:":100" %}<li>Fila {{ w.row }}: {{ w.message }}</li>{% endfor %}</ul></details>{% endif %}
+{% if validation.changes %}<h3>Cambios sobre datos existentes</h3><div class="table-wrap" style="max-height:300px"><table class="data"><thead><tr><th>Fila</th><th>Clave</th><th>Acción</th><th>Diferencias (anterior → nuevo)</th></tr></thead><tbody>
+{% for c in validation.changes|slice:":200" %}<tr><td>{{ c.row }}</td><td class="mono small">{{ c.key }}</td><td>{{ c.action }}</td><td class="small">{% for k, v in c.diff.items %}<strong>{{ k }}</strong>: {{ v.0|default:"∅" }} → {{ v.1|default:"∅" }}; {% endfor %}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+<form method="post" action="{% url 'production:import_commit' batch.pk %}" data-job-form="#commit-box" data-confirm="¿Confirmar la importación? Se aplicarán los cambios mostrados.">{% csrf_token %}
+<p class="actions"><a class="btn" href="?paso=2">Volver al mapeo</a>
+<button class="btn btn-primary" type="submit" {% if batch.status != 'validated' %}disabled{% endif %} {% if validation.stats.rejected and not batch.options.allow_partial %}disabled title="Corrija los errores o active «Importar solo filas válidas»"{% endif %}>Importar</button></p>
+{% if validation.stats.rejected and not batch.options.allow_partial %}<p class="muted small">El botón Importar está deshabilitado porque hay filas con error.</p>{% endif %}
+<div class="jobbox" id="commit-box" hidden></div></form></section>
+{% else %}<section class="card"><p>Validación en proceso…</p><div class="jobbox" id="val-box" data-watch-job="{{ job_id }}" data-reload="1"></div></section>{% endif %}
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{% load static %}{% static 'gpv/js/watch.js' %}"></script>{% endblock %}

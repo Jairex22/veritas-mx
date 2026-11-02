@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% block title %}Dataset{% endblock %}
+{% block content %}<section class="card narrow"><h1>{% if obj %}Editar{% else %}Nuevo{% endif %} dataset</h1>
+<div class="alert alert-info small"><strong>Incremental</strong>: cada fila es producción adicional (se suma). <strong>Captura acumulada</strong>: cada fila es el total a la fecha; la nueva captura reemplaza a la anterior. <strong>Plan</strong>: actualiza órdenes y metas con historial. Defina claves que identifiquen un registro único para evitar duplicados.</div>
+<form method="post" data-dirty-check>{% csrf_token %}{{ form.as_p }}<button class="btn btn-primary" type="submit">Guardar</button></form></section>{% endblock %}

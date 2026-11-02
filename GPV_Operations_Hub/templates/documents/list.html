@@ -1,0 +1,32 @@
+{% extends "base.html" %}{% load static %}{% block title %}Documentos{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Centro de documentos</h1>
+<form method="get" class="actions"><input type="search" name="q" value="{{ q }}" placeholder="Buscar por nombre o etiqueta" aria-label="Buscar">
+<select name="tipo" data-autosubmit aria-label="Tipo"><option value="">Todos los tipos</option><option value="pdf" {% if request.GET.tipo == 'pdf' %}selected{% endif %}>PDF</option><option value="docx" {% if request.GET.tipo == 'docx' %}selected{% endif %}>Word</option><option value="pptx" {% if request.GET.tipo == 'pptx' %}selected{% endif %}>PowerPoint</option><option value="xlsx" {% if request.GET.tipo == 'xlsx' %}selected{% endif %}>Excel</option><option value="csv" {% if request.GET.tipo == 'csv' %}selected{% endif %}>CSV</option></select>
+<select name="carpeta" data-autosubmit aria-label="Carpeta"><option value="">Todas las carpetas</option>{% for f in folders %}<option value="{{ f.pk }}" {% if folder.pk == f.pk %}selected{% endif %}>{{ f.name }}</option>{% endfor %}</select>
+<button class="btn" type="submit">Buscar</button></form></div>
+{% if not office.available %}<div class="alert alert-warn"><strong>Convertidor Office no disponible.</strong> Las conversiones DOCX/PPTX/XLSX → PDF, miniaturas de PPTX/DOCX y el corte por páginas de Word requieren: {{ office.requirement }} Las herramientas nativas de PDF, Excel/CSV, Word y PowerPoint siguen funcionando.</div>{% endif %}
+<div class="grid grid-2">
+<section class="card"><h2>Cargar archivos</h2><form method="post" action="{% url 'documents:upload' %}" enctype="multipart/form-data">{% csrf_token %}
+<input type="file" id="docfiles" name="files" multiple hidden accept=".pdf,.docx,.pptx,.xlsx,.csv,.txt,.png,.jpg,.jpeg">
+<div class="dropzone" data-dropzone="#docfiles" tabindex="0" role="button"><strong>Arrastre archivos o haga clic</strong><br><span class="muted small" data-drop-label data-empty="PDF, Word, PowerPoint, Excel, CSV e imágenes">PDF, Word, PowerPoint, Excel, CSV e imágenes</span></div>
+<div class="form-grid"><label>Carpeta<select name="folder"><option value="">—</option>{% for f in folders %}<option value="{{ f.pk }}" {% if folder.pk == f.pk %}selected{% endif %}>{{ f.name }}</option>{% endfor %}</select></label>
+<label>Etiquetas<input name="tags" placeholder="calidad, cliente X"></label>
+<label>Permiso<select name="visibility">{% for v,l in visibilities %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></label></div>
+<button class="btn btn-primary" type="submit">Cargar</button></form>
+<form method="post" action="{% url 'documents:folder_create' %}" class="actions" style="margin-top:.6rem">{% csrf_token %}<input name="name" placeholder="Nueva carpeta" aria-label="Nueva carpeta"><button class="btn btn-sm" type="submit">Crear carpeta</button></form></section>
+<section class="card"><h2>Operaciones por lote</h2><p class="muted small">Marque documentos en la tabla y elija una operación. El orden de combinación es el orden de selección.</p>
+{% if can_transform %}<form method="post" action="{% url 'documents:operate' %}" data-job-form="#batch-box" data-batch-form>{% csrf_token %}
+<div class="actions"><select name="op" aria-label="Operación por lote">
+<option value="pdf_merge">Combinar PDF</option><option value="combine_to_pdf">Combinar documentos distintos en un PDF</option>
+<option value="images_to_pdf">Imágenes a PDF</option><option value="pptx_merge">Combinar presentaciones (PPTX)</option>
+<option value="docx_combine">Combinar Word (DOCX)</option><option value="xlsx_combine">Combinar libros Excel</option>
+<option value="csv_combine">Combinar datos CSV/XLSX por columnas</option><option value="office_to_pdf">Convertir Office a PDF (cada uno)</option></select>
+<button class="btn btn-primary" type="submit">Combinar</button><button class="btn" type="button" data-zip>Descargar ZIP</button></div>
+<div class="jobbox" id="batch-box" hidden></div></form>{% else %}<p class="muted">Su rol solo permite consultar y descargar.</p>{% endif %}</section></div>
+<div class="table-wrap"><table class="data"><thead><tr><th><input type="checkbox" data-checkall aria-label="Seleccionar todo"></th><th>Documento</th><th>Tipo</th><th>Tamaño</th><th>Etiquetas</th><th>Carpeta</th><th>Propietario</th><th>Origen</th><th>Fecha</th></tr></thead><tbody>
+{% for d in docs %}<tr><td><input type="checkbox" data-doc value="{{ d.pk }}" aria-label="Seleccionar {{ d.title }}"></td><td><a href="{% url 'documents:detail' d.pk %}">{{ d.title }}</a></td><td>{{ d.ext|upper }}</td><td>{{ d.file.size|filesizeformat }}</td><td>{{ d.tags }}</td><td>{{ d.folder.name|default:"—" }}</td><td>{{ d.owner.username }}</td>
+<td class="small">{% if d.derived_from %}{{ d.operation }} de #{{ d.derived_from_id }}{% else %}original{% endif %}</td><td class="nowrap">{{ d.created|date:"d/m/Y H:i" }}</td></tr>
+{% empty %}<tr><td colspan="9" class="muted">Sin documentos.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}
+{% block scripts %}<script src="{% static 'gpv/js/doclist.js' %}"></script>{% endblock %}
