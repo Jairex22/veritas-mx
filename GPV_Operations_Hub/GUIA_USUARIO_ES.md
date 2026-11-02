@@ -4,7 +4,8 @@ Entre a la URL del portal con su usuario. Lo que ve depende de su **rol** (Admin
 Jefe/Supervisor, Ingeniero/Analista, Operador/Lector) y de sus **áreas**. Si un botón indica
 «No tiene permiso», el servidor bloqueó la operación: solicite el permiso a un administrador.
 
-La barra superior muestra «Actualizado hh:mm:ss» (última consulta al servidor) y la campana de
+El menú solo muestra las secciones permitidas para su rol (por ejemplo, un operador no ve «Cargar
+información» ni «Hoja de cálculo»). La barra superior muestra «Actualizado hh:mm:ss» (última consulta al servidor) y la campana de
 notificaciones. Los datos cambian cuando alguien importa un archivo o captura avance: **no** es tiempo real.
 
 ## 1. Comunicados
@@ -13,8 +14,9 @@ notificaciones. Los datos cambian cuando alguien importa un archivo o captura av
 * **Publicar** (jefes): «Nuevo comunicado» › título, mensaje, prioridad, vigencia, destinatarios
   (áreas, turnos, grupos, roles; vacío = todos), adjuntos, «requiere confirmación». Al publicar se
   crean notificaciones internas (no se envía correo). En el detalle verá quién leyó y confirmó.
-* **Comentar / dudas / incidencias**: al pie de comunicados, órdenes y mejoras Kaizen. Las
-  incidencias pueden marcarse como resueltas por quien tenga permiso.
+* **Comentar / dudas / incidencias**: al pie de comunicados, órdenes y mejoras Kaizen. Al registrar una
+  incidencia o duda se notifica a los responsables del área (jefes/analistas). Ellos la ven en
+  **Comunicados › Incidencias y dudas** (y en Inicio) y la marcan como resuelta; el autor recibe aviso.
 * **Conversaciones**: Comunicados › Conversaciones › elija participantes.
 
 ## 2. Producción (plan)

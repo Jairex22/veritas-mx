@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% block title %}Incidencias y dudas{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Incidencias y dudas</h1><form method="get" class="actions">
+<select name="tipo" data-autosubmit aria-label="Tipo"><option value="">Incidencias y dudas</option><option value="incident" {% if tipo == 'incident' %}selected{% endif %}>Solo incidencias</option><option value="question" {% if tipo == 'question' %}selected{% endif %}>Solo dudas</option></select>
+<select name="ver" data-autosubmit aria-label="Estado"><option value="">Abiertas</option><option value="todas" {% if show_all %}selected{% endif %}>Abiertas y resueltas</option></select></form></div>
+<p class="muted small">Se muestran las de sus áreas. Quien registra una incidencia o duda notifica automáticamente a los responsables de resolverlas en el área.</p>
+<div class="table-wrap"><table class="data"><thead><tr><th>Fecha</th><th>Tipo</th><th>Sobre</th><th>Autor</th><th>Mensaje</th><th>Estado</th></tr></thead><tbody>
+{% for c in page %}<tr><td class="nowrap">{{ c.created|date:"d/m/Y H:i" }}</td><td><span class="tag {% if c.kind == 'incident' %}tag-err{% else %}tag-warn{% endif %}">{{ c.get_kind_display }}</span></td>
+<td><a href="{{ c.url }}">{{ c.target_label|truncatechars:50 }}</a></td><td>{{ c.author.get_full_name|default:c.author.username }}</td><td>{{ c.body|truncatechars:140 }}</td>
+<td>{% if c.resolved %}<span class="tag tag-ok">Resuelta · {{ c.resolved_by.username }}</span>{% else %}<span class="tag">Abierta</span>{% endif %}</td></tr>
+{% empty %}<tr><td colspan="6" class="muted">No hay incidencias ni dudas {% if not show_all %}abiertas {% endif %}en sus áreas.</td></tr>{% endfor %}</tbody></table></div>
+{% include "partials/pager.html" %}{% endblock %}

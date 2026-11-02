@@ -12,6 +12,7 @@ urlpatterns = [
     path("<int:ann_id>/retirar/", views.announcement_unpublish, name="unpublish"),
     path("comentarios/", views.comment_post, name="comment"),
     path("comentarios/<int:comment_id>/resolver/", views.comment_resolve, name="comment_resolve"),
+    path("incidencias/", views.incidents, name="incidents"),
     path("conversaciones/", views.conversation_list, name="conversations"),
     path("conversaciones/nueva/", views.conversation_create, name="conversation_create"),
     path("conversaciones/<int:conv_id>/", views.conversation_detail, name="conversation"),

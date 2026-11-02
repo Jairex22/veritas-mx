@@ -87,7 +87,7 @@ async function run(viewportName, viewport) {
     await page.click('.gcell[data-r="0"][data-c="0"]');
     await page.keyboard.type("5");
     await page.keyboard.press("Enter");
-    await page.keyboard.type("=A1*3");
+    await page.keyboard.type("=A1*3", { delay: 120 }); // human speed: recalculation may arrive mid-edit
     await page.keyboard.press("Enter");
     await page.waitForFunction(() => document.querySelector('.gcell[data-r="1"][data-c="0"]').textContent === "15");
     await page.click('[data-act="save"]');

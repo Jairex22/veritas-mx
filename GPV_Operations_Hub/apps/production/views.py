@@ -192,8 +192,11 @@ def import_start(request):
 
 def _get_batch(request, batch_id):
     batch = get_object_or_404(ImportBatch.objects.select_related("dataset", "source_file"), pk=batch_id)
-    if batch.created_by_id != request.user.id and not has_cap(request.user, "production.revert"):
-        raise PermissionDenied("Este lote pertenece a otro usuario.")
+    if batch.created_by_id != request.user.id:
+        if not has_cap(request.user, "production.revert"):
+            raise PermissionDenied("Este lote pertenece a otro usuario.")
+        if batch.dataset.area_id is not None and not can_access_area(request.user, batch.dataset.area_id):
+            raise PermissionDenied("Este lote pertenece a un área sin permiso.")
     return batch
 
 
@@ -283,13 +286,40 @@ def imports_list(request):
     qs = ImportBatch.objects.select_related("dataset", "source_file", "created_by")
     if not has_cap(request.user, "production.revert"):
         qs = qs.filter(created_by=request.user)
+    else:
+        from django.db.models import Q
+
+        ids = allowed_area_ids(request.user)
+        if ids is not None:
+            qs = qs.filter(Q(created_by=request.user) | Q(dataset__area__isnull=True) | Q(dataset__area__in=ids))
     return render(request, "production/imports.html", {"page": paginate(request, qs, 30)})
+
+
+def _can_view_batch(user, batch):
+    """Read-only traceability: whoever may see production of the dataset area can see the batch summary."""
+    if batch.created_by_id == user.id:
+        return True
+    if not (has_cap(user, "production.view") or has_cap(user, "production.revert")):
+        return False
+    ids = allowed_area_ids(user)
+    if ids is None or batch.dataset.area_id is None or batch.dataset.area_id in ids:
+        return True
+    # files may carry their own area column: rows of the user's areas grant read access to the batch
+    if ProductionRecord.objects.filter(batch=batch, area__in=ids).exists() or ProductionRecord.objects.filter(last_batch=batch, area__in=ids).exists():
+        return True
+    return PlanChange.objects.filter(batch=batch, work_order__area__in=ids).exists()
 
 
 @login_required
 def import_detail(request, batch_id):
-    batch = _get_batch(request, batch_id)
+    batch = get_object_or_404(ImportBatch.objects.select_related("dataset", "source_file", "created_by"), pk=batch_id)
+    if not _can_view_batch(request.user, batch):
+        raise PermissionDenied("Este lote pertenece a un área sin permiso.")
+    from apps.core.permissions import can_access_file
+
     return render(request, "production/import_detail.html", {
+        "can_download_source": can_access_file(request.user, batch.source_file),
+        "can_download_errors": bool(batch.error_file) and can_access_file(request.user, batch.error_file),
         "batch": batch, "can_revert": has_cap(request.user, "production.revert") and batch.status == ImportBatch.Status.COMMITTED,
         "plan_changes": PlanChange.objects.filter(batch=batch).select_related("work_order")[:200],
     })
@@ -325,6 +355,8 @@ def datasets(request):
 @require_cap("production.configure")
 def dataset_edit(request, dataset_id=None):
     obj = get_object_or_404(Dataset, pk=dataset_id) if dataset_id else None
+    if obj is not None and obj.area_id and not can_access_area(request.user, obj.area_id):
+        raise PermissionDenied("El dataset pertenece a un área sin permiso.")
     form = DatasetForm(request.POST or None, instance=obj)
     if request.method == "POST" and form.is_valid():
         ds = form.save(commit=False)

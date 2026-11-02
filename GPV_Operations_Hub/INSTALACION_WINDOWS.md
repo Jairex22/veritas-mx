@@ -4,19 +4,40 @@ Diseñado para Windows corporativo **sin** npm, Node, Docker, Git, instaladores 
 Solo se necesita Python (3.11, 3.12 o 3.13) permitido por TI. No se requieren privilegios de
 administrador. No se desactiva ninguna política de seguridad.
 
-## 1. Descomprimir
+## 1. Descomprimir y ubicar la carpeta correcta
 
-1. Clic derecho sobre `GPV_Operations_Hub_v1.0.0.zip` › **Extraer todo…** › elija, por ejemplo,
-   `C:\Users\<usuario>\GPV\`. Se crea la carpeta `GPV_Operations_Hub_v1.0.0`.
-2. (Opcional) Abra la carpeta en Visual Studio Code: **Archivo › Abrir carpeta…** › `GPV_Operations_Hub_v1.0.0`.
-   Abra una terminal: **Terminal › Nueva terminal**. Si la terminal es PowerShell, los comandos
-   siguientes funcionan igual (no usan scripts .ps1). También puede usar «Símbolo del sistema» (cmd).
+1. Clic derecho sobre `GPV_Operations_Hub_v1.0.1.zip` › **Extraer todo…** › **Extraer**.
+2. **Importante:** Windows crea una carpeta con el nombre del ZIP y, dentro, está la carpeta del
+   proyecto con el mismo nombre. La carpeta correcta es la que contiene `manage.py`, `INSTALAR.bat`
+   y `requirements.txt`. Si extrajo en Descargas, la ruta queda así:
 
-Todos los comandos se ejecutan **dentro** de la carpeta `GPV_Operations_Hub_v1.0.0`:
+   `C:\Users\SU_USUARIO\Downloads\GPV_Operations_Hub_v1.0.1\GPV_Operations_Hub_v1.0.1`
 
-```bat
-cd C:\Users\<usuario>\GPV\GPV_Operations_Hub_v1.0.0
+### Opción A — sin terminal (recomendada)
+
+Abra la carpeta que contiene `manage.py` y haga **doble clic en `INSTALAR.bat`**. Instala, prepara la
+base, le pide crear el administrador y, si quiere, carga datos de demostración. Después haga doble
+clic en **`INICIAR.bat`**: abre el navegador en http://127.0.0.1:8000/. Deje esa ventana abierta.
+Si su organización bloquea archivos `.bat`, use la opción B.
+
+### Opción B — terminal (PowerShell o Símbolo del sistema)
+
+Ubíquese en la carpeta del proyecto. En PowerShell, este comando la encuentra sola dentro de Descargas
+(no hay que escribir el nombre de usuario):
+
+```powershell
+cd (Get-ChildItem "$HOME\Downloads" -Recurse -Filter manage.py -ErrorAction SilentlyContinue | Where-Object { $_.DirectoryName -like "*GPV_Operations_Hub_v1.0.1*" } | Select-Object -First 1).DirectoryName
 ```
+
+Compruebe que está en el lugar correcto (deben listarse ambos archivos):
+
+```powershell
+dir manage.py, requirements.txt
+```
+
+Si aparece «No se encuentra la ruta», no continúe: vuelva a ubicar la carpeta interna.
+En Visual Studio Code: **Archivo › Abrir carpeta…** › elija la carpeta interna; la terminal integrada
+ya abre en ella.
 
 ## 2. Comprobar Python
 
@@ -98,7 +119,14 @@ Para reanudar: repita solo el comando `runserver`.
 
 Atajo opcional: `scripts\iniciar_local.bat` (si su organización permite archivos .bat).
 
-## 10. Procesos adicionales (opcionales en local)
+## 10. Actualizar desde la versión 1.0.0 conservando datos
+
+1. Detenga el servidor de la versión anterior (`Ctrl+C`).
+2. Copie la carpeta `data` (base de datos y archivos) y el archivo `.env` de la carpeta anterior a la carpeta de la v1.0.1.
+3. Ejecute `INSTALAR.bat` (o los pasos 3, 4 y 6). `migrate` actualiza la base sin borrar datos; responda **N** a crear usuario y a datos demo.
+4. Recomendado antes de copiar: `.venv\Scripts\python.exe manage.py gpv_backup` en la versión anterior.
+
+## 11. Procesos adicionales (opcionales en local)
 
 | Proceso | Comando | Necesario cuando |
 |---|---|---|
@@ -109,14 +137,14 @@ Cada uno en su propia terminal; se detienen con `Ctrl+C` y se reanudan con el mi
 En modo `inline` (por defecto local) los trabajos se ejecutan dentro de la solicitud: la página
 espera a que terminen y no se pueden cancelar a mitad de un paso largo.
 
-## 11. Pruebas y diagnóstico
+## 12. Pruebas y diagnóstico
 
 ```bat
 .venv\Scripts\python.exe manage.py test
 .venv\Scripts\python.exe manage.py gpv_diagnose
 ```
 
-## 12. Respaldo y restauración
+## 13. Respaldo y restauración
 
 ```bat
 .venv\Scripts\python.exe manage.py gpv_backup
@@ -129,6 +157,7 @@ Detalles en `DIAGNOSTICO.md`.
 
 | Síntoma | Causa probable | Solución |
 |---|---|---|
+| `Cannot find path` / `No such file or directory: 'requirements.txt'` / `can't open file … manage.py` | La terminal está en la carpeta exterior (doble carpeta al extraer) o se copió `<usuario>` literal | Vaya a la carpeta que contiene `manage.py` (sección 1). Si ya creó `.venv` en la carpeta exterior, puede borrarlo |
 | `'py' no se reconoce…` | Python no instalado o no está en PATH | Use `python`; si tampoco existe, solicite Python 3.11–3.13 a TI |
 | «Acceso denegado» al ejecutar `.venv\Scripts\python.exe` | Política corporativa bloquea ejecutables en el perfil | Solicite a TI una carpeta autorizada (ej. `C:\Apps\GPV`) o un entorno aprobado; no eluda la política |
 | `pip` no descarga (proxy) | Proxy corporativo | `.venv\Scripts\python.exe -m pip install --proxy http://usuario@proxy:puerto -r requirements.txt` (solicite datos a TI) |

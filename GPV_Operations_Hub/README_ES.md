@@ -1,28 +1,32 @@
-# GPV Operations Hub v1.0.0
+# GPV Operations Hub v1.0.1
 
 Sitio web interno (en español, responsive, Edge/Chrome y celular) para producción, colaboración,
 datos, documentos, etiquetas y Kaizen. Los empleados entran por una URL; no se instala nada en
 las computadoras cliente. El servidor es Python + Django y **no depende de Claude, de una
 suscripción ni de APIs de IA**: todos los cálculos son deterministas y verificables.
 
-> Estado: versión 1.0.0 con pruebas automatizadas y de navegador ejecutadas (ver `TEST_RESULTS.md`).
+> Estado: versión 1.0.1 con pruebas automatizadas y de navegador ejecutadas (ver `TEST_RESULTS.md`).
 > No se declara «listo para producción» sin la validación de infraestructura corporativa,
 > impresoras físicas y PostgreSQL descrita en `LIMITACIONES.md` y `DESPLIEGUE_INTERNO.md`.
 
 ## Inicio rápido (Windows, sin privilegios de administrador)
 
-Requiere Python 3.11, 3.12 o 3.13 (verifique con `py --version`). Instrucciones detalladas y solución
-de problemas en `INSTALACION_WINDOWS.md`. Desde la carpeta descomprimida, en una terminal:
+Requiere Python 3.11, 3.12 o 3.13. Al extraer el ZIP, Windows crea **dos carpetas con el mismo nombre**:
+trabaje en la **interior**, la que contiene `manage.py`.
 
-```bat
-py --version
+**Sin terminal:** doble clic en `INSTALAR.bat` y luego en `INICIAR.bat`.
+
+**Con terminal (PowerShell), un comando a la vez:**
+
+```powershell
+cd (Get-ChildItem "$HOME\Downloads" -Recurse -Filter manage.py -ErrorAction SilentlyContinue | Where-Object { $_.DirectoryName -like "*GPV_Operations_Hub_v1.0.1*" } | Select-Object -First 1).DirectoryName
+dir manage.py, requirements.txt
 py -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt
 copy .env.example .env
 .venv\Scripts\python.exe manage.py migrate
 .venv\Scripts\python.exe manage.py createsuperuser
 .venv\Scripts\python.exe manage.py seed_demo
-.venv\Scripts\python.exe manage.py check
 .venv\Scripts\python.exe manage.py runserver 127.0.0.1:8000
 ```
 
@@ -60,7 +64,7 @@ No hace falta activar el entorno (`Activate.ps1`): se invoca directamente `.venv
 ## Estructura del proyecto
 
 ```
-GPV_Operations_Hub_v1.0.0/
+GPV_Operations_Hub_v1.0.1/
 ├─ manage.py                 · comandos de Django
 ├─ gpvhub/settings/          · configuración dev / prod / test (lee .env)
 ├─ apps/core                 · usuarios, roles, permisos, archivos privados, auditoría, notificaciones, trabajos, diagnóstico, respaldo

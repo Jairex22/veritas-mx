@@ -23,7 +23,7 @@ from .utils import api, json_error, json_ok, paginate
 
 @login_required
 def home(request):
-    from apps.comms.services import visible_announcements
+    from apps.comms.services import open_incidents, visible_announcements
     from apps.kaizen.models import Improvement
     from apps.production.metrics import Filters, kpi_summary
     from apps.production.models import WorkOrder
@@ -34,8 +34,10 @@ def home(request):
     assigned = WorkOrder.objects.filter(assigned_users=user).order_by("due")[:8]
     kaizen_open = Improvement.objects.exclude(status__in=["closed", "rejected"]).count()
     jobs = Job.objects.filter(created_by=user).order_by("-created")[:5]
+    incidents = open_incidents(user)
     return render(request, "core/home.html", {
         "announcements": anns, "kpis": kpis, "assigned": assigned, "kaizen_open": kaizen_open, "jobs": jobs,
+        "incidents": incidents[:5], "incidents_count": len(incidents),
     })
 
 

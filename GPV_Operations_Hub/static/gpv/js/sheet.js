@@ -160,8 +160,13 @@
         colName(c) + (f ? " ⏷" : "") + (prot.has(colName(c)) ? " 🔒" : "") + '</div><div class="col-resizer" data-resize="' + c + '" style="top:' + st + "px;left:" + (left + colW(c) - 3) + 'px"></div>');
     }
     html.push('<div class="gcell hdr corner" style="top:' + st + "px;left:" + sl + "px;width:" + RW + 'px"></div>');
+    // keep an open cell editor (focus and caret) across re-renders
+    const ed = editor, caret = ed ? [ed.selectionStart, ed.selectionEnd] : null, hadFocus = ed && document.activeElement === ed;
     canvas.innerHTML = html.join("");
-    if (editor) canvas.appendChild(editor);
+    if (ed) {
+      canvas.appendChild(ed);
+      if (hadFocus) { ed.focus(); try { ed.setSelectionRange(caret[0], caret[1]); } catch (e) { /* ignore */ } }
+    }
     renderTabs();
     updateFormulaBar();
   }
@@ -251,7 +256,10 @@
       } else if (e.key === "Escape") { stopEdit(); render(); }
       e.stopPropagation();
     });
-    editor.addEventListener("blur", () => { if (editor) { const v = editor.value; stopEdit(); commitRaw(r, c, v); } });
+    editor.addEventListener("blur", () => {
+      // a blur caused by a re-render is not a commit: only commit when focus really left the editor
+      setTimeout(() => { if (editor && document.activeElement !== editor) { const v = editor.value; stopEdit(); commitRaw(r, c, v); } }, 0);
+    });
   }
   function stopEdit() { const e = editor; editor = null; if (e) e.remove(); vp.focus(); }
 
@@ -417,7 +425,7 @@
       const r = await api("recalcular", { data });
       values = r.data.values;
       if (r.data.warnings && r.data.warnings.length) setStatus(r.data.warnings.join(" · "));
-      render();
+      if (!editor) render(); // never redraw under an open editor; the commit re-renders
     } catch (e) { GPV.toast("No se pudo recalcular: " + e.message, "error"); }
   }
   async function save() {

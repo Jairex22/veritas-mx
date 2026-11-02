@@ -13,9 +13,9 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 INCLUDE_DIRS = ["apps", "gpvhub", "templates", "static", "samples", "tools", "scripts"]
-INCLUDE_FILES = ["manage.py", "requirements.txt", "requirements-optional.txt", ".env.example", ".gitignore"]
+INCLUDE_FILES = ["manage.py", "INSTALAR.bat", "INICIAR.bat", "requirements.txt", "requirements-optional.txt", ".env.example", ".gitignore"]
 EXCLUDE_PARTS = {"__pycache__", ".venv", "data", "node_modules", ".pytest_cache", "dist"}
 EXCLUDE_SUFFIX = {".pyc", ".pyo", ".sqlite3", ".log", ".png.tmp"}
 SECRET_PATTERNS = [re.compile(rb"-----BEGIN (RSA |EC |)PRIVATE KEY-----"), re.compile(rb"^GPV_SECRET_KEY=[^<\s]\S{9,}", re.M),

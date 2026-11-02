@@ -24,6 +24,13 @@ from .models import LabelTemplate, LabelTemplateVersion, PrintJob, Printer, Seri
 from .render import SCHEMA, TemplateError, base_values, default_template, to_pdf, to_svg, to_zpl, validate_template
 
 
+def _job_allowed(user, job):
+    if job.user_id == user.pk:
+        return True
+    area_id = job.template_version.template.area_id
+    return has_cap(user, "labels.reprint") and (area_id is None or can_access_area(user, area_id))
+
+
 def _tpl(request, pk):
     t = get_object_or_404(LabelTemplate, pk=pk)
     if t.area_id and not can_access_area(request.user, t.area_id):
@@ -35,7 +42,8 @@ def _tpl(request, pk):
 def template_list(request):
     items = filter_by_area(LabelTemplate.objects.select_related("published", "owner"), request.user) | LabelTemplate.objects.filter(area__isnull=True)
     return render(request, "labels/list.html", {"items": items.distinct(), "can_design": has_cap(request.user, "labels.design"),
-                                                "jobs": PrintJob.objects.select_related("template_version__template", "printer", "user")[:20]})
+                                                "jobs": [j for j in PrintJob.objects.select_related("template_version__template", "printer", "user")[:60]
+                                                         if _job_allowed(request.user, j)][:20]})
 
 
 @require_POST
@@ -352,8 +360,8 @@ def _job_payload(job, created=True):
 @require_cap("labels.print")
 def job_detail(request, job_id):
     job = get_object_or_404(PrintJob.objects.select_related("template_version__template", "printer", "user", "reprint_of"), pk=job_id)
-    if job.user_id != request.user.pk and not has_cap(request.user, "labels.reprint"):
-        raise PermissionDenied("Solo el autor o un supervisor pueden ver este trabajo.")
+    if not _job_allowed(request.user, job):
+        raise PermissionDenied("Solo el autor o un supervisor del área pueden ver este trabajo.")
     return render(request, "labels/job.html", {"job": job, "events": job.events.select_related("user"),
                                                "can_reprint": has_cap(request.user, "labels.reprint"),
                                                "printers": (Printer.objects.filter(enabled=True, validated_at__isnull=False) | Printer.objects.filter(kind=Printer.Kind.BROWSER)).distinct()})
@@ -363,7 +371,7 @@ def job_detail(request, job_id):
 @require_cap("labels.print")
 def job_confirm(request, job_id):
     job = get_object_or_404(PrintJob, pk=job_id)
-    if job.user_id != request.user.pk and not has_cap(request.user, "labels.reprint"):
+    if not _job_allowed(request.user, job):
         raise PermissionDenied()
     try:
         services.confirm(job, request.user, request.POST.get("result") == "ok", request.POST.get("note", ""))
@@ -379,6 +387,8 @@ def api_reprint(request, job_id):
     if not has_cap(request.user, "labels.reprint"):
         return json_error("La reimpresión requiere el permiso «Reimprimir etiquetas».", status=403)
     src = get_object_or_404(PrintJob, pk=job_id)
+    if not _job_allowed(request.user, src):
+        return json_error("El trabajo pertenece a un área sin permiso.", status=403)
     reason = request.POST.get("reason", "").strip()
     if len(reason) < 5:
         return json_error("Indique el motivo de la reimpresión (mínimo 5 caracteres).")

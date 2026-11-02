@@ -1,6 +1,6 @@
 # Checkpoint del proyecto
 
-Versión: **1.0.0** · Fecha: 2026-11-02 · Estado: todos los módulos del encargo implementados e
+Versión: **1.0.1** · Fecha: 2026-11-02 · Estado: todos los módulos del encargo implementados e
 integrados sobre el mismo modelo de datos y permisos; pruebas automatizadas, E2E y validación desde
 extracción limpia ejecutadas (ver `TEST_RESULTS.md`).
 
@@ -14,6 +14,12 @@ extracción limpia ejecutadas (ver `TEST_RESULTS.md`).
 6. Centro de documentos (PDF, PPTX, XLSX/CSV, DOCX, LibreOffice opcional).
 7. Etiquetas: diseñador, Code 128/QR, SVG/PDF/ZPL, impresión con estados honestos.
 8. Integración, 64 pruebas (SQLite, PostgreSQL, Python 3.11/3.12/3.13), E2E 45/45, rendimiento, documentación y ZIP.
+
+## Revisión 1.0.1
+
+Auditoría por roles y corrección de 9 fallos (ver CHANGELOG). El «prompt de corrección y mejoras»
+mencionado por el usuario **no se recibió** (el adjunto era el mismo ZIP v1.0.0, idéntico byte a byte);
+sus mejoras específicas quedan pendientes hasta recibir su texto.
 
 ## Pendiente (requiere recursos externos)
 

@@ -47,14 +47,14 @@
   {% with p=request.path %}
   <a href="{% url 'home' %}" class="{% if p == '/' %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#home"></use></svg>Inicio</a>
   <a href="{% url 'comms:list' %}" class="{% if '/comunicados/' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#megaphone"></use></svg>Comunicados</a>
-  <a href="{% url 'production:plan' %}" class="{% if '/produccion/' in p and '/importar' not in p and '/importaciones' not in p and '/datasets' not in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#factory"></use></svg>Producción</a>
-  <a href="{% url 'production:import_start' %}" class="{% if '/importar' in p or '/importaciones' in p or '/datasets' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#upload"></use></svg>Cargar información</a>
-  <a href="{% url 'reports:dashboard' %}" class="{% if '/analitica/dashboard' in p or '/analitica/tableros' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#chart"></use></svg>Dashboard</a>
-  <a href="{% url 'reports:reports' %}" class="{% if '/analitica/reportes' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#report"></use></svg>Reportes</a>
-  <a href="{% url 'sheets:list' %}" class="{% if '/hojas/' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#grid"></use></svg>Hoja de cálculo</a>
-  <a href="{% url 'documents:list' %}" class="{% if '/documentos/' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#file"></use></svg>Documentos</a>
-  <a href="{% url 'labels:list' %}" class="{% if '/etiquetas/' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#tag"></use></svg>Etiquetas</a>
-  <a href="{% url 'kaizen:board' %}" class="{% if '/kaizen/' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#bulb"></use></svg>Kaizen</a>
+  {% if caps.production__view %}  <a href="{% url 'production:plan' %}" class="{% if '/produccion/' in p and '/importar' not in p and '/importaciones' not in p and '/datasets' not in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#factory"></use></svg>Producción</a>{% endif %}
+  {% if caps.production__import %}  <a href="{% url 'production:import_start' %}" class="{% if '/importar' in p or '/importaciones' in p or '/datasets' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#upload"></use></svg>Cargar información</a>{% endif %}
+  {% if caps.dashboard__view %}  <a href="{% url 'reports:dashboard' %}" class="{% if '/analitica/dashboard' in p or '/analitica/tableros' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#chart"></use></svg>Dashboard</a>{% endif %}
+  {% if caps.dashboard__view %}  <a href="{% url 'reports:reports' %}" class="{% if '/analitica/reportes' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#report"></use></svg>Reportes</a>{% endif %}
+  {% if caps.sheets__edit %}  <a href="{% url 'sheets:list' %}" class="{% if '/hojas/' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#grid"></use></svg>Hoja de cálculo</a>{% endif %}
+  {% if caps.documents__use %}  <a href="{% url 'documents:list' %}" class="{% if '/documentos/' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#file"></use></svg>Documentos</a>{% endif %}
+  {% if caps.labels__print %}  <a href="{% url 'labels:list' %}" class="{% if '/etiquetas/' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#tag"></use></svg>Etiquetas</a>{% endif %}
+  {% if caps.kaizen__create %}  <a href="{% url 'kaizen:board' %}" class="{% if '/kaizen/' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#bulb"></use></svg>Kaizen</a>{% endif %}
   {% if caps.admin__users or caps.admin__settings or caps.admin__printers %}
   <a href="{% url 'admin_home' %}" class="{% if '/administracion/' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#gear"></use></svg>Administración</a>
   {% endif %}

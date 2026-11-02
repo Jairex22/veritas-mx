@@ -4,8 +4,8 @@
   <div class="actions">
     {% if caps.production__import %}<a class="btn" href="{% url 'production:import_start' %}">Cargar Excel / CSV</a>{% endif %}
     {% if caps.reports__generate %}<a class="btn" href="{% url 'reports:reports' %}">Generar reporte</a>{% endif %}
-    <a class="btn" href="{% url 'kaizen:create' %}">Nueva mejora Kaizen</a>
-    <a class="btn btn-primary" href="{% url 'reports:dashboard' %}">Dashboard</a>
+    {% if caps.kaizen__create %}<a class="btn" href="{% url 'kaizen:create' %}">Nueva mejora Kaizen</a>{% endif %}
+    {% if caps.dashboard__view %}<a class="btn btn-primary" href="{% url 'reports:dashboard' %}">Dashboard</a>{% endif %}
   </div></div>
 <p class="muted small">Indicadores del mes actual. Datos actualizados por última importación: {% if kpis.last_import %}{{ kpis.last_import|date:"d/m/Y H:i" }}{% else %}sin importaciones{% endif %}. Los datos cambian cuando se importa un archivo o se captura avance (no es tiempo real).</p>
 <div class="kpis">
@@ -26,6 +26,11 @@
   <section class="card"><h2>Mis órdenes asignadas</h2>
     {% for o in assigned %}<p><a href="{% url 'production:order' o.pk %}">{{ o.number }}</a> · {{ o.part_number }} · vence {{ o.due|date:"d/m H:i"|default:"—" }}</p>
     {% empty %}<p class="muted">No tiene órdenes asignadas.</p>{% endfor %}</section>
+  <section class="card"><h2>Incidencias y dudas abiertas ({{ incidents_count }})</h2>
+    {% for c in incidents %}<p><span class="tag {% if c.kind == 'incident' %}tag-err{% else %}tag-warn{% endif %}">{{ c.get_kind_display }}</span>
+      <a href="{{ c.url }}">{{ c.target_label|truncatechars:40 }}</a>: {{ c.body|truncatechars:90 }}<br><span class="muted small">{{ c.author.username }} · {{ c.created|date:"d/m H:i" }}</span></p>
+    {% empty %}<p class="muted">Sin incidencias abiertas en sus áreas.</p>{% endfor %}
+    <a href="{% url 'comms:incidents' %}">Ver bandeja de incidencias</a></section>
   <section class="card"><h2>Mis trabajos recientes</h2>
     {% for j in jobs %}<p>{{ j.created|date:"d/m H:i" }} · {{ j.kind }} · <span class="tag {% if j.status == 'succeeded' %}tag-ok{% elif j.status == 'failed' %}tag-err{% endif %}">{{ j.get_status_display }}</span></p>
     {% empty %}<p class="muted">Sin trabajos.</p>{% endfor %}</section>

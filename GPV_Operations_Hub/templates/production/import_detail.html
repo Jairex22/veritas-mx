@@ -1,11 +1,11 @@
 {% extends "base.html" %}{% block title %}Lote #{{ batch.pk }}{% endblock %}
-{% block content %}<div class="page-head"><h1>Lote #{{ batch.pk }} · {{ batch.get_status_display }}</h1><a class="btn" href="{% url 'production:imports' %}">Historial</a></div>
+{% block content %}<div class="page-head"><h1>Lote #{{ batch.pk }} · {{ batch.get_status_display }}</h1>{% if caps.production__import %}<a class="btn" href="{% url 'production:imports' %}">Historial</a>{% else %}<a class="btn" href="javascript:history.back()">Volver</a>{% endif %}</div>
 <section class="card"><h2>Resumen conciliado</h2>
-<p>Archivo original: <a href="{% url 'download' batch.source_file.pk %}">{{ batch.source_file.original_name }}</a> (conservado) · Dataset {{ batch.dataset.name }} · versión resultante {{ batch.dataset_version|default:"—" }} · Modo {{ batch.get_mode_display }}{% if batch.sheet %} · Hoja {{ batch.sheet }}{% endif %}</p>
+<p>Archivo original: {% if can_download_source %}<a href="{% url 'download' batch.source_file.pk %}">{{ batch.source_file.original_name }}</a>{% else %}{{ batch.source_file.original_name }}{% endif %} (conservado) · Dataset {{ batch.dataset.name }} · versión resultante {{ batch.dataset_version|default:"—" }} · Modo {{ batch.get_mode_display }}{% if batch.sheet %} · Hoja {{ batch.sheet }}{% endif %}</p>
 <p>Importado por {{ batch.created_by.username }} el {{ batch.committed_at|date:"d/m/Y H:i"|default:"—" }}</p>
 <table class="data" style="max-width:520px"><tbody>{% for k, v in batch.stats.items %}{% if k != 'revert' %}<tr><th>{{ k }}</th><td class="num">{{ v }}</td></tr>{% endif %}{% endfor %}</tbody></table>
 <p class="muted small">Conciliación: leídas = aceptadas + rechazadas; aceptadas = nuevas + actualizadas + capturas reemplazadas + sin cambios + omitidas.</p>
-{% if batch.error_file %}<p><a href="{% url 'download' batch.error_file.pk %}">Descargar errores (CSV)</a></p>{% endif %}
+{% if can_download_errors %}<p><a href="{% url 'download' batch.error_file.pk %}">Descargar errores (CSV)</a></p>{% endif %}
 {% if batch.error_message %}<div class="alert alert-err">{{ batch.error_message }}</div>{% endif %}
 {% if batch.stats.revert %}<div class="alert alert-info">Reversión: {{ batch.stats.revert.restored }} restaurados, {{ batch.stats.revert.deleted }} eliminados, {{ batch.stats.revert.conflicts }} conservados. Motivo: {{ batch.analysis.revert_reason }}</div>
 {% for c in batch.analysis.revert_conflicts %}<div class="small">• {{ c }}</div>{% endfor %}{% endif %}

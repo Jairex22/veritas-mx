@@ -2,6 +2,7 @@
 {% block content %}
 <div class="page-head"><h1>Comunicados</h1><div class="actions">
 <form method="get" class="actions"><input type="search" name="q" value="{{ q }}" placeholder="Buscar" aria-label="Buscar"><select name="ver" data-autosubmit aria-label="Mostrar"><option value="vigentes">Vigentes</option><option value="todos" {% if show == 'todos' %}selected{% endif %}>Incluir vencidos</option></select><button class="btn" type="submit">Buscar</button></form>
+<a class="btn" href="{% url 'comms:incidents' %}">Incidencias y dudas</a>
 <a class="btn" href="{% url 'comms:conversations' %}">Conversaciones</a>
 {% if can_publish %}<a class="btn btn-primary" href="{% url 'comms:create' %}">Nuevo comunicado</a>{% endif %}</div></div>
 {% for a, r in page %}

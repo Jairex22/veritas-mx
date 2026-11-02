@@ -152,7 +152,8 @@ def report_detail(request, run_id):
     if not run.user_can_view(request.user):
         raise PermissionDenied("No tiene acceso a este reporte (áreas o destinatarios).")
     history = ReportRun.objects.filter(kind=run.kind, schedule=run.schedule).exclude(pk=run.pk)[:20] if run.schedule_id else []
-    return render(request, "reports/report_detail.html", {"run": run, "outputs": run.outputs.select_related("file"), "history": history})
+    return render(request, "reports/report_detail.html", {"run": run, "outputs": run.outputs.select_related("file"), "history": history,
+                                                          "skipped": (run.params or {}).get("_skipped_missed_occurrences")})
 
 
 @require_POST

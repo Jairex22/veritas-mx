@@ -185,6 +185,12 @@ def comment_post(request):
         if u is not None and hasattr(u, "pk"):
             participants.add(u)
     participants.discard(request.user)
+    if c.kind in ("incident", "question"):
+        # incidents and questions also reach whoever can resolve them in the area
+        from .services import resolvers_for
+
+        participants.update(resolvers_for(getattr(target, "area_id", None)))
+        participants.discard(request.user)
     label = {"question": "Nueva duda", "incident": "Nueva incidencia"}.get(c.kind, "Nuevo comentario")
     notify([u for u in participants if _target_access(u, target)], f"{label}: {str(target)[:80]}", body[:180], nxt + "#c" + str(c.pk),
            level="high" if c.kind == "incident" else "info")
@@ -255,3 +261,16 @@ def conversation_detail(request, conv_id):
 
 def all_users():
     return get_user_model().objects.filter(is_active=True)
+
+
+@login_required
+def incidents(request):
+    from .services import open_incidents
+
+    show_all = request.GET.get("ver") == "todas"
+    items = open_incidents(request.user, include_resolved=show_all)
+    if request.GET.get("tipo") in ("incident", "question"):
+        items = [c for c in items if c.kind == request.GET["tipo"]]
+    return render(request, "comms/incidents.html", {"page": paginate(request, items, 30), "show_all": show_all,
+                                                   "tipo": request.GET.get("tipo", ""), "can_resolve": has_cap(request.user, "comms.resolve"),
+                                                   "query": request.GET.urlencode()})

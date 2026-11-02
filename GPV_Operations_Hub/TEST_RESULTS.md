@@ -1,5 +1,58 @@
 # Resultados de pruebas (ejecutadas realmente)
 
+## Versión 1.0.1 — auditoría por roles y correcciones (2026-11-02)
+
+Entorno: contenedor Linux x86_64, 4 vCPU, 15 GB RAM. No se ejecutó en Windows.
+
+### Fallos reproducidos y corregidos
+
+| # | Fallo | Cómo se reprodujo | Estado |
+|---|---|---|---|
+| F1 | Menú con secciones prohibidas para operador/lector (403) | Recorrido de enlaces por rol (`tools/e2e_crawl_roles.js`) | Corregido + prueba |
+| F2 | «Lote #N» de la trazabilidad → 403 para quien no creó el lote | Recorrido por rol (analista) | Corregido + prueba |
+| F3 | Incidencias de operador no notificaban a nadie; sin bandeja | Flujo supervisor «resolver incidencia» | Corregido + prueba + flujo E2E |
+| F4 | Instructivo Windows: `<usuario>` literal y doble carpeta al extraer | Reporte del usuario (PowerShell) | Corregido (instructivo, INSTALAR/INICIAR.bat); **no ejecutado en Windows** |
+| F5 | Supervisor de otra área podía revertir importaciones ajenas | Prueba de regresión de F2 | Corregido + prueba |
+| F6 | Trabajos de etiquetas y datasets sin control de área | Revisión del mismo patrón | Corregido + prueba |
+| F7 | Lotes con columna Área propia inaccesibles para esas áreas | Recorrido por rol tras corregir F2 | Corregido + prueba |
+| F8 | Hoja de cálculo: lo tecleado se perdía si llegaba el recálculo | Escritura a velocidad humana (120 ms/tecla) | Corregido + E2E |
+| F9 | Detalle de reporte («Abrir resultado») siempre en error 500 | Recorrido por rol sobre datos con reportes | Corregido + prueba + compilación de todas las plantillas |
+
+Las pruebas de regresión `apps/core/tests/test_role_flows.py` se ejecutaron contra el código v1.0.0:
+**6 fallos y 2 errores** (detectan los defectos); contra v1.0.1: **todas OK**.
+
+### Resultados
+
+| Ejecución | Resultado |
+|---|---|
+| Suite automatizada, repositorio, Python 3.13, SQLite | **72/72 OK** |
+| Suite automatizada, PostgreSQL 16 | **72/72 OK** |
+| Extracción limpia del ZIP v1.0.1, Python 3.12, solo núcleo, **con los datos de una instalación v1.0.0 copiados** | `migrate`: sin migraciones nuevas; datos conservados (232 registros, 24 órdenes, 7 lotes, 14 archivos, todos legibles); `check` y `gpv_diagnose` sin errores; **72 OK, 2 omitidas** (lector opcional zxing-cpp) |
+| Flujos por rol `tools/e2e_roles.js` (escritorio) sobre esa instalación | **19/19**, repetido 3 veces seguidas |
+| Flujos por rol en móvil (390×844) | **19/19** |
+| Recorrido de enlaces por rol `tools/e2e_crawl_roles.js` (operador, lector, supervisor, analista, admin; 415 páginas) | **0 problemas** (sin 403 desde el menú, sin 500, sin errores de consola) |
+| E2E general `tools/e2e_smoke.js` (escritorio + móvil) | **45/45** |
+| Errores 500 en el log del servidor durante todas las corridas | **0** |
+| Carga, 10 usuarios × 20 solicitudes (runserver, SQLite) | 200 OK, 0 errores, 7.9 rps, p50 993 ms, p95 2593 ms |
+
+Flujos cubiertos: **operador** (confirmar comunicado, capturar avance en orden asignada, registrar
+incidencia, proponer Kaizen, imprimir etiqueta PDF, consultar dashboard y documentos); **supervisor**
+(publicar comunicado dirigido, resolver incidencia desde la bandeja, cambiar meta con motivo, aprobar
+Kaizen, programar reporte, revertir importación, reimprimir etiqueta con motivo); **analista** (importar
+CSV con fila inválida por el asistente, crear y guardar dashboard, generar reporte de calidad, hoja con
+fórmula escrita a velocidad humana + guardar + exportar, extraer páginas PDF, diseñar etiqueta).
+
+### Pendiente en 1.0.1
+
+* Las mejoras específicas del «prompt de corrección y mejoras» **no se recibieron** (el adjunto era el ZIP
+  v1.0.0 idéntico, SHA-256 `e556e5f3…`); se implementarán al recibir su texto.
+* `INSTALAR.bat` / `INICIAR.bat` y los comandos de PowerShell no se ejecutaron en Windows (sin equipo Windows).
+* Lo pendiente de 1.0.0 sigue vigente (impresoras físicas, infraestructura corporativa).
+
+---
+
+## Versión 1.0.0
+
 Fecha: 2026-11-02 · Entorno de construcción: contenedor Linux x86_64 (4 vCPU Intel Xeon 2.8 GHz,
 15 GB RAM). **No** se ejecutó en Windows: la compatibilidad Windows se verificó por disponibilidad de
 ruedas binarias y por diseño (rutas, comandos sin PowerShell). Ver «Pendiente» al final.
