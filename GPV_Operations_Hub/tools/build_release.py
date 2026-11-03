@@ -1,4 +1,4 @@
-"""Build GPV_SMT_Portal_Turno_Piloto.zip (GPV Operations Hub + Portal del turno) with a single root folder and a SHA-256 manifest.
+"""Build GPV_Operations_HUB_2.0.zip (GPV Operations Hub + Portal del turno + conector FactoryLogix) with a single root folder and a SHA-256 manifest.
 
   python tools/build_release.py --output ../dist
 
@@ -13,14 +13,14 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-VERSION = "1.1.0"
-PACKAGE = "GPV_SMT_Portal_Turno_Piloto"
+VERSION = "2.0.0a1"
+PACKAGE = "GPV_Operations_HUB_2.0"
 INCLUDE_DIRS = ["apps", "gpvhub", "templates", "static", "samples", "tools", "scripts"]
-INCLUDE_FILES = ["manage.py", "INSTALAR.bat", "INICIAR.bat", "INICIAR_ODATA_SIMULADO.bat", "requirements.txt", "requirements-optional.txt", ".env.example", ".gitignore"]
+INCLUDE_FILES = ["manage.py", "INSTALAR.bat", "INICIAR.bat", "INICIAR_ODATA_SIMULADO.bat", "DIAGNOSTICO_FACTORYLOGIX.bat", "requirements.txt", "requirements-optional.txt", ".env.example", ".gitignore"]
 EXCLUDE_PARTS = {"__pycache__", ".venv", "data", "node_modules", ".pytest_cache", "dist"}
 EXCLUDE_SUFFIX = {".pyc", ".pyo", ".sqlite3", ".log", ".png.tmp"}
 SECRET_PATTERNS = [re.compile(rb"-----BEGIN (RSA |EC |)PRIVATE KEY-----"), re.compile(rb"^GPV_SECRET_KEY=[^<\s]\S{9,}", re.M),
-                   re.compile(rb"^GPV_DB_PASSWORD=[^<\s]\S*", re.M), re.compile(rb"^GPV_ODATA_PASSWORD=\S+", re.M), re.compile(rb"ghp_[A-Za-z0-9]{30,}"), re.compile(rb"sk-[A-Za-z0-9]{30,}")]
+                   re.compile(rb"^GPV_DB_PASSWORD=[^<\s]\S*", re.M), re.compile(rb"^GPV_ODATA_PASSWORD=\S+", re.M), re.compile(rb"^GPV_FLX_PASSWORD=\S+", re.M), re.compile(rb"ghp_[A-Za-z0-9]{30,}"), re.compile(rb"sk-[A-Za-z0-9]{30,}")]
 
 
 def files():
@@ -57,7 +57,7 @@ def main():
     if problems:
         print("ERROR: no se empaqueta:\n" + "\n".join(problems))
         sys.exit(1)
-    man_text = "GPV Operations Hub v%s · Portal del turno (piloto SMT) — manifiesto (ruta, bytes, sha256)\n" % VERSION
+    man_text = "GPV Operations Hub v%s · Portal del turno + FactoryLogix — manifiesto (ruta, bytes, sha256)\n" % VERSION
     man_text += "\n".join(f"{r}\t{s}\t{h}" for r, s, h in manifest) + "\n"
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
         for p in items:

@@ -119,7 +119,7 @@
           const fd = new FormData(form);
           if (btn && btn.name) fd.append(btn.name, btn.value);
           if (!fd.get("idempotency_key")) fd.append("idempotency_key", (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()));
-          const r = await GPV.api(form.action || location.href, { method: "POST", body: fd });
+          const r = await GPV.api(form.getAttribute("action") || location.href, { method: "POST", body: fd });
           if (r.job_id) {
             const job = await GPV.watchJob(r.job_id, box);
             GPV.renderResult(box, job.result);

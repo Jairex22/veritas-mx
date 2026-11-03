@@ -11,7 +11,7 @@ from django.http import JsonResponse
 
 from .models import Role, RoleCapability
 
-A, S, E, O = Role.ADMIN, Role.SUPERVISOR, Role.ENGINEER, Role.OPERATOR
+A, S, E, O, T = Role.ADMIN, Role.SUPERVISOR, Role.ENGINEER, Role.OPERATOR, Role.TECHNICIAN
 
 # capability: (description, default roles)
 CAPABILITIES = {
@@ -19,36 +19,39 @@ CAPABILITIES = {
     "admin.settings": ("Configuración general, diagnóstico y respaldos", {A}),
     "admin.printers": ("Registrar y validar impresoras", {A}),
     "comms.publish": ("Publicar comunicados", {A, S}),
-    "comms.comment": ("Comentar y registrar dudas/incidencias", {A, S, E, O}),
-    "comms.resolve": ("Resolver incidencias", {A, S, E}),
-    "production.view": ("Consultar plan de producción", {A, S, E, O}),
-    "production.capture": ("Capturar avance en órdenes asignadas", {A, S, E, O}),
+    "comms.comment": ("Comentar y registrar dudas/incidencias", {A, S, E, T, O}),
+    "comms.resolve": ("Resolver incidencias", {A, S, E, T}),
+    "production.view": ("Consultar plan de producción", {A, S, E, T, O}),
+    "production.capture": ("Capturar avance en órdenes asignadas", {A, S, E, T, O}),
     "production.edit_plan": ("Modificar metas y prioridades del plan", {A, S}),
     "production.import": ("Importar archivos de datos", {A, S, E}),
     "production.revert": ("Revertir importaciones", {A, S}),
     "production.configure": ("Configurar datasets y reglas", {A, E}),
-    "dashboard.view": ("Ver dashboards", {A, S, E, O}),
+    "dashboard.view": ("Ver dashboards", {A, S, E, T, O}),
     "dashboard.build": ("Crear y compartir dashboards", {A, S, E}),
     "reports.generate": ("Generar reportes", {A, S, E}),
     "reports.schedule": ("Programar reportes", {A, S}),
     "sheets.edit": ("Crear y editar hojas de cálculo", {A, S, E}),
     "sheets.publish": ("Publicar cambios de hoja a un dataset", {A, S}),
-    "documents.use": ("Usar el centro de documentos", {A, S, E, O}),
+    "documents.use": ("Usar el centro de documentos", {A, S, E, T, O}),
     "documents.transform": ("Transformar documentos", {A, S, E}),
     "labels.design": ("Diseñar plantillas de etiquetas", {A, S, E}),
     "labels.publish": ("Publicar versiones de plantillas", {A, S}),
-    "labels.print": ("Imprimir etiquetas", {A, S, E, O}),
+    "labels.print": ("Imprimir etiquetas", {A, S, E, T, O}),
     "labels.reprint": ("Reimprimir etiquetas (con motivo)", {A, S}),
-    "kaizen.create": ("Proponer mejoras Kaizen", {A, S, E, O}),
+    "kaizen.create": ("Proponer mejoras Kaizen", {A, S, E, T, O}),
     "kaizen.evaluate": ("Evaluar, aprobar y cerrar Kaizen", {A, S}),
-    "shift.use": ("Portal del turno: ver mi turno, pedir ayuda, paros, solicitudes", {A, S, E, O}),
-    "shift.capture": ("Captura manual de producción (contingencia, queda provisional)", {A, S, E, O}),
-    "shift.attend": ("Atender solicitudes de ayuda y materiales", {A, S, E}),
+    "shift.use": ("Portal del turno: ver mi turno, pedir ayuda, paros, solicitudes", {A, S, E, T, O}),
+    "shift.capture": ("Captura manual de producción (contingencia, queda provisional)", {A, S, E, T, O}),
+    "shift.attend": ("Atender solicitudes de ayuda y materiales", {A, S, E, T}),
     "shift.plan": ("Asignar metas del turno", {A, S}),
     "shift.reconcile": ("Revisar conciliación de capturas manuales", {A, S}),
     "shift.close": ("Revisar y cerrar reportes de turno", {A, S}),
     "shift.quality": ("Dar disposición a observaciones de calidad", {A, S}),
     "shift.configure": ("Configurar piloto: líneas, estaciones, motivos, OData", {A}),
+    "flx.status": ("FactoryLogix: ver estado de conexión y catálogo de entidades", {A, S, E, T}),
+    "flx.query": ("FactoryLogix: consultas controladas (solo lectura) a entidades verificadas", {A, S, E}),
+    "flx.admin": ("FactoryLogix: diagnóstico, actualización de esquema y sondeo controlado", {A}),
 }
 
 

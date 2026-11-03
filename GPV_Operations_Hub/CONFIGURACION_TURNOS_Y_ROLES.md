@@ -9,16 +9,22 @@ Turno específico del piloto: **POR CONFIRMAR**. Zona horaria: America/Mexico_Ci
 
 ## Roles (capacidades del portal del turno)
 
-| Capacidad | Admin | Supervisor | Ingeniero | Operador |
-|---|:-:|:-:|:-:|:-:|
-| `shift.use` · Mi turno, ayuda, paros, materiales, calidad (observación), relevo | ✔ | ✔ | ✔ | ✔ |
-| `shift.capture` · captura manual de contingencia (queda provisional) | ✔ | ✔ | ✔ | ✔ |
-| `shift.attend` · atender ayudas/materiales de sus áreas, tablero | ✔ | ✔ | ✔ | |
-| `shift.plan` · metas del turno | ✔ | ✔ | | |
-| `shift.reconcile` · conciliación de capturas manuales | ✔ | ✔ | | |
-| `shift.close` · revisar y cerrar reportes del turno | ✔ | ✔ | | |
-| `shift.quality` · disposición de observaciones de calidad | ✔ | ✔ | | |
-| `shift.configure` · líneas, estaciones, motivos, OData | ✔ | | | |
+| Capacidad | Admin | Supervisor | Ingeniero | Técnico | Operador |
+|---|:-:|:-:|:-:|:-:|:-:|
+| `shift.use` · Mi turno, ayuda, paros, materiales, calidad (observación), relevo | ✔ | ✔ | ✔ | ✔ | ✔ |
+| `shift.capture` · captura manual de contingencia (queda provisional) | ✔ | ✔ | ✔ | ✔ | ✔ |
+| `shift.attend` · atender ayudas/materiales de sus áreas, tablero | ✔ | ✔ | ✔ | ✔ | |
+| `shift.plan` · metas del turno | ✔ | ✔ | | | |
+| `shift.reconcile` · conciliación de capturas manuales | ✔ | ✔ | | | |
+| `shift.close` · revisar y cerrar reportes del turno | ✔ | ✔ | | | |
+| `shift.quality` · disposición de observaciones de calidad | ✔ | ✔ | | | |
+| `shift.configure` · líneas, estaciones, motivos, OData del turno | ✔ | | | | |
+| `flx.status` · FactoryLogix: estado de conexión y catálogo | ✔ | ✔ | ✔ | ✔ | |
+| `flx.query` · FactoryLogix: consultas controladas de solo lectura | ✔ | ✔ | ✔ | | |
+| `flx.admin` · FactoryLogix: diagnóstico, esquema y sondeo controlado | ✔ | | | | |
+
+El rol **Técnico** (2.0) tiene todo lo del Operador más atender solicitudes, resolver incidencias y
+ver el estado de FactoryLogix.
 
 Las capacidades se ajustan por rol en *Administración › Permisos* (queda en bitácora). Todas se
 verifican en el servidor; ocultar un botón nunca es el único control. Además, cada persona solo ve

@@ -1,6 +1,7 @@
 # Checkpoint del proyecto
 
-Versión: **1.1.0** · Fecha: 2026-11-03 · Rama: `claude/great-shannon-y0f3cd`
+Versión: **2.0.0a1** (fases 1–3 de 8) · Fecha: 2026-11-03 · ver `AUDITORIA_Y_PLAN_2.0.md` para el plan 2.0.
+Anterior: **1.1.0** · Rama: `claude/great-shannon-y0f3cd`
 
 ## Diagnóstico inicial (al recibir el requerimiento del portal del turno)
 
@@ -40,7 +41,7 @@ de etiquetas, ejecución en el equipo Windows del piloto y prueba con personal r
 
 ## Cómo continuar
 
-1. `GPV_ENV=test python manage.py test` (121 pruebas) y `tools/e2e_shift.js` con `seed_demo` +
+1. `GPV_ENV=test python manage.py test` (156 pruebas) y `tools/e2e_shift.js` con `seed_demo` +
    `tools/fake_odata_server.py`.
 2. Al recibir el `$metadata` real: registrar la conexión, diagnosticar, mapear y sincronizar; ajustar
    `refresh_seconds` tras medir la carga real.

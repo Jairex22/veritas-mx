@@ -3,6 +3,11 @@ waitress==3.0.2           # ZPL-2.1 · servidor WSGI para despliegue interno en 
 zxing-cpp==3.1.1          # Apache-2.0 · lector independiente de códigos para verificar etiquetas (pruebas)
 # psycopg[binary]==3.2.13 # LGPL-3.0 · solo si usa PostgreSQL (descomente)
 # pywin32==311            # PSF · solo si imprime a una cola de Windows del servidor (descomente en Windows)
-# Solo si GPV confirma que el servicio OData de FactoryLogix exige autenticación Windows integrada (Negotiate/NTLM):
+# FactoryLogix OData: SOLO si el diagnóstico muestra que el servidor exige autenticación Windows (Negotiate/NTLM).
+# Instalar en el equipo Windows del portal (sin privilegios de administrador):
+#   .venv\Scripts\python.exe -m pip install requests==2.32.3 requests-negotiate-sspi==0.5.2
+#   (o, para NTLM con usuario de servicio)  requests==2.32.3 requests-ntlm==1.3.0 pyspnego==0.11.2
 # requests==2.32.3                  # Apache-2.0
-# requests-negotiate-sspi==0.5.2    # Apache-2.0 · solo Windows
+# requests-negotiate-sspi==0.5.2    # Apache-2.0 · solo Windows (usa la sesión de Windows del usuario que ejecuta el portal)
+# requests-ntlm==1.3.0              # ISC · NTLM con GPV_FLX_USER=DOMINIO\usuario
+# pyspnego==0.11.2                  # MIT (dependencia de requests-ntlm)

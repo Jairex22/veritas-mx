@@ -1,5 +1,31 @@
 # Cambios
 
+## 2.0.0a1 · 2026-11-03 · GPV Operations HUB 2.0, fases 1–3
+
+Agregado (solo tablas nuevas `flx_*` y la opción de rol Técnico; datos existentes intactos):
+
+* `apps/flx`: conector **FactoryLogix OData de solo lectura** con URL fija por configuración
+  (`GPV_FLX_BASE_URL=http://10.62.54.10:6065/odata/`), anclaje de enlaces de continuación al mismo
+  servidor, autenticación `auto` (solo detecta) / `none` / `basic` / `negotiate` / `ntlm` con secretos
+  solo en variables de entorno, bloqueo tras 401, reintentos limitados, circuit breaker, límite de
+  concurrencia, caché corta y registros JSON sin encabezados ni valores de filtros.
+* Parser completo de `$metadata` (v2/v3 y v4): herencia, claves, navegación (asociaciones v2),
+  FunctionImports/ActionImports con parámetros, enums y anotaciones de capacidades.
+* **FactoryLogix Connection Center** (`/factorylogix/`): estado, última conexión, latencia, métodos de
+  autenticación ofrecidos, esquema, entidades verificadas/no disponibles/sin permiso, entidades de la
+  lista de GPV ausentes del `$metadata`, FunctionImports (no se invocan), historial.
+* Sondeo controlado `$top=1` (autorización explícita, en serie, con pausa), prueba de capacidades
+  por entidad y motor de consultas controladas con paginación real y procedencia; exportación CSV.
+* `manage.py flx_diagnose` y `DIAGNOSTICO_FACTORYLOGIX.bat` para ejecutar en la red de GPV; reporte
+  JSON/Markdown sin valores de registros ni credenciales. Carga de `$metadata` desde archivo.
+* Rol **Técnico** y capacidades `flx.status`, `flx.query`, `flx.admin`.
+
+Corregido:
+
+* Formularios enviados en segundo plano cuyo campo se llama `action` enviaban la solicitud a
+  `[object HTMLInputElement]` (el campo ocultaba el atributo `action` del formulario).
+
+
 ## 1.1.0 · 2026-11-03 · Portal del turno (piloto SMT)
 
 Agregado (sin modificar tablas existentes; migración `shift/0001_initial`):

@@ -1,5 +1,62 @@
 # Pruebas y resultados (ejecutadas realmente)
 
+## GPV Operations HUB 2.0 · fases 1–3 (2026-11-03)
+
+### Separación de la evidencia
+
+| Tipo | Resultado |
+|---|---|
+| **Pruebas reales contra FactoryLogix** (`10.62.54.10:6065`) | **Ninguna.** El servidor es de la red interna de GPV y este entorno no tiene acceso (no se intentó acceder por otros medios). Pendiente: `DIAGNOSTICO_FACTORYLOGIX.bat` en un equipo de GPV |
+| Pruebas con servidor OData **simulado** (`apps/flx/tests/fakeflx.py`, v4 y v2) | Ver tabla siguiente |
+| Pruebas en Windows 11 | Pendiente (entorno de construcción: Linux) |
+
+### Resultados (simulado)
+
+| Ejecución | Resultado |
+|---|---|
+| Suite completa, Python 3.13, SQLite | **156/156 OK** (121 previas + 35 del conector) |
+| Suite completa, PostgreSQL 16 | **156/156 OK** |
+| Suite completa, Python 3.11 | **156/156 OK** |
+| Pruebas del conector `apps.flx` | **35/35** |
+| E2E Connection Center `tools/e2e_flx.js` (admin, técnico, operador) escritorio / móvil 390×844 | **8/8** / **8/8** |
+| Regresión E2E general `tools/e2e_smoke.js` | **45/45** |
+| Regresión E2E portal del turno `tools/e2e_shift.js` | **17/17** en 3 de 4 corridas; 1 corrida con falla intermitente en el paso de etiqueta (tiempo de espera de un clic), **no reproducida** en 3 repeticiones posteriores |
+
+### Funcionalidades verificadas (con el simulado)
+
+| Función | Prueba |
+|---|---|
+| Parser `$metadata` v4: herencia con alias, claves, navegación con *binding*, Function/ActionImports con parámetros, enums, anotaciones de capacidades | `MetadataParserTests.test_v4_*` |
+| Parser v2/v3: asociaciones → navegación y multiplicidad, FunctionImport con `m:HttpMethod` | `test_v2_associations_and_function_import` |
+| Rechazo de documentos que no son EDMX (página de login, texto) | `test_invalid_documents` |
+| Diagnóstico por etapas; nunca «conectado» sin respuesta válida; sin red → UNREACHABLE; URL inválida → CONFIG ERROR; 200 con HTML no se toma como OData | `ConnectionTests` |
+| Solo GET; URL fija; enlaces de continuación fuera del servicio rechazados; rutas `../` rechazadas | `test_only_get_and_url_pinning`, `test_foreign_next_link_is_rejected` |
+| Detección de métodos ofrecidos (Basic; Negotiate, NTLM); bloqueo tras 401 sin reintentos; desbloqueo al cambiar credenciales o por el administrador; contraseña y encabezados nunca en registros | `AuthTests` |
+| Windows integrada sin el paquete opcional → CONFIG ERROR explicativo | `test_windows_integrated_needs_optional_package` |
+| Sondeo: CONNECTED, FORBIDDEN (403), SERVER ERROR (500), NO DATA, SCHEMA MISMATCH, ENDPOINT NOT FOUND (404), BAD RESPONSE, TIMEOUT; reporte sin valores de registros | `ProbeTests` |
+| Reintento de 503 con `Retry-After`; 403 sin reintento; circuit breaker sin llamar al servidor | `test_retry_on_503_*`, `test_403_is_not_retried` |
+| Prueba de capacidades por entidad (detecta `$skip` no soportado) | `test_capabilities_detect_unsupported_options` |
+| Actualizar esquema conserva verificaciones solo si la estructura no cambió | `test_schema_refresh_keeps_results_only_if_structure_unchanged` |
+| Literales por tipo Edm y versión, escape de comillas (sin inyección), validación contra esquema y capacidades | `QueryTests` |
+| Paginación real por `nextLink`/`__next`, `$count`, `$select`, filtros, truncado; caché corta | `test_server_paging_follows_next_links`, `test_short_cache_*`, `V2QueryTests` |
+| Permisos por rol (operador sin acceso; técnico solo lectura de estado; ingeniero consulta; administrador diagnostica) | `test_role_permissions`, E2E |
+| Connection Center: prueba, sondeo con autorización explícita, capacidades, consulta con procedencia, CSV con línea de fuente, carga de `$metadata` por archivo sin contactar al servidor | `WebTests`, E2E |
+| CLI `flx_diagnose`: exige `--confirmar-sondeo`, escribe JSON + Markdown sin valores | `test_cli_diagnose_*` |
+
+### Corregido durante 2.0
+
+| Fallo | Detección | Corrección |
+|---|---|---|
+| Los formularios en segundo plano con un campo `action` se enviaban a `[object HTMLInputElement]` (404) | E2E del Connection Center | `getAttribute("action")` en `app.js`, `printwizard.js`, `flx.js` |
+
+### No probado / limitaciones
+
+* Conexión real, autenticación real, volumen y latencia reales de FactoryLogix.
+* Negotiate/NTLM: el código existe, pero solo se probó el aviso de dependencia faltante (no hay servidor Windows de prueba).
+* No se midió carga con varios usuarios contra FactoryLogix; no se afirma ninguna capacidad concurrente.
+
+---
+
 ## Versión 1.1.0 — Portal del turno, piloto SMT (2026-11-03)
 
 Entorno: contenedor Linux x86_64, 4 vCPU Intel Xeon @ 2.30 GHz, 15 GB RAM. **No se ejecutó en

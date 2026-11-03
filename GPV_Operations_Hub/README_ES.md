@@ -1,4 +1,18 @@
-# GPV Operations Hub v1.1.0 · Portal del turno (piloto SMT)
+# GPV Operations HUB 2.0 (fases 1–3) · Portal del turno + conector FactoryLogix
+
+> **2.0 · estado de esta entrega:** Fase 1 (auditoría, `AUDITORIA_Y_PLAN_2.0.md`), Fase 2 (conector
+> OData de solo lectura, autenticación, **FactoryLogix Connection Center**, diagnóstico por etapas) y
+> Fase 3 (descubrimiento de esquema, sondeo controlado, capacidades por entidad, motor de consultas
+> controladas). Todo probado contra un servidor OData **simulado**: el servidor real
+> `http://10.62.54.10:6065/odata/` es de la red interna de GPV y **debe diagnosticarse desde allí**
+> (`DIAGNOSTICO_FACTORYLOGIX.bat`, ver `FACTORYLOGIX_CONNECTION_CENTER.md`). Las Fases 4–8 (dashboards,
+> seriales, órdenes, calidad, SMT, Loop Detector, reportes, asistente) se construirán sobre los campos
+> reales que ese diagnóstico confirme.
+
+> **Importante al extraer el ZIP:** «Extraer todo» crea `GPV_Operations_HUB_2.0\GPV_Operations_HUB_2.0\`.
+> Trabaje en la carpeta **interior** (la que contiene `manage.py`). En PowerShell:
+> `cd "$HOME\Downloads\GPV_Operations_HUB_2.0\GPV_Operations_HUB_2.0"` y verifique con `dir manage.py`.
+
 
 Sitio web interno en español (Edge/Chrome y celular) para el trabajo diario del turno en GPV
 Americas, más las herramientas existentes de producción, comunicados, datos, documentos, etiquetas
@@ -13,8 +27,7 @@ deterministas y verificables.
 ## Inicio en Windows (equipo del piloto)
 
 Requiere Python 3.11, 3.12 o 3.13 (sin privilegios de administrador). Al extraer
-`GPV_SMT_Portal_Turno_Piloto.zip`, entre a la carpeta que contiene `manage.py`
-(Windows puede crear `GPV_SMT_Portal_Turno_Piloto\GPV_SMT_Portal_Turno_Piloto\`: use la interior).
+`GPV_Operations_HUB_2.0.zip`, entre a la carpeta que contiene `manage.py` (la interior).
 
 **Sin terminal:** doble clic en `INSTALAR.bat` (una vez) y después en `INICIAR.bat` (cada día).
 
@@ -49,6 +62,7 @@ la línea **SMT-EJEMPLO**, usuarios de prueba (muestra la contraseña una vez) y
 | Sitio web | `manage.py runserver 127.0.0.1:8000` | Siempre |
 | Servicio del turno | `manage.py run_scheduler` (INICIAR.bat lo abre minimizado) | Sincronización OData de solo lectura cada 60 s, recordatorios/escalamientos internos, borradores de reporte y relevo al fin de turno, reportes programados |
 | Trabajador (opcional) | `manage.py run_worker` | Solo si `GPV_JOBS_MODE=worker` |
+| Diagnóstico FactoryLogix (a demanda) | `DIAGNOSTICO_FACTORYLOGIX.bat` o `manage.py flx_diagnose` | En un equipo de la red de GPV; luego ver **FactoryLogix** en el menú (`/factorylogix/`) |
 
 Detener: cierre las ventanas o `Ctrl+C`. Si el equipo se suspende o apaga, las tareas se detienen;
 al volver se informa la laguna y se generan **una vez** los borradores pendientes
@@ -84,6 +98,9 @@ Hoja de cálculo, Documentos, Etiquetas (diseñador completo), Kaizen y Administ
 
 | Documento | Contenido |
 |---|---|
+| `AUDITORIA_Y_PLAN_2.0.md` | Auditoría del proyecto, arquitectura y plan incremental de las fases 1–8 |
+| `FACTORYLOGIX_CONNECTION_CENTER.md` | Diagnóstico en la red de GPV, autenticación, estados, consultas controladas |
+| `ENDPOINTS_API.md` | Endpoints de la aplicación |
 | `PILOTO_SMT.md` | Alcance, pantallas, preparación y guion del piloto |
 | `GUIA_OPERADOR.md` / `GUIA_ADMINISTRACION.md` | Uso diario y administración |
 | `CONFIGURACION_ODATA.md` | Autenticación, diagnóstico por etapas, mapeo, refresco |
@@ -101,9 +118,10 @@ Hoja de cálculo, Documentos, Etiquetas (diseñador completo), Kaizen y Administ
 ## Estructura
 
 ```
-GPV_SMT_Portal_Turno_Piloto/
-├─ manage.py · INSTALAR.bat · INICIAR.bat · INICIAR_ODATA_SIMULADO.bat · .env.example
+GPV_Operations_HUB_2.0/
+├─ manage.py · INSTALAR.bat · INICIAR.bat · DIAGNOSTICO_FACTORYLOGIX.bat · INICIAR_ODATA_SIMULADO.bat · .env.example
 ├─ gpvhub/settings/   configuración dev / prod / test
+├─ apps/flx/          conector FactoryLogix: $metadata, cliente de solo lectura, sondeo, consultas controladas, Connection Center
 ├─ apps/shift/        portal del turno: modelo, conector OData de solo lectura, conteo/conciliación, reportes, vistas
 ├─ apps/core …        usuarios, roles, permisos, archivos, auditoría, notificaciones, trabajos, respaldo
 ├─ apps/comms, production, reports, sheets, documents, labels, kaizen

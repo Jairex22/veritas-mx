@@ -56,6 +56,7 @@
   {% if caps.documents__use %}  <a href="{% url 'documents:list' %}" class="{% if '/documentos/' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#file"></use></svg>Documentos</a>{% endif %}
   {% if caps.labels__print %}  <a href="{% url 'labels:list' %}" class="{% if '/etiquetas/' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#tag"></use></svg>Etiquetas</a>{% endif %}
   {% if caps.kaizen__create %}  <a href="{% url 'kaizen:board' %}" class="{% if '/kaizen/' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#bulb"></use></svg>Kaizen</a>{% endif %}
+  {% if caps.flx__status %}<a href="{% url 'flx:center' %}" class="{% if '/factorylogix/' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#gear"></use></svg>FactoryLogix</a>{% endif %}
   {% if caps.admin__users or caps.admin__settings or caps.admin__printers %}
   <a href="{% url 'admin_home' %}" class="{% if '/administracion/' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#gear"></use></svg>Administración</a>
   {% endif %}

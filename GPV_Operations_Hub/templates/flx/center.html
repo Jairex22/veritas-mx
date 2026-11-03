@@ -1,0 +1,58 @@
+{% extends "base.html" %}{% load static hub_extras %}{% block title %}FactoryLogix Connection Center{% endblock %}
+{% block content %}
+<div class="page-head"><h1>FactoryLogix Connection Center</h1>
+<div class="actions"><a class="btn" href="{% url 'flx:report' %}">Descargar diagnóstico (sin datos)</a></div></div>
+<p class="muted small">Conector OData de <strong>solo lectura</strong>. El servicio se consulta desde este equipo (servidor del portal); el navegador nunca se conecta a FactoryLogix ni recibe credenciales.</p>
+
+<section class="kpis" aria-label="Estado">
+  <div class="kpi {% if status_overall != 'CONNECTED' %}kpi-na{% endif %}"><div class="kpi-label">Estado del servicio</div>
+    <div class="kpi-value kpi-text"><span class="tag {% if status_overall == 'CONNECTED' %}tag-ok{% elif status_overall == 'NOT TESTED' %}tag{% else %}tag-err{% endif %}">{{ status_overall }}</span></div>
+    <div class="kpi-sub">{{ explain|dictkey:status_overall|default:"" }}</div></div>
+  <div class="kpi"><div class="kpi-label">Última conexión exitosa</div><div class="kpi-value kpi-text">{{ state.last_success_at|date:"d/m/Y H:i:s"|default:"Nunca" }}</div>
+    <div class="kpi-sub">Último intento: {{ state.last_attempt_at|date:"d/m H:i:s"|default:"—" }}</div></div>
+  <div class="kpi"><div class="kpi-label">Latencia observada</div><div class="kpi-value">{% if state.last_latency_ms is not None %}{{ state.last_latency_ms }}<small>ms</small>{% else %}—{% endif %}</div></div>
+  <div class="kpi"><div class="kpi-label">Autenticación</div><div class="kpi-value kpi-text">{{ auth_mode }}</div>
+    <div class="kpi-sub">Ofrecida por el servidor: {{ state.auth_schemes_offered|join:", "|default:"sin detectar" }}{% if auth_blocked %} · <strong>bloqueada tras 401</strong>{% endif %}</div></div>
+  <div class="kpi"><div class="kpi-label">Esquema ($metadata)</div><div class="kpi-value kpi-text">{% if schema %}{{ schema.entity_set_count }} EntitySets{% else %}Sin leer{% endif %}</div>
+    <div class="kpi-sub">{% if schema %}{{ schema.get_source_display }} · {{ schema.fetched_at|date:"d/m/Y H:i" }} · OData {{ schema.odata_version|default:"?" }}{% endif %}</div></div>
+  <div class="kpi"><div class="kpi-label">Entidades</div><div class="kpi-value kpi-text">{{ verified }} verificadas</div>
+    <div class="kpi-sub">{{ unavailable }} no disponibles · {{ forbidden }} sin permiso / autenticación</div></div>
+</section>
+<p class="small muted">Servicio configurado: <code>{{ base }}</code>{% if breaker.open %} · <span class="tag tag-warn">Pausa por fallas: {{ breaker.seconds_left }} s</span>{% endif %}</p>
+{% if state.last_detail %}<div class="alert alert-warn">{{ state.last_detail }}</div>{% endif %}
+
+{% if stages %}<section class="card"><h2>Resultado de la prueba</h2><ol>{% for s in stages %}<li><span class="tag {% if s.ok %}tag-ok{% else %}tag-err{% endif %}">{{ s.state }}</span> <strong>{{ s.stage }}</strong>: {{ s.detail }}{% if s.ms is not None %} <span class="muted small">({{ s.ms }} ms)</span>{% endif %}</li>{% endfor %}</ol></section>{% endif %}
+
+{% if is_admin %}<section class="card"><h2>Pruebas controladas (administrador)</h2>
+<div class="actions">
+  <form method="post" action="{% url 'flx:action' %}">{% csrf_token %}<input type="hidden" name="action" value="test"><button class="btn" type="submit">Probar conexión</button></form>
+  <form method="post" action="{% url 'flx:action' %}">{% csrf_token %}<input type="hidden" name="action" value="test"><input type="hidden" name="schema" value="1"><button class="btn btn-primary" type="submit">Probar y leer $metadata</button></form>
+  {% if auth_blocked %}<form method="post" action="{% url 'flx:action' %}">{% csrf_token %}<input type="hidden" name="action" value="retry_auth"><button class="btn" type="submit">Reintentar autenticación</button></form>{% endif %}
+  {% if breaker.open %}<form method="post" action="{% url 'flx:action' %}">{% csrf_token %}<input type="hidden" name="action" value="reset_breaker"><button class="btn" type="submit">Reanudar consultas</button></form>{% endif %}
+</div>
+{% if schema and schema.source == 'live' %}
+<form method="post" action="{% url 'flx:action' %}" data-job-form="#probe-box" class="form-grid" style="margin-top:.75rem">{% csrf_token %}<input type="hidden" name="action" value="probe">
+<label>Categoría a sondear<select name="categoria"><option value="">Todas ({{ schema.entity_set_count }})</option>{% for c in categories %}<option>{{ c }}</option>{% endfor %}</select></label>
+<label class="span-2"><input type="checkbox" name="confirm" value="1" required> Tengo autorización del administrador MES para un sondeo controlado: una consulta <code>$top=1</code> por EntitySet, en serie y con pausa.</label>
+<div><button class="btn" type="submit">Sondear entidades</button></div><div class="jobbox full" id="probe-box" hidden></div></form>{% endif %}
+<form method="post" action="{% url 'flx:action' %}" enctype="multipart/form-data" class="actions" style="margin-top:.75rem">{% csrf_token %}<input type="hidden" name="action" value="upload">
+<label>Cargar un $metadata guardado (XML)<input type="file" name="metadata" accept=".xml,application/xml,text/xml" required></label><button class="btn" type="submit">Cargar archivo</button></form>
+<p class="muted small">Un esquema cargado de archivo sirve para revisar la estructura; el acceso real solo se verifica leyendo el servidor y sondeando.</p></section>{% endif %}
+
+{% if schema %}
+<section class="card"><h2>Entidades del $metadata</h2>
+<form method="get" class="actions"><select name="categoria" data-autosubmit aria-label="Categoría"><option value="">Todas las categorías</option>{% for c in categories %}<option {% if sel.categoria == c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select>
+<select name="estado" data-autosubmit aria-label="Estado"><option value="">Todos los estados</option>{% for s in status_choices %}<option {% if sel.estado == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></form>
+<div class="table-wrap"><table class="data"><thead><tr><th>EntitySet</th><th>Categoría</th><th>Estado</th><th class="right">HTTP</th><th class="right">ms</th><th class="right">Propiedades</th><th>Claves</th><th>Verificado</th></tr></thead><tbody>
+{% for e in filtered %}<tr><td><a href="{% url 'flx:entity' e.name %}">{{ e.name }}</a></td><td class="small">{{ e.category }}</td>
+<td><span class="tag {% if e.status == 'CONNECTED' %}tag-ok{% elif e.status == 'NO DATA' %}tag-info{% elif e.status == 'NOT TESTED' %}tag{% else %}tag-err{% endif %}" title="{{ e.detail }}">{{ e.status }}</span></td>
+<td class="right">{{ e.http_status|default:"" }}</td><td class="right">{{ e.latency_ms|default:"" }}</td><td class="right">{{ e.properties|length }}</td><td class="small">{{ e.keys|join:", " }}</td><td class="small">{{ e.checked_at|date:"d/m H:i"|default:"—" }}</td></tr>
+{% empty %}<tr><td colspan="8" class="muted">Sin entidades para el filtro.</td></tr>{% endfor %}</tbody></table></div></section>
+{% if missing %}<section class="card"><h2>Listadas por GPV pero ausentes del $metadata ({{ missing|length }})</h2><p class="small">{{ missing|join:", " }}</p></section>{% endif %}
+<section class="card"><h2>FunctionImports declarados ({{ schema.function_imports|length }})</h2><p class="muted small">Solo se documentan; no se invocan desde el portal en esta fase.</p>
+<ul class="small">{% for f in schema.function_imports %}<li><code>{{ f.name }}</code> · {{ f.kind }} · {{ f.http_method }} · parámetros: {% for p in f.parameters %}{{ p.name }} ({{ p.type }}){% if not forloop.last %}, {% endif %}{% empty %}ninguno{% endfor %} → {{ f.returns|default:"—" }}</li>{% empty %}<li class="muted">Ninguno.</li>{% endfor %}</ul></section>
+{% else %}<div class="alert alert-info">Aún no se ha leído el $metadata. Un administrador debe ejecutar «Probar y leer $metadata» desde un equipo de la red de GPV, o ejecutar <code>DIAGNOSTICO_FACTORYLOGIX.bat</code>.</div>
+<section class="card"><h2>Recursos listados por GPV (pendientes de verificar)</h2>{% for cat, items in expected %}<p><strong>{{ cat }}:</strong> {% for n, ok in items %}{{ n }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endfor %}</section>{% endif %}
+
+<section class="card"><h2>Historial de pruebas</h2><ul class="small">{% for r in runs %}<li>{{ r.started|date:"d/m H:i:s" }} · {{ r.kind }} · {{ r.via }} · {{ r.user.username|default:"línea de comandos" }} · {{ r.outcome|default:"en curso" }}</li>{% empty %}<li class="muted">—</li>{% endfor %}</ul></section>
+{% endblock %}

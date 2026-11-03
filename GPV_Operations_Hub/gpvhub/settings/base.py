@@ -6,7 +6,7 @@ from pathlib import Path
 from .envfile import PROJECT_ROOT, env_bool, env_int, env_list
 
 BASE_DIR = PROJECT_ROOT
-GPV_VERSION = "1.1.0"
+GPV_VERSION = "2.0.0a1"
 
 # Runtime data lives outside of the static/public folders.
 DATA_DIR = Path(os.environ.get("GPV_DATA_DIR", BASE_DIR / "data")).resolve()
@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "apps.labels",
     "apps.kaizen",
     "apps.shift",
+    "apps.flx",
 ]
 
 MIDDLEWARE = [
@@ -167,6 +168,25 @@ GPV = {
     "PRINTER_TIMEOUT": env_int("GPV_PRINTER_TIMEOUT", 8),
     "ALLOW_DEMO": env_bool("GPV_ALLOW_DEMO", False),
     "SCHEDULER_TICK_SECONDS": env_int("GPV_SCHEDULER_TICK_SECONDS", 30),
+}
+
+# FactoryLogix OData (read-only). The base URL is fixed by configuration: users can never point the
+# connector at another address. Credentials are read from environment variables only.
+GPV_FLX = {
+    "BASE_URL": os.environ.get("GPV_FLX_BASE_URL", "http://10.62.54.10:6065/odata/"),
+    "AUTH": os.environ.get("GPV_FLX_AUTH", "auto").lower(),  # auto | none | basic | negotiate | ntlm
+    "USER_ENV": "GPV_FLX_USER",
+    "PASSWORD_ENV": "GPV_FLX_PASSWORD",
+    "TIMEOUT": env_int("GPV_FLX_TIMEOUT", 20),
+    "MAX_TOP": env_int("GPV_FLX_MAX_TOP", 200),
+    "MAX_ROWS": env_int("GPV_FLX_MAX_ROWS", 1000),
+    "MAX_PAGES": env_int("GPV_FLX_MAX_PAGES", 10),
+    "CACHE_SECONDS": env_int("GPV_FLX_CACHE_SECONDS", 30),
+    "CONCURRENCY": env_int("GPV_FLX_CONCURRENCY", 3),
+    "PROBE_DELAY_MS": env_int("GPV_FLX_PROBE_DELAY_MS", 500),
+    "BREAKER_FAILURES": env_int("GPV_FLX_BREAKER_FAILURES", 5),
+    "BREAKER_COOLDOWN": env_int("GPV_FLX_BREAKER_COOLDOWN", 120),
+    "USE_SYSTEM_PROXY": env_bool("GPV_FLX_USE_SYSTEM_PROXY", False),
 }
 
 LOGGING = {

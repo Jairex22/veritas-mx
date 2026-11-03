@@ -39,7 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
       form.querySelector("[name=confirm_total]").value = d.total;
       const fd = new FormData(form);
       fd.append("idempotency_key", crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
-      const r = await GPV.api(form.action, { method: "POST", body: fd });
+      const r = await GPV.api(form.getAttribute("action"), { method: "POST", body: fd });
       box.hidden = false;
       box.innerHTML = "";
       GPV.renderResult(box, r.data);

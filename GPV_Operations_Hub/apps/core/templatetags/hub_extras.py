@@ -9,3 +9,8 @@ def dictkey(d, key):
         return d.get(key, "")
     except AttributeError:
         return ""
+
+
+@register.filter
+def split(value, sep=" "):
+    return str(value).split(sep)

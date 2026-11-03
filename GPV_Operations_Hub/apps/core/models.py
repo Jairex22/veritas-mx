@@ -41,6 +41,7 @@ class Role(models.TextChoices):
     ADMIN = "admin", "Administrador"
     SUPERVISOR = "supervisor", "Jefe / Supervisor"
     ENGINEER = "engineer", "Ingeniero / Analista"
+    TECHNICIAN = "technician", "Técnico"
     OPERATOR = "operator", "Operador / Lector"
 
 

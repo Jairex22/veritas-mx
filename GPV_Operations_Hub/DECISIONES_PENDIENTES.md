@@ -1,4 +1,23 @@
-# Decisiones pendientes (POR CONFIRMAR con GPV)
+# Decisiones pendientes y funciones bloqueadas
+
+## GPV Operations HUB 2.0
+
+| # | Pendiente / bloqueado | Bloqueado por | Acción de GPV |
+|---|---|---|---|
+| A1 | Verificar conectividad real con `http://10.62.54.10:6065/odata/` | Servidor solo accesible en la red interna | Ejecutar `DIAGNOSTICO_FACTORYLOGIX.bat` en un equipo de GPV |
+| A2 | Método de autenticación real (anónimo, Basic, Negotiate/Kerberos, NTLM) | Desconocido hasta el diagnóstico | Revisar «Métodos de autenticación» del reporte y configurar `GPV_FLX_AUTH` |
+| A3 | Cuenta de servicio de **solo lectura** (si el servidor la exige) | Administración MES / TI | Crearla y definir `GPV_FLX_USER` / `GPV_FLX_PASSWORD` en el equipo |
+| A4 | Autorización para el sondeo controlado `$top=1` de los EntitySets | Administrador MES | Autorizar y ejecutar `--sondear --confirmar-sondeo` |
+| A5 | Propiedades reales de cada EntitySet (no se suponen) | `$metadata` real | Compartir el reporte JSON o el XML de `$metadata` |
+| A6 | Parámetros y semántica de los FunctionImports | `$metadata` real + documentación del proveedor | Confirmar cuáles son de lectura antes de invocarlos |
+| B1 | Fase 4: Dashboard general, Serial Intelligence, Smart Work Order Center | A1–A5 | — |
+| B2 | Fase 5: Quality Intelligence, SMT Live Monitor | A1–A5 y definiciones de indicadores con Calidad | — |
+| B3 | Fase 6: Loop Detector (secuencias de proceso y reglas de rework autorizado), reportes con procedencia | A5 + rutas de proceso reales (ProcessFlow) | Definir qué secuencias son rework autorizado |
+| B4 | Fase 7: GPV AI Assistant | Aprobación de GPV para IA externa (si no, modo local con reglas) | Decidir política de datos |
+| B5 | Fase 8: modo oscuro, WCAG 2.2 AA completo, virtualización de tablas grandes, medición con usuarios | Fases 4–7 | — |
+| B6 | Unificar el conector del portal del turno con `apps/flx` | A5 | — |
+
+## Portal del turno (POR CONFIRMAR con GPV)
 
 Nada de lo siguiente se inventó en el código ni en la configuración: el portal funciona con
 captura web y queda listo para recibir estos datos.

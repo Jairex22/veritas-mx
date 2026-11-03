@@ -33,9 +33,9 @@ Dependencias de Python (instaladas desde PyPI; no se redistribuyen dentro del ZI
 
 Opcionales: waitress 3.0.2 (ZPL-2.1), zxing-cpp 3.1.1 (Apache-2.0), psycopg 3.2.13 (LGPL-3.0, uso
 como biblioteca dinámica sin modificación), pywin32 (PSF). Solo si GPV confirma autenticación Windows
-integrada para OData: requests 2.32.3 (Apache-2.0) y requests-negotiate-sspi 0.5.2 (Apache-2.0).
+integrada para OData: requests 2.32.3 (Apache-2.0) y requests-negotiate-sspi 0.5.2 (Apache-2.0); para NTLM con usuario de servicio, requests-ntlm 1.3.0 (ISC) y pyspnego 0.11.2 (MIT).
 
-El portal del turno (v1.1.0) **no agrega dependencias** al núcleo: el conector OData usa la
+El portal del turno (v1.1.0) y el conector FactoryLogix (2.0) **no agregan dependencias** al núcleo: el conector OData usa la
 biblioteca estándar de Python (`urllib`, `xml.etree`, `json`).
 
 Motores externos opcionales, instalados por TI en el servidor y no incluidos: LibreOffice (MPL-2.0),

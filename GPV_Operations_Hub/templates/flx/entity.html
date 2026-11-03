@@ -1,0 +1,32 @@
+{% extends "base.html" %}{% load static hub_extras %}{% block title %}{{ es.name }} · FactoryLogix{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{{ es.name }}</h1><a class="btn" href="{% url 'flx:center' %}">Connection Center</a></div>
+<section class="card"><dl class="ctx-grid">
+<div><dt>Estado</dt><dd><span class="tag {{ css }}">{{ es.status }}</span></dd></div><div><dt>Categoría</dt><dd>{{ es.category }}</dd></div>
+<div><dt>Tipo</dt><dd class="small">{{ es.entity_type }}</dd></div><div><dt>Claves</dt><dd>{{ es.keys|join:", "|default:"—" }}</dd></div>
+<div><dt>Verificado</dt><dd>{{ es.checked_at|date:"d/m/Y H:i"|default:"No" }}{% if es.latency_ms %} · {{ es.latency_ms }} ms{% endif %}</dd></div>
+<div><dt>Esquema</dt><dd class="small">{{ es.schema }}</dd></div></dl>
+<p class="small">{% if es.detail %}{{ es.detail }}{% else %}{{ explain|dictkey:es.status }}{% endif %}</p>
+{% if is_admin and es.schema.source == 'live' %}<div class="actions"><form method="post" action="{% url 'flx:entity_action' es.name %}">{% csrf_token %}<input type="hidden" name="action" value="probe"><button class="btn" type="submit">Sondear ($top=1)</button></form>
+{% if es.queryable %}<form method="post" action="{% url 'flx:entity_action' es.name %}">{% csrf_token %}<input type="hidden" name="action" value="caps"><button class="btn" type="submit">Probar capacidades</button></form>{% endif %}</div>{% endif %}</section>
+<section class="card"><h2>Opciones OData verificadas</h2>
+<p class="small">{% for k in "$top $select $filter $orderby $skip $count $expand"|split:" " %}<span class="tag {% if es.capabilities|dictkey:k is True %}tag-ok{% elif es.capabilities|dictkey:k is False %}tag-err{% endif %}">{{ k }}: {% if es.capabilities|dictkey:k is True %}sí{% elif es.capabilities|dictkey:k is False %}no{% else %}sin probar{% endif %}</span> {% endfor %}</p>
+{% if es.declared_capabilities %}<p class="small muted">Declarado en $metadata: {% for k, v in es.declared_capabilities.items %}{{ k }}={{ v }}{% if not forloop.last %}; {% endif %}{% endfor %}</p>{% endif %}</section>
+<section class="card"><h2>Propiedades ({{ props|length }})</h2><div class="table-wrap" style="max-height:340px"><table class="data"><thead><tr><th>Propiedad</th><th>Tipo</th><th>Nula</th><th>Vista en respuesta</th></tr></thead><tbody>
+{% for p, d in props %}<tr><td>{{ p }}{% if p in es.keys %} <span class="tag">clave</span>{% endif %}</td><td class="small">{{ d.type }}</td><td>{{ d.nullable|yesno:"sí,no" }}</td><td>{% if p in es.returned_properties %}✔{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+{% if es.navigation %}<h3>Navegación</h3><ul class="small">{% for n, d in es.navigation.items %}<li>{{ n }} → {{ d.target_set|default:d.target_type }}{% if d.collection %} (colección){% endif %}</li>{% endfor %}</ul>{% endif %}</section>
+{% if can_query %}<section class="card"><h2>Consulta controlada (solo lectura)</h2>
+{% if not es.queryable %}<div class="alert alert-info">Disponible cuando el sondeo confirme que el conjunto es consultable en el servidor.</div>{% else %}
+<form data-flx-query action="{% url 'flx:entity_query' es.name %}">{% csrf_token %}<div class="form-grid">
+<label class="span-2">Columnas ($select{% if es.capabilities|dictkey:'$select' is not True %}, sin verificar: no disponible{% endif %})<select name="select" multiple size="5" {% if es.capabilities|dictkey:'$select' is not True %}disabled{% endif %}>{% for p, d in props %}<option>{{ p }}</option>{% endfor %}</select></label>
+{% for i in "012"|make_list %}<fieldset class="filter-row" {% if es.capabilities|dictkey:'$filter' is not True %}disabled{% endif %}><legend class="small">Filtro {{ forloop.counter }}</legend>
+<select name="f{{ i }}_prop" aria-label="Propiedad"><option value="">—</option>{% for p, d in props %}<option>{{ p }}</option>{% endfor %}</select>
+<select name="f{{ i }}_op" aria-label="Operador">{% for k, v in ops.items %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select><input name="f{{ i }}_value" aria-label="Valor" autocomplete="off"></fieldset>{% endfor %}
+<label>Ordenar por<select name="orderby" {% if es.capabilities|dictkey:'$orderby' is not True %}disabled{% endif %}><option value="">—</option>{% for p, d in props %}<option>{{ p }}</option>{% endfor %}</select></label>
+<label>Dirección<select name="dir"><option value="asc">Ascendente</option><option value="desc">Descendente</option></select></label>
+<label>Filas ($top, máx. {{ max_top }})<input type="number" name="top" value="25" min="1" max="{{ max_top }}"></label>
+<label><input type="checkbox" name="count" value="1" {% if es.capabilities|dictkey:'$count' is not True %}disabled{% endif %}> Total ($count)</label></div>
+<div class="actions"><button class="btn btn-primary" type="submit">Consultar</button><button class="btn" type="button" data-flx-cancel hidden>Cancelar</button><button class="btn" type="button" data-flx-csv>Exportar CSV</button></div></form>
+<div data-flx-out></div>{% endif %}</section>{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{% static 'gpv/js/flx.js' %}?v={{ GPV_VERSION }}"></script>{% endblock %}

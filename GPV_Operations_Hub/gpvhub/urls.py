@@ -14,6 +14,7 @@ urlpatterns = [
     path("etiquetas/", include("apps.labels.urls")),
     path("kaizen/", include("apps.kaizen.urls")),
     path("turno/", include("apps.shift.urls")),
+    path("factorylogix/", include("apps.flx.urls")),
 ]
 
 if not settings.DEBUG and getattr(settings, "GPV_SERVE_STATIC", False):
