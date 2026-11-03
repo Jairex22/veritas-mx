@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Producción | GPV SMT Production Pulse</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body data-mode="{{DATA_MODE}}" data-page="index">
+<header class="app-header">
+  <div class="header-inner">
+    <div class="brand">
+      <span class="brand-title">GPV Americas<span class="sep">|</span>SMT Production Pulse</span>
+      <span class="brand-sub">Monitoreo inteligente de productividad de SMT.</span>
+    </div>
+    <nav class="nav" aria-label="Navegación principal">
+      <a href="/" data-nav="index">Producción</a>
+      <a href="/dashboard" data-nav="dashboard">Tendencias</a>
+      <a href="/reports" data-nav="reports">Reportes</a>
+      <a href="/diagnostics" data-nav="diagnostics">Estado de conexión</a>
+    </nav>
+    <div class="header-status" aria-live="polite"><span id="header-chip" class="chip chip-idle">Iniciando</span></div>
+  </div>
+</header>
+<div class="demo-banner" role="status">MODO DEMOSTRACIÓN — Datos simulados. No provienen de FactoryLogix.</div>
+<main>
+
+<section class="panel" aria-labelledby="filters-title">
+  <div class="panel-head">
+    <h2 id="filters-title">Consulta de producción</h2>
+    <span class="muted small" id="tz-note"></span>
+  </div>
+  <form id="query-form" class="filters" autocomplete="off" novalidate>
+    <div class="field">
+      <label for="f-start">Fecha inicial</label>
+      <input type="date" id="f-start" name="start" required>
+    </div>
+    <div class="field">
+      <label for="f-end">Fecha final</label>
+      <input type="date" id="f-end" name="end" required>
+    </div>
+    <div class="field hidden" data-filter="line">
+      <label for="f-line">Línea SMT</label>
+      <input type="text" id="f-line" name="line" list="dl-line" maxlength="64" placeholder="Todas">
+      <datalist id="dl-line"></datalist>
+    </div>
+    <div class="field hidden" data-filter="station">
+      <label for="f-station">Estación</label>
+      <input type="text" id="f-station" name="station" list="dl-station" maxlength="64" placeholder="Todas">
+      <datalist id="dl-station"></datalist>
+    </div>
+    <div class="field hidden" data-filter="shift">
+      <label for="f-shift">Turno</label>
+      <input type="text" id="f-shift" name="shift" list="dl-shift" maxlength="64" placeholder="Todos">
+      <datalist id="dl-shift"></datalist>
+    </div>
+    <div class="field">
+      <label for="f-interval">Intervalo</label>
+      <select id="f-interval" name="interval"></select>
+    </div>
+  </form>
+  <label class="check mt-10"><input type="checkbox" id="f-force"> Ignorar caché y actualizar desde FactoryLogix (respeta el intervalo mínimo)</label>
+  <div class="actions">
+    <button type="button" class="btn btn-primary" id="btn-query">Consultar producción</button>
+    <button type="button" class="btn" id="btn-last">Ver última consulta</button>
+    <button type="button" class="btn btn-success" id="btn-xlsx" disabled>Exportar Excel</button>
+    <button type="button" class="btn" id="btn-pdf" disabled>Exportar PDF</button>
+    <button type="button" class="btn" id="btn-csv" disabled>Exportar CSV</button>
+    <button type="button" class="btn" id="btn-clear">Limpiar filtros</button>
+  </div>
+  <div id="filters-note" class="note"></div>
+  <div id="readiness" class="alert alert-warn hidden"></div>
+</section>
+
+<section class="statusbar" id="statusbar" aria-live="polite">
+  <span id="state-chip" class="chip chip-idle">Sin consulta</span>
+  <span class="msg" id="state-msg">Selecciona el periodo y presiona “Consultar producción”.</span>
+  <span class="when" id="state-when"></span>
+</section>
+<div id="state-extra"></div>
+
+<section id="results" class="hidden">
+  <div class="cards" id="cards"></div>
+
+  <div class="grid grid-2">
+    <section class="panel">
+      <div class="panel-head"><h2>Producción por intervalo</h2><span class="muted small" id="series-unit"></span></div>
+      <div class="chart" id="chart-series"></div>
+      <div class="legend"><span class="lg-navy">Intervalo completo</span><span class="lg-amber">Posible disminución</span><span class="lg-gray">En curso</span></div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>Tendencia temporal</h2><span class="muted small">Acumulado en el periodo</span></div>
+      <div class="chart" id="chart-trend"></div>
+    </section>
+    <section class="panel" id="panel-lines">
+      <div class="panel-head"><h2>Comparación entre líneas</h2><span class="muted small" id="lines-unit"></span></div>
+      <div class="chart" id="chart-lines"></div>
+    </section>
+    <section class="panel" id="panel-shifts">
+      <div class="panel-head"><h2>Comparación por turnos</h2><span class="muted small" id="shifts-unit"></span></div>
+      <div class="chart" id="chart-shifts"></div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>Distribución de registros disponibles</h2><span class="muted small">Registros por línea / estación</span></div>
+      <div class="chart" id="chart-dist"></div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>Posibles disminuciones</h2><span class="badge badge-partial">Indicador heurístico</span></div>
+      <p class="note" id="drop-rule"></p>
+      <ul class="list" id="drops"></ul>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Registros recibidos</h2><span class="muted small" id="rows-count"></span></div>
+    <div class="table-wrap"><table id="rows-table"><thead></thead><tbody></tbody></table></div>
+  </section>
+
+  <section class="panel">
+    <h2>Limitaciones del análisis</h2>
+    <ul class="list mt-8" id="limitations"></ul>
+    <p class="note mono" id="query-url"></p>
+  </section>
+</section>
+</main>
+<div class="footer">GPV SMT Production Pulse v{{APP_VERSION}} · Solo lectura · Entidad autorizada: ProductivityOverTime</div>
+<script src="/static/js/app.js" defer></script>
+<script src="/static/js/charts.js" defer></script>
+<script src="/static/js/production.js" defer></script>
+</body>
+</html>

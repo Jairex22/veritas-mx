@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reportes | GPV SMT Production Pulse</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body data-mode="{{DATA_MODE}}" data-page="reports">
+<header class="app-header">
+  <div class="header-inner">
+    <div class="brand">
+      <span class="brand-title">GPV Americas<span class="sep">|</span>SMT Production Pulse</span>
+      <span class="brand-sub">Monitoreo inteligente de productividad de SMT.</span>
+    </div>
+    <nav class="nav" aria-label="Navegación principal">
+      <a href="/" data-nav="index">Producción</a>
+      <a href="/dashboard" data-nav="dashboard">Tendencias</a>
+      <a href="/reports" data-nav="reports">Reportes</a>
+      <a href="/diagnostics" data-nav="diagnostics">Estado de conexión</a>
+    </nav>
+    <div class="header-status" aria-live="polite"><span id="header-chip" class="chip chip-idle">Iniciando</span></div>
+  </div>
+</header>
+<div class="demo-banner" role="status">MODO DEMOSTRACIÓN — Datos simulados. No provienen de FactoryLogix.</div>
+<main>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>Reportes generados</h2>
+    <span class="muted small">Los reportes se crean desde la pantalla de Producción (Exportar Excel / PDF / CSV).</span>
+  </div>
+  <div id="reports-msg"></div>
+  <div class="table-wrap"><table id="reports-table"><thead><tr><th>Generado</th><th>Periodo</th><th>Filtros</th><th>Extracción OData</th><th>Fuente</th><th>Acciones</th></tr></thead><tbody></tbody></table></div>
+  <p class="note" id="reports-empty"></p>
+</section>
+</main>
+<div class="footer">GPV SMT Production Pulse v{{APP_VERSION}} · Solo lectura · Entidad autorizada: ProductivityOverTime</div>
+<script src="/static/js/app.js" defer></script>
+<script src="/static/js/reports.js" defer></script>
+</body>
+</html>

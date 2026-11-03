@@ -1,0 +1,126 @@
+{
+  "_comment": "DATOS COMPLETAMENTE SIMULADOS - MODO DEMOSTRACIÓN. No provienen de FactoryLogix. Formato de respuesta OData V4 de ejemplo para pruebas.",
+  "@odata.context": "$metadata#ProductivityOverTime",
+  "value": [
+    {
+      "RecordId": 4909980,
+      "IntervalStart": "2026-01-05T06:00:00Z",
+      "IntervalEnd": "2026-01-05T07:00:00Z",
+      "LineName": "SMT-L01",
+      "StationName": "L01-AOI-FINAL",
+      "ShiftName": "Turno A",
+      "GoodCount": 184,
+      "RejectCount": 1
+    },
+    {
+      "RecordId": 4909981,
+      "IntervalStart": "2026-01-05T06:00:00Z",
+      "IntervalEnd": "2026-01-05T07:00:00Z",
+      "LineName": "SMT-L02",
+      "StationName": "L02-AOI-FINAL",
+      "ShiftName": "Turno A",
+      "GoodCount": 128,
+      "RejectCount": 1
+    },
+    {
+      "RecordId": 4909982,
+      "IntervalStart": "2026-01-05T06:00:00Z",
+      "IntervalEnd": "2026-01-05T07:00:00Z",
+      "LineName": "SMT-L03",
+      "StationName": "L03-AOI-FINAL",
+      "ShiftName": "Turno A",
+      "GoodCount": 215,
+      "RejectCount": 4
+    },
+    {
+      "RecordId": 4909990,
+      "IntervalStart": "2026-01-05T07:00:00Z",
+      "IntervalEnd": "2026-01-05T08:00:00Z",
+      "LineName": "SMT-L01",
+      "StationName": "L01-AOI-FINAL",
+      "ShiftName": "Turno A",
+      "GoodCount": 156,
+      "RejectCount": 0
+    },
+    {
+      "RecordId": 4909991,
+      "IntervalStart": "2026-01-05T07:00:00Z",
+      "IntervalEnd": "2026-01-05T08:00:00Z",
+      "LineName": "SMT-L02",
+      "StationName": "L02-AOI-FINAL",
+      "ShiftName": "Turno A",
+      "GoodCount": 122,
+      "RejectCount": 1
+    },
+    {
+      "RecordId": 4909992,
+      "IntervalStart": "2026-01-05T07:00:00Z",
+      "IntervalEnd": "2026-01-05T08:00:00Z",
+      "LineName": "SMT-L03",
+      "StationName": "L03-AOI-FINAL",
+      "ShiftName": "Turno A",
+      "GoodCount": 185,
+      "RejectCount": 3
+    },
+    {
+      "RecordId": 4910000,
+      "IntervalStart": "2026-01-05T08:00:00Z",
+      "IntervalEnd": "2026-01-05T09:00:00Z",
+      "LineName": "SMT-L01",
+      "StationName": "L01-AOI-FINAL",
+      "ShiftName": "Turno A",
+      "GoodCount": 185,
+      "RejectCount": 3
+    },
+    {
+      "RecordId": 4910001,
+      "IntervalStart": "2026-01-05T08:00:00Z",
+      "IntervalEnd": "2026-01-05T09:00:00Z",
+      "LineName": "SMT-L02",
+      "StationName": "L02-AOI-FINAL",
+      "ShiftName": "Turno A",
+      "GoodCount": 141,
+      "RejectCount": 0
+    },
+    {
+      "RecordId": 4910002,
+      "IntervalStart": "2026-01-05T08:00:00Z",
+      "IntervalEnd": "2026-01-05T09:00:00Z",
+      "LineName": "SMT-L03",
+      "StationName": "L03-AOI-FINAL",
+      "ShiftName": "Turno A",
+      "GoodCount": 230,
+      "RejectCount": 1
+    },
+    {
+      "RecordId": 4910010,
+      "IntervalStart": "2026-01-05T09:00:00Z",
+      "IntervalEnd": "2026-01-05T10:00:00Z",
+      "LineName": "SMT-L01",
+      "StationName": "L01-AOI-FINAL",
+      "ShiftName": "Turno A",
+      "GoodCount": 172,
+      "RejectCount": 2
+    },
+    {
+      "RecordId": 4910011,
+      "IntervalStart": "2026-01-05T09:00:00Z",
+      "IntervalEnd": "2026-01-05T10:00:00Z",
+      "LineName": "SMT-L02",
+      "StationName": "L02-AOI-FINAL",
+      "ShiftName": "Turno A",
+      "GoodCount": 136,
+      "RejectCount": 1
+    },
+    {
+      "RecordId": 4910012,
+      "IntervalStart": "2026-01-05T09:00:00Z",
+      "IntervalEnd": "2026-01-05T10:00:00Z",
+      "LineName": "SMT-L03",
+      "StationName": "L03-AOI-FINAL",
+      "ShiftName": "Turno A",
+      "GoodCount": 215,
+      "RejectCount": 0
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tendencias | GPV SMT Production Pulse</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body data-mode="{{DATA_MODE}}" data-page="dashboard">
+<header class="app-header">
+  <div class="header-inner">
+    <div class="brand">
+      <span class="brand-title">GPV Americas<span class="sep">|</span>SMT Production Pulse</span>
+      <span class="brand-sub">Monitoreo inteligente de productividad de SMT.</span>
+    </div>
+    <nav class="nav" aria-label="Navegación principal">
+      <a href="/" data-nav="index">Producción</a>
+      <a href="/dashboard" data-nav="dashboard">Tendencias</a>
+      <a href="/reports" data-nav="reports">Reportes</a>
+      <a href="/diagnostics" data-nav="diagnostics">Estado de conexión</a>
+    </nav>
+    <div class="header-status" aria-live="polite"><span id="header-chip" class="chip chip-idle">Iniciando</span></div>
+  </div>
+</header>
+<div class="demo-banner" role="status">MODO DEMOSTRACIÓN — Datos simulados. No provienen de FactoryLogix.</div>
+<main>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>Tendencias y comparación de periodos</h2>
+    <span class="muted small">Usa solo información guardada en este equipo: no consulta FactoryLogix.</span>
+  </div>
+  <div class="filters">
+    <div class="field"><label for="cmp-a">Periodo A</label><select id="cmp-a"></select></div>
+    <div class="field"><label for="cmp-b">Periodo B (referencia)</label><select id="cmp-b"></select></div>
+    <div class="field"><label for="cmp-interval">Intervalo</label>
+      <select id="cmp-interval"><option value="hour">Hora</option><option value="day" selected>Día</option></select></div>
+  </div>
+  <div class="actions">
+    <button type="button" class="btn btn-primary" id="btn-compare">Comparar periodos</button>
+    <button type="button" class="btn" id="btn-reload">Actualizar lista</button>
+  </div>
+  <div id="cmp-msg" class="note"></div>
+</section>
+
+<section id="cmp-results" class="hidden">
+  <div class="stat-tiles" id="cmp-tiles"></div>
+  <div class="grid grid-2">
+    <section class="panel"><div class="panel-head"><h2>Periodo A</h2><span class="muted small" id="a-unit"></span></div><div class="chart" id="chart-a"></div></section>
+    <section class="panel"><div class="panel-head"><h2>Periodo B</h2><span class="muted small" id="b-unit"></span></div><div class="chart" id="chart-b"></div></section>
+  </div>
+  <section class="panel">
+    <div class="panel-head"><h2>Comparación entre líneas</h2><span class="muted small" id="cmp-unit"></span></div>
+    <div class="chart" id="chart-cmp-lines"></div>
+    <div class="legend"><span class="lg-navy">Periodo A</span><span class="lg-green">Periodo B</span></div>
+    <div class="table-wrap mt-10"><table id="cmp-table"><thead><tr><th>Línea</th><th class="num">Periodo A</th><th class="num">Periodo B</th><th class="num">Variación</th></tr></thead><tbody></tbody></table></div>
+  </section>
+  <section class="panel"><h2>Limitaciones</h2><ul class="list mt-8" id="cmp-limits"></ul></section>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>Consultas guardadas</h2><span class="muted small" id="stored-count"></span></div>
+  <div class="table-wrap"><table id="stored-table"><thead><tr><th>Periodo</th><th>Filtros</th><th>Extraído</th><th class="num">Registros</th><th>Estado</th></tr></thead><tbody></tbody></table></div>
+</section>
+</main>
+<div class="footer">GPV SMT Production Pulse v{{APP_VERSION}} · Solo lectura · Entidad autorizada: ProductivityOverTime</div>
+<script src="/static/js/app.js" defer></script>
+<script src="/static/js/charts.js" defer></script>
+<script src="/static/js/dashboard.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+# Opcional: autenticación Windows integrada (Negotiate/NTLM vía SSPI) con la sesión del usuario.
+# No se almacena ninguna contraseña. Instalar con:  py -m pip install --user -r requirements-windows-auth.txt
+requests>=2.32,<3
+requests-negotiate-sspi>=0.6,<1

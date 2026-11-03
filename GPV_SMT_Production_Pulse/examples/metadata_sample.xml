@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  DATOS COMPLETAMENTE SIMULADOS - MODO DEMOSTRACIÓN.
+  Este documento NO proviene de FactoryLogix. Los nombres de campos son ficticios y
+  sirven únicamente para probar la aplicación sin conexión. El esquema real debe
+  obtenerse del servidor autorizado mediante "Verificar conexión".
+-->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Demo.Simulated" Alias="Sim">
+      <EntityType Name="SimulatedProductivityRecord">
+        <Key>
+          <PropertyRef Name="RecordId"/>
+        </Key>
+        <Property Name="RecordId" Type="Edm.Int64" Nullable="false"/>
+        <Property Name="IntervalStart" Type="Edm.DateTimeOffset" Nullable="false"/>
+        <Property Name="IntervalEnd" Type="Edm.DateTimeOffset"/>
+        <Property Name="LineName" Type="Edm.String" MaxLength="40"/>
+        <Property Name="StationName" Type="Edm.String" MaxLength="60"/>
+        <Property Name="ShiftName" Type="Edm.String" MaxLength="20"/>
+        <Property Name="GoodCount" Type="Edm.Int32"/>
+        <Property Name="RejectCount" Type="Edm.Int32"/>
+        <NavigationProperty Name="SimulatedDetails" Type="Collection(Demo.Simulated.SimulatedDetail)"/>
+      </EntityType>
+      <EntityType Name="SimulatedDetail">
+        <Key>
+          <PropertyRef Name="DetailId"/>
+        </Key>
+        <Property Name="DetailId" Type="Edm.Int64" Nullable="false"/>
+      </EntityType>
+      <EntityContainer Name="SimulatedContainer">
+        <EntitySet Name="ProductivityOverTime" EntityType="Sim.SimulatedProductivityRecord">
+          <Annotation Term="Org.OData.Capabilities.V1.TopSupported" Bool="true"/>
+          <Annotation Term="Org.OData.Capabilities.V1.FilterRestrictions">
+            <Record>
+              <PropertyValue Property="Filterable" Bool="true"/>
+              <PropertyValue Property="NonFilterableProperties">
+                <Collection>
+                  <PropertyPath>RejectCount</PropertyPath>
+                </Collection>
+              </PropertyValue>
+            </Record>
+          </Annotation>
+        </EntitySet>
+        <EntitySet Name="SimulatedOtherEntity" EntityType="Sim.SimulatedDetail"/>
+      </EntityContainer>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

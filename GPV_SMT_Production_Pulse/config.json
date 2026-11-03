@@ -1,0 +1,56 @@
+{
+  "app": {
+    "mode": "demo",
+    "host": "127.0.0.1",
+    "port": 8765,
+    "allow_non_localhost": false,
+    "open_browser": false
+  },
+  "odata": {
+    "base_url": "http://10.62.54.10:6065/odata/",
+    "entity_set": "ProductivityOverTime",
+    "auth_mode": "none",
+    "use_system_proxy": false,
+    "accept_header": "application/json",
+    "append_format_json": false
+  },
+  "limits": {
+    "MAX_RECORDS": 50,
+    "CACHE_TTL_SECONDS": 300,
+    "REQUEST_TIMEOUT_SECONDS": 15,
+    "MAX_CONCURRENT_REQUESTS": 1,
+    "MIN_REFRESH_INTERVAL_SECONDS": 60,
+    "AUTO_REFRESH_ENABLED": false,
+    "AUTO_REFRESH_INTERVAL_SECONDS": 300,
+    "MAX_RESPONSE_BYTES": 2000000,
+    "MAX_METADATA_BYTES": 10000000,
+    "MAX_QUERY_RANGE_DAYS": 31,
+    "MIN_SECONDS_BETWEEN_ODATA_REQUESTS": 5,
+    "MAX_ODATA_REQUESTS_PER_SESSION_PER_HOUR": 30,
+    "MAX_ODATA_REQUESTS_PER_HOUR_GLOBAL": 120,
+    "CIRCUIT_BREAKER_FAILURE_THRESHOLD": 3,
+    "CIRCUIT_BREAKER_COOLDOWN_SECONDS": 300,
+    "MIN_METADATA_CHECK_INTERVAL_SECONDS": 60,
+    "MIN_PROBE_INTERVAL_SECONDS": 600,
+    "PROBE_DELAY_SECONDS": 1
+  },
+  "retention": {
+    "CACHE_RETENTION_DAYS": 7,
+    "HISTORY_RETENTION_DAYS": 30,
+    "REPORT_RETENTION_DAYS": 90,
+    "MAX_DB_SIZE_MB": 200
+  },
+  "analytics": {
+    "quantity_unit_label": "",
+    "drop_threshold_percent": 25,
+    "min_buckets_for_drop_detection": 4,
+    "plant_timezone": ""
+  },
+  "field_mapping": {
+    "timestamp": null,
+    "quantity": null,
+    "line": null,
+    "station": null,
+    "shift": null
+  }
+}

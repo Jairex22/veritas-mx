@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Estado de conexión | GPV SMT Production Pulse</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body data-mode="{{DATA_MODE}}" data-page="diagnostics">
+<header class="app-header">
+  <div class="header-inner">
+    <div class="brand">
+      <span class="brand-title">GPV Americas<span class="sep">|</span>SMT Production Pulse</span>
+      <span class="brand-sub">Monitoreo inteligente de productividad de SMT.</span>
+    </div>
+    <nav class="nav" aria-label="Navegación principal">
+      <a href="/" data-nav="index">Producción</a>
+      <a href="/dashboard" data-nav="dashboard">Tendencias</a>
+      <a href="/reports" data-nav="reports">Reportes</a>
+      <a href="/diagnostics" data-nav="diagnostics">Estado de conexión</a>
+    </nav>
+    <div class="header-status" aria-live="polite"><span id="header-chip" class="chip chip-idle">Iniciando</span></div>
+  </div>
+</header>
+<div class="demo-banner" role="status">MODO DEMOSTRACIÓN — Datos simulados. No provienen de FactoryLogix.</div>
+<main>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>Estado de conexión</h2>
+    <div class="actions m0">
+      <button type="button" class="btn btn-primary" id="btn-check">Verificar conexión</button>
+      <button type="button" class="btn" id="btn-refresh">Actualizar estado</button>
+    </div>
+  </div>
+  <div class="alert alert-info" id="diag-summary">Cargando…</div>
+  <div id="diag-msg"></div>
+</section>
+
+<div class="stat-tiles" id="diag-tiles"></div>
+
+<section class="panel">
+  <div class="panel-head"><h2>Propiedades detectadas en metadata</h2><span class="muted small" id="props-meta"></span></div>
+  <div id="props-empty" class="note hidden">Aún no se ha validado la metadata.</div>
+  <div class="table-wrap"><table id="props-table"><thead><tr><th>Propiedad</th><th>Tipo EDM</th><th>Categoría</th><th>Clave</th><th>Nulo</th></tr></thead><tbody></tbody></table></div>
+  <div id="announced" class="note"></div>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>Mapeo de campos (administrador)</h2><span class="muted small">Solo campos existentes y de tipo compatible</span></div>
+  <p class="note">Confirma qué propiedad de ProductivityOverTime cumple cada función. Las sugerencias se basan en el nombre del campo y deben verificarse con el equipo MES antes de confirmarse.</p>
+  <form id="mapping-form" class="filters"></form>
+  <div class="actions">
+    <button type="button" class="btn btn-primary" id="btn-mapping">Confirmar mapeo</button>
+    <button type="button" class="btn" id="btn-suggest">Usar sugerencias</button>
+  </div>
+  <div id="mapping-msg"></div>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>Compatibilidad de consultas</h2>
+    <button type="button" class="btn btn-primary" id="btn-probe">Probar compatibilidad</button>
+  </div>
+  <p class="note">Ejecuta como máximo 7 consultas de lectura con <span class="mono">$top=1</span>, separadas en el tiempo, una sola vez por periodo de espera configurado. “Declarado” = existe en metadata · “Anunciado” = anotaciones lo indican · “Comprobado” = el servidor respondió correctamente.</p>
+  <div class="table-wrap"><table id="probes-table"><thead><tr><th>Opción</th><th>Estado</th><th>Detalle</th><th>HTTP</th><th>Consulta enviada</th></tr></thead><tbody></tbody></table></div>
+  <div id="probe-msg"></div>
+</section>
+
+<section class="panel">
+  <h2>Historial reciente de solicitudes</h2>
+  <div class="table-wrap mt-8"><table id="history-table"><thead><tr><th>Fecha</th><th>Tipo</th><th>Resultado</th><th>Caché</th><th class="num">HTTP</th><th class="num">ms</th><th class="num">Reg.</th><th>Consulta</th></tr></thead><tbody></tbody></table></div>
+</section>
+</main>
+<div class="footer">GPV SMT Production Pulse v{{APP_VERSION}} · Solo lectura · Entidad autorizada: ProductivityOverTime</div>
+<script src="/static/js/app.js" defer></script>
+<script src="/static/js/diagnostics.js" defer></script>
+</body>
+</html>

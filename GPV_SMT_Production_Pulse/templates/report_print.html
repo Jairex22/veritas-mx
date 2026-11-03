@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reporte | GPV SMT Production Pulse</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body data-mode="{{DATA_MODE}}" data-page="print">
+<header class="app-header">
+  <div class="header-inner">
+    <div class="brand">
+      <span class="brand-title">GPV Americas<span class="sep">|</span>SMT Production Pulse</span>
+      <span class="brand-sub">Monitoreo inteligente de productividad de SMT.</span>
+    </div>
+    <nav class="nav" aria-label="Navegación principal">
+      <a href="/" data-nav="index">Producción</a>
+      <a href="/dashboard" data-nav="dashboard">Tendencias</a>
+      <a href="/reports" data-nav="reports">Reportes</a>
+      <a href="/diagnostics" data-nav="diagnostics">Estado de conexión</a>
+    </nav>
+    <div class="header-status" aria-live="polite"><span id="header-chip" class="chip chip-idle">Iniciando</span></div>
+  </div>
+</header>
+<div class="demo-banner" role="status">MODO DEMOSTRACIÓN — Datos simulados. No provienen de FactoryLogix.</div>
+<main>
+
+<div class="actions no-print">
+  <button type="button" class="btn btn-primary" id="btn-print">Imprimir / Guardar como PDF</button>
+  <a class="btn" href="/reports">Volver a reportes</a>
+</div>
+<p class="note no-print">En el cuadro de impresión selecciona “Guardar como PDF” como destino.</p>
+<div id="report-error"></div>
+<article id="report" class="hidden">
+  <div class="print-demo">MODO DEMOSTRACIÓN — DATOS SIMULADOS. NO PROVIENEN DE FACTORYLOGIX.</div>
+  <div class="report-head">
+    <div><div class="rt">GPV Americas | SMT Production Pulse</div><div class="muted">Reporte de productividad SMT</div></div>
+    <div class="small" id="r-generated"></div>
+  </div>
+  <section class="panel"><h2>Datos del reporte</h2><dl class="kv mt-8" id="r-info"></dl></section>
+  <div class="cards" id="r-cards"></div>
+  <div class="grid grid-2">
+    <section class="panel"><h2>Producción por intervalo</h2><div class="chart" id="r-chart-series"></div></section>
+    <section class="panel"><h2>Comparación entre líneas</h2><div class="chart" id="r-chart-lines"></div></section>
+  </div>
+  <section class="panel"><h2>Posibles disminuciones (indicador heurístico)</h2><p class="note" id="r-drop-rule"></p><ul class="list" id="r-drops"></ul></section>
+  <section class="panel"><h2>Tabla de resultados</h2><div class="table-wrap"><table id="r-table"><thead></thead><tbody></tbody></table></div></section>
+  <section class="panel"><h2>Limitaciones del análisis</h2><ul class="list mt-8" id="r-limits"></ul></section>
+</article>
+</main>
+<div class="footer">GPV SMT Production Pulse v{{APP_VERSION}} · Solo lectura · Entidad autorizada: ProductivityOverTime</div>
+<script src="/static/js/app.js" defer></script>
+<script src="/static/js/charts.js" defer></script>
+<script src="/static/js/reports.js" defer></script>
+</body>
+</html>
