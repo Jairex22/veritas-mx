@@ -41,6 +41,14 @@ CAPABILITIES = {
     "labels.reprint": ("Reimprimir etiquetas (con motivo)", {A, S}),
     "kaizen.create": ("Proponer mejoras Kaizen", {A, S, E, O}),
     "kaizen.evaluate": ("Evaluar, aprobar y cerrar Kaizen", {A, S}),
+    "shift.use": ("Portal del turno: ver mi turno, pedir ayuda, paros, solicitudes", {A, S, E, O}),
+    "shift.capture": ("Captura manual de producción (contingencia, queda provisional)", {A, S, E, O}),
+    "shift.attend": ("Atender solicitudes de ayuda y materiales", {A, S, E}),
+    "shift.plan": ("Asignar metas del turno", {A, S}),
+    "shift.reconcile": ("Revisar conciliación de capturas manuales", {A, S}),
+    "shift.close": ("Revisar y cerrar reportes de turno", {A, S}),
+    "shift.quality": ("Dar disposición a observaciones de calidad", {A, S}),
+    "shift.configure": ("Configurar piloto: líneas, estaciones, motivos, OData", {A}),
 }
 
 

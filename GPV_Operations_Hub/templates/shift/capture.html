@@ -1,0 +1,18 @@
+{% extends "base.html" %}{% load static %}{% block title %}Captura manual{% endblock %}
+{% block content %}{% include "shift/_nav.html" %}
+<div class="page-head"><h1>Captura manual de producción (contingencia)</h1></div>
+<div class="alert alert-warn">Se guarda como <strong>«Manual pendiente de conciliación»</strong>. No se suma a las buenas confirmadas hasta conciliarse con FactoryLogix o ser aceptada por un responsable. Si FactoryLogix registra el mismo hecho, no se cuenta dos veces.</div>
+<form method="post" class="card">{% csrf_token %}<input type="hidden" name="client_uuid" data-client-uuid><div class="form-grid">
+<label>Orden<input name="work_order" value="{{ ctx.work_order }}" required></label>
+<label>Cantidad<input type="number" step="any" min="0" name="qty" required></label>
+<label>Unidad<select name="unit"><option value="pz">pz</option><option value="panel">panel</option></select></label>
+<label>Desde<input type="datetime-local" name="start" required value="{{ now|date:'Y-m-d\TH:i' }}"></label>
+<label>Hasta<input type="datetime-local" name="end" required value="{{ now|date:'Y-m-d\TH:i' }}"></label>
+<label>Lote / panel de referencia<input name="lot_ref" placeholder="Permite conciliar sin ambigüedad"></label>
+<label class="span-2">Motivo de la captura manual<input name="reason" required minlength="5" placeholder="p. ej. fuente desconectada 10:00–10:40"></label></div>
+<button class="btn btn-primary" type="submit" {% if not ctx.station %}disabled{% endif %}>Guardar captura</button></form>
+{% if pending %}<p class="muted">{{ pending }} captura(s) pendiente(s) de conciliación en sus áreas.</p>{% endif %}
+<section class="card"><h2>Mis capturas</h2><div class="table-wrap"><table class="data"><thead><tr><th>Fecha</th><th>Orden</th><th class="right">Cant.</th><th>Periodo</th><th>Estado</th><th>Nota</th></tr></thead><tbody>
+{% for e in mine %}<tr><td>{{ e.received_at|date:"d/m H:i" }}</td><td>{{ e.work_order }}</td><td class="right">{{ e.qty|floatformat:"-2" }} {{ e.unit }}</td><td>{{ e.event_at|date:"H:i" }}–{{ e.period_end|date:"H:i" }}</td><td>{{ e.get_recon_status_display }}</td><td class="small">{{ e.reason }}</td></tr>{% empty %}<tr><td colspan="6" class="muted">Sin capturas.</td></tr>{% endfor %}</tbody></table></div></section>
+{% endblock %}
+{% block scripts %}<script src="{% static 'gpv/js/shift.js' %}?v={{ GPV_VERSION }}"></script>{% endblock %}

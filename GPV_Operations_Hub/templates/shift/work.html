@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% block title %}Mi trabajo{% endblock %}
+{% block content %}{% include "shift/_nav.html" %}
+<div class="page-head"><h1>Mi trabajo</h1><div class="actions"><a class="btn" href="{% url 'shift:scan' %}">Buscar serie / orden</a>{% if caps.shift__capture %}<a class="btn" href="{% url 'shift:capture' %}">Captura manual (contingencia)</a>{% endif %}</div></div>
+{% if not ctx.station %}<div class="alert alert-warn">Confirme su estación. <a href="{% url 'shift:context' %}">Confirmar</a></div>
+{% elif not summary %}<div class="alert alert-info">No hay un turno configurado en este momento.</div>
+{% else %}
+<section class="card"><h2>Órdenes del turno · {{ summary.line }} · {{ summary.shift }} {{ summary.date }}</h2>
+<p class="muted small">Ventana {{ summary.window.0 }} → {{ summary.window.1 }} · tiempo planeado {{ summary.planned_minutes }} min (descansos descontados). Conteo en la operación de conteo configurada.</p>
+<div class="table-wrap"><table class="data"><thead><tr><th>Orden</th><th>Parte</th><th class="right">Meta</th><th class="right">Buenas confirmadas</th><th class="right">Manual pendiente</th><th class="right">Pendiente</th><th>Cumplimiento</th><th class="right">FPY</th><th>Avisos</th></tr></thead><tbody>
+{% for o in summary.orders %}<tr {% if o.work_order|upper == ctx.work_order|upper %}class="row-active"{% endif %}><td>{{ o.work_order }}</td><td>{{ o.part_number }}</td><td class="right">{{ o.target|floatformat:"-2" }} {{ o.unit }}</td>
+<td class="right">{% if o.good is not None %}{{ o.good|floatformat:"-2" }}{% else %}No calculable{% endif %}</td><td class="right">{{ o.provisional|floatformat:"-2" }}</td>
+<td class="right">{% if o.pending is not None %}{{ o.pending|floatformat:"-2" }}{% else %}—{% endif %}</td>
+<td>{% if o.compliance.status == 'ok' %}{{ o.compliance.value|floatformat:1 }} %{% else %}<span class="muted small">{{ o.compliance.reason }}</span>{% endif %}</td>
+<td class="right">{% if o.fpy.status == 'ok' %}{{ o.fpy.value|floatformat:1 }} %{% else %}—{% endif %}</td>
+<td class="small">{{ o.issues|join:"; " }}{% if o.retests %} {{ o.retests }} reprueba(s) no suman piezas.{% endif %}</td></tr>
+{% empty %}<tr><td colspan="9" class="muted">Sin meta asignada al turno. El supervisor la registra en «Metas».</td></tr>{% endfor %}</tbody></table></div></section>
+<section class="card"><h2>Eventos recientes de la línea</h2><div class="table-wrap"><table class="data"><thead><tr><th>Hora</th><th>Origen</th><th>Estación</th><th>Orden</th><th>Serie/panel</th><th class="right">Cant.</th><th>Resultado</th><th>Estado</th></tr></thead><tbody>
+{% for e in events %}<tr><td>{{ e.event_at|date:"H:i:s" }}</td><td>{{ e.get_source_display }}</td><td>{{ e.station.code|default:e.operation }}</td><td>{{ e.work_order }}</td><td>{{ e.serial|default:e.panel_id }}</td><td class="right">{{ e.qty|floatformat:"-2" }} {{ e.unit }}</td><td>{{ e.result }}</td><td>{{ e.get_recon_status_display }}</td></tr>
+{% empty %}<tr><td colspan="8" class="muted">Sin eventos en el turno.</td></tr>{% endfor %}</tbody></table></div></section>
+{% endif %}
+{% endblock %}

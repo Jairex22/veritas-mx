@@ -240,6 +240,11 @@ def _records_from_source(request, source):
         header = [h.strip() for h in rows[0]]
         recs = [dict(zip(header, r)) for r in rows[1:] if any(c.strip() for c in r)]
         return recs, f"Archivo {sf.original_name}", header
+    if source == "shift":
+        from apps.shift.labels import context_record
+
+        rec = context_record(request.user)
+        return [rec], f"Contexto del turno ({rec.get('station', '')} · orden {rec.get('work_order') or 'sin orden'})", list(rec.keys())
     return [{}], "Captura manual", []
 
 
@@ -277,7 +282,7 @@ def print_page(request, pk):
            "printers": Printer.objects.filter(enabled=True, validated_at__isnull=False) | Printer.objects.filter(kind=Printer.Kind.BROWSER),
            "prompts": t.published.definition.get("prompts", []), "records": [], "columns": []}
     try:
-        if source in ("dataset", "file") and (request.GET.get("dataset") or request.GET.get("file_id")):
+        if source == "shift" or (source in ("dataset", "file") and (request.GET.get("dataset") or request.GET.get("file_id"))):
             recs, desc, cols = _records_from_source(request, source)
             ctx.update({"records": list(enumerate(recs[:500])), "columns": cols or list(recs[0].keys())[:8] if recs else [], "desc": desc,
                         "total_records": len(recs)})

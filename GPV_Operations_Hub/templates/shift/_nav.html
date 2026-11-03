@@ -1,0 +1,17 @@
+<nav class="shift-tabs" aria-label="Portal del turno">
+  {% with p=request.path %}
+  <a href="{% url 'shift:home' %}" {% if p == '/turno/' %}aria-current="page"{% endif %}>Mi turno</a>
+  <a href="{% url 'shift:work' %}" {% if '/trabajo/' in p %}aria-current="page"{% endif %}>Mi trabajo</a>
+  <a href="{% url 'shift:help' %}" {% if '/ayuda/' in p %}aria-current="page"{% endif %}>Ayuda</a>
+  <a href="{% url 'shift:downtime' %}" {% if '/paros/' in p %}aria-current="page"{% endif %}>Paros</a>
+  <a href="{% url 'shift:materials' %}" {% if '/materiales/' in p %}aria-current="page"{% endif %}>Materiales</a>
+  <a href="{% url 'shift:instructions' %}" {% if '/instrucciones/' in p or '/lista/' in p %}aria-current="page"{% endif %}>Instrucciones</a>
+  <a href="{% url 'shift:quality' %}" {% if '/calidad/' in p %}aria-current="page"{% endif %}>Calidad</a>
+  <a href="{% url 'shift:closeout' %}" {% if '/cierre/' in p %}aria-current="page"{% endif %}>Cierre</a>
+  <a href="{% url 'shift:handover' %}" {% if '/relevo/' in p %}aria-current="page"{% endif %}>Relevo</a>
+  {% if caps.shift__attend %}<a href="{% url 'shift:board' %}" {% if '/supervisor/' in p %}aria-current="page"{% endif %}>Supervisión</a>{% endif %}
+  {% if caps.shift__plan %}<a href="{% url 'shift:plan' %}" {% if '/plan/' in p %}aria-current="page"{% endif %}>Metas</a>{% endif %}
+  {% if caps.shift__reconcile %}<a href="{% url 'shift:reconciliation' %}" {% if '/conciliacion/' in p %}aria-current="page"{% endif %}>Conciliación</a>{% endif %}
+  <a href="{% url 'shift:sources' %}" {% if '/fuentes/' in p %}aria-current="page"{% endif %}>Fuentes</a>
+  {% endwith %}
+</nav>

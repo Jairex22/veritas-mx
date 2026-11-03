@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% block title %}Instrucciones{% endblock %}
+{% block content %}{% include "shift/_nav.html" %}
+<div class="page-head"><h1>Instrucciones y listas</h1></div>
+<p class="muted small">Se muestran las revisiones aprobadas para {{ ctx.station.line.code|default:"su línea" }} · operación {{ ctx.station.operation|default:"—" }}{% if part %} · parte {{ part }}{% endif %}. Leer una instrucción no equivale a estar capacitado.</p>
+<section class="card"><h2>Instrucciones vigentes</h2>{% for i in items %}<details><summary><strong>{{ i.title }}</strong> · rev. {{ i.revision }}{% if i.part_number %} · {{ i.part_number }}{% endif %}</summary>
+{% if i.steps %}<ol>{% for s in i.steps %}<li>{{ s.text|default:s }}</li>{% endfor %}</ol>{% endif %}
+{% if i.document %}<p><a href="{% url 'documents:detail' i.document_id %}">Documento vinculado</a></p>{% endif %}
+<p><a class="btn btn-sm" href="?leer={{ i.pk }}">Registrar lectura</a></p></details>{% empty %}<p class="muted">Sin instrucciones aprobadas para este contexto.</p>{% endfor %}</section>
+<section class="card"><h2>Listas de verificación</h2><ul>{% for c in checks %}<li><a href="{% url 'shift:checklist' c.pk %}">{{ c.name }}</a> · {{ c.get_kind_display }} · v{{ c.version }}</li>{% empty %}<li class="muted">Sin listas configuradas.</li>{% endfor %}</ul></section>
+{% if obsolete %}<section class="card"><h2>Revisiones obsoletas (solo consulta)</h2><ul>{% for i in obsolete %}<li class="muted">{{ i.title }} rev. {{ i.revision }} — OBSOLETA{% if i.superseded_by %} · reemplazada por rev. {{ i.superseded_by.revision }}{% endif %}</li>{% endfor %}</ul></section>{% endif %}
+{% endblock %}

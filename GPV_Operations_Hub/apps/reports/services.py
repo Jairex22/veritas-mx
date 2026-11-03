@@ -323,9 +323,23 @@ def run_scheduler_loop(stop_after=None, tick_seconds=30):
                     log.info("scheduler created %d runs", len(created))
             else:
                 log.info("another scheduler holds the lease; waiting")
+            # shift portal service (own lease: OData sync never overlaps even if run_shift_service also runs)
+            try:
+                from apps.shift import service_loop
+
+                if service_loop.acquire(holder, seconds=tick_seconds * 4):
+                    service_loop.tick()
+            except Exception:
+                log.exception("shift service tick failed")
             ticks += 1
             if stop_after and ticks >= stop_after:
                 break
             time.sleep(tick_seconds)
     finally:
         release_lease(holder)
+        try:
+            from apps.shift import service_loop
+
+            service_loop.release(holder)
+        except Exception:
+            pass

@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% block title %}Buscar código{% endblock %}
+{% block content %}{% include "shift/_nav.html" %}
+<div class="page-head"><h1>Escanear / buscar</h1></div>
+<form method="get" class="card actions" role="search"><label class="grow">Código (serie, panel, lote, orden o QR de estación)<input name="code" value="{{ code }}" autofocus autocomplete="off" data-scan-input></label><button class="btn btn-primary" type="submit">Buscar</button></form>
+<p class="muted small">El escáner puede enviar «Enter»: aquí solo busca; nunca imprime ni cambia su estación sin confirmación.</p>
+{% if result.none %}<div class="alert alert-warn">No se encontró «{{ code }}» en los datos disponibles del portal para sus áreas.</div>{% endif %}
+{% if result.order %}<section class="card"><h2>Orden {{ code }}</h2>{% if result.order.plan %}<p>Línea {{ result.order.plan.line.code }} · parte {{ result.order.plan.part_number }} · meta {{ result.order.plan.target|floatformat:"-2" }} {{ result.order.plan.unit }} ({{ result.order.plan.date }})</p>{% endif %}
+{% if result.order.wo %}<p class="muted small">Plan de producción: {{ result.order.wo.customer }} · {{ result.order.wo.part_number }} · estado {{ result.order.wo.status }}</p>{% endif %}
+<form method="post" action="{% url 'shift:context' %}">{% csrf_token %}<input type="hidden" name="station" value="{{ ctx.station_id|default:'' }}"><input type="hidden" name="work_order" value="{{ code }}"><input type="hidden" name="via" value="escaneo">
+{% if ctx.work_order and ctx.work_order != code %}<label>Motivo del cambio de orden<input name="reason" required minlength="3"></label>{% endif %}
+<button class="btn btn-primary" type="submit" {% if not ctx.station %}disabled title="Confirme su estación primero"{% endif %}>Usar como orden activa</button></form></section>{% endif %}
+{% if result.serial %}<section class="card"><h2>Historial de {{ code }}</h2><div class="table-wrap"><table class="data"><thead><tr><th>Fecha</th><th>Línea</th><th>Operación</th><th>Lado</th><th>Orden</th><th>Intento</th><th>Resultado</th><th>Origen</th></tr></thead><tbody>
+{% for e in result.serial.events %}<tr><td>{{ e.event_at|date:"d/m H:i:s" }}</td><td>{{ e.line.code }}</td><td>{{ e.operation }}</td><td>{{ e.side }}</td><td>{{ e.work_order }}</td><td>{{ e.attempt }}</td><td>{{ e.result }}</td><td>{{ e.get_source_display }}</td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
+{% if result.labels %}<section class="card"><h2>Etiquetas emitidas</h2><ul>{% for j in result.labels %}<li><a href="{% url 'labels:job' j.pk %}">Trabajo #{{ j.number }}</a> · {{ j.created|date:"d/m H:i" }} · {{ j.get_status_display }}</li>{% endfor %}</ul></section>{% endif %}
+{% endblock %}

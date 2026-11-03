@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% load static %}{% block title %}Necesito ayuda{% endblock %}
+{% block content %}{% include "shift/_nav.html" %}
+<div class="page-head"><h1>Necesito ayuda</h1></div>
+{% if not ctx.station %}<div class="alert alert-warn">Confirme su estación para que la solicitud llegue al equipo correcto. <a href="{% url 'shift:context' %}">Confirmar</a></div>{% endif %}
+<form method="post" enctype="multipart/form-data" class="card" data-help-form data-offline-queue="help">{% csrf_token %}
+<input type="hidden" name="client_uuid" data-client-uuid>
+<fieldset class="reason-grid"><legend>Motivo</legend>
+{% for r in reasons %}<label class="reason-btn"><input type="radio" name="reason" value="{{ r.code }}" required {% if sel == r.code %}checked{% endif %}><span>{{ r.label }}</span><small class="muted">{{ r.group.name|default:"Responsables del área" }}</small></label>{% empty %}<p class="muted">No hay motivos configurados. Un administrador debe darlos de alta.</p>{% endfor %}</fieldset>
+{% if similar %}<div class="alert alert-warn">Ya hay {{ similar|length }} solicitud(es) abierta(s) con el mismo motivo en esta estación:
+<ul>{% for s in similar %}<li><a href="{% url 'shift:help_detail' s.pk %}">#{{ s.pk }}</a> · {{ s.get_status_display }} · {{ s.created|date:"H:i" }} <label><input type="radio" name="relate_to" value="{{ s.pk }}"> Relacionar con esta</label></li>{% endfor %}</ul>
+Si es el mismo problema, relaciónela en lugar de crear una nueva.</div>{% endif %}
+<div class="form-grid"><label>Comentario (opcional)<textarea name="comment" rows="2" maxlength="2000"></textarea></label>
+<label>Foto (opcional)<input type="file" name="photo" accept="image/png,image/jpeg" capture="environment"></label></div>
+<p class="muted small">Estación {{ ctx.station.code|default:"—" }} · orden {{ ctx.work_order|default:"—" }} se agregan automáticamente.</p>
+<button class="btn btn-primary btn-lg" type="submit" {% if not ctx.station %}disabled{% endif %}>Enviar solicitud</button>
+<p class="small" data-queue-status></p></form>
+<section class="card"><h2>Mis solicitudes</h2><ul>{% for h in mine %}<li><a href="{% url 'shift:help_detail' h.pk %}">#{{ h.pk }} {{ h.reason.label }}</a> · {{ h.get_status_display }} · {{ h.created|date:"d/m H:i" }}</li>{% empty %}<li class="muted">Ninguna.</li>{% endfor %}</ul></section>
+{% if inbox %}<section class="card" id="inbox"><h2>Bandeja de atención</h2><div class="table-wrap"><table class="data"><thead><tr><th>#</th><th>Motivo</th><th>Línea/estación</th><th>Grupo</th><th>Estado</th><th>Creada</th><th>Escalada</th></tr></thead><tbody>
+{% for h in inbox %}<tr><td><a href="{% url 'shift:help_detail' h.pk %}">#{{ h.pk }}</a></td><td>{{ h.reason.label }}</td><td>{{ h.line.code }} · {{ h.station.code }}</td><td>{{ h.group.name|default:"—" }}</td><td>{{ h.get_status_display }}</td><td>{{ h.created|date:"d/m H:i" }}</td><td>{% if h.escalation_level %}<span class="tag tag-err">Sí</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{% static 'gpv/js/shift.js' %}?v={{ GPV_VERSION }}"></script>{% endblock %}

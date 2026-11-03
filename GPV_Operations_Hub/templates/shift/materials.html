@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% block title %}Materiales{% endblock %}
+{% block content %}{% include "shift/_nav.html" %}
+<div class="page-head"><h1>Solicitudes de material / faltantes</h1></div>
+<div class="alert alert-info">Esto es una solicitud interna de atención; <strong>no</strong> es un movimiento ni un saldo de inventario.</div>
+<form method="post" class="card">{% csrf_token %}<input type="hidden" name="action" value="create"><div class="form-grid">
+<label>Material / número de parte<input name="material" required maxlength="120"></label><label>Cantidad<input type="number" name="qty" step="any" min="0" required></label>
+<label>Unidad<input name="unit" value="pz" maxlength="20"></label><label>Motivo<input name="reason" maxlength="200" placeholder="Faltante, cambio de modelo…"></label></div>
+<button class="btn btn-primary" type="submit" {% if not ctx.station %}disabled{% endif %}>Solicitar</button></form>
+<section class="card"><div class="table-wrap"><table class="data"><thead><tr><th>#</th><th>Material</th><th class="right">Cant.</th><th>Línea/estación</th><th>Orden</th><th>Estado</th><th>Creada</th><th></th></tr></thead><tbody>
+{% for m in items %}<tr><td>{{ m.pk }}</td><td>{{ m.material }}</td><td class="right">{{ m.qty|floatformat:"-3" }} {{ m.unit }}</td><td>{{ m.line.code }} · {{ m.station.code }}</td><td>{{ m.work_order }}</td><td>{{ m.get_status_display }}</td><td>{{ m.created|date:"d/m H:i" }}</td>
+<td><form method="post" class="actions">{% csrf_token %}<input type="hidden" name="id" value="{{ m.pk }}">
+{% if can_attend %}{% if m.status == 'requested' %}<button class="btn btn-sm" name="to" value="received">Recibir</button>{% endif %}{% if m.status == 'received' %}<button class="btn btn-sm" name="to" value="in_progress">En surtido</button>{% endif %}{% if m.status in 'received in_progress' %}<button class="btn btn-sm btn-primary" name="to" value="delivered">Entregado</button>{% endif %}{% endif %}
+{% if m.status == 'requested' and m.created_by_id == user.pk %}<button class="btn btn-sm" name="to" value="cancelled">Cancelar</button>{% endif %}</form></td></tr>
+{% empty %}<tr><td colspan="8" class="muted">Sin solicitudes.</td></tr>{% endfor %}</tbody></table></div></section>
+{% endblock %}

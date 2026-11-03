@@ -1,0 +1,37 @@
+{% extends "base.html" %}{% block title %}Cierre del turno{% endblock %}
+{% block content %}{% include "shift/_nav.html" %}
+<div class="page-head"><h1>Reporte SMT del turno</h1>
+<form method="get" class="actions"><select name="line" data-autosubmit aria-label="Línea">{% for l in lines %}<option value="{{ l.pk }}" {% if line.pk == l.pk %}selected{% endif %}>{{ l.code }}</option>{% endfor %}</select></form></div>
+{% if live and live.exceptions %}<section class="card"><h2>Pendientes del turno en curso</h2><p class="muted small">Resuélvalos aquí sin volver a capturar todo el turno.</p>
+{% for e in live.exceptions %}<div class="row-form">{{ e.text }}
+{% if e.type == 'downtime_reason' %}<form method="post" class="actions">{% csrf_token %}<input type="hidden" name="action" value="downtime_reason"><input type="hidden" name="id" value="{{ e.id }}"><select name="reason" required aria-label="Motivo">{% for r in reasons %}<option value="{{ r.pk }}">{{ r.label }}</option>{% endfor %}</select><button class="btn btn-sm" type="submit">Registrar motivo</button></form>
+{% elif e.type == 'help_comment' %}<form method="post" class="actions">{% csrf_token %}<input type="hidden" name="action" value="help_comment"><input type="hidden" name="id" value="{{ e.id }}"><input name="comment" required aria-label="Comentario"><button class="btn btn-sm" type="submit">Agregar comentario</button></form>
+{% elif e.type == 'downtime_open' %}<a class="btn btn-sm" href="{% url 'shift:downtime' %}">Cerrar paro</a>{% endif %}</div>{% endfor %}</section>{% endif %}
+{% if report %}
+<section class="card"><h2>{{ report.line.code }} · {{ report.date|date:"d/m/Y" }} · {{ report.shift.name }} · revisión {{ report.revision }}</h2>
+<p><span class="tag {% if report.status == 'closed' %}tag-ok{% elif report.status == 'pending_data' %}tag-warn{% else %}tag-info{% endif %}">{{ report.get_status_display }}</span>
+{% if report.revision_reason %}<span class="muted small">{{ report.revision_reason }}</span>{% endif %}
+{% if report.line.synthetic %}<span class="tag tag-warn">DATOS SINTÉTICOS</span>{% endif %}</p>
+{% with s=report.snapshot %}
+<div class="kpis">{% include "partials/metric.html" with m=s.compliance label="Cumplimiento del turno" %}
+<div class="kpi"><div class="kpi-label">Minutos de paro</div><div class="kpi-value">{{ s.downtime_minutes }}</div></div>
+<div class="kpi"><div class="kpi-label">Manual pendiente</div><div class="kpi-value">{{ s.pending_manual }}</div></div>
+<div class="kpi"><div class="kpi-label">Tiempo planeado</div><div class="kpi-value">{{ s.planned_minutes }}<small>min</small></div></div></div>
+<div class="table-wrap"><table class="data"><thead><tr><th>Orden</th><th class="right">Meta</th><th class="right">Buenas confirmadas</th><th class="right">Manual pendiente</th><th class="right">Pendiente</th><th>Cumplimiento</th></tr></thead><tbody>
+{% for o in s.orders %}<tr><td>{{ o.work_order }}</td><td class="right">{{ o.target|floatformat:"-2" }} {{ o.unit }}</td><td class="right">{% if o.good is not None %}{{ o.good|floatformat:"-2" }}{% else %}No calculable{% endif %}</td><td class="right">{{ o.provisional|floatformat:"-2" }}</td><td class="right">{% if o.pending is not None %}{{ o.pending|floatformat:"-2" }}{% else %}—{% endif %}</td><td>{% if o.compliance.status == 'ok' %}{{ o.compliance.value|floatformat:1 }} %{% else %}{{ o.compliance.reason }}{% endif %}</td></tr>{% empty %}<tr><td colspan="6" class="muted">Sin metas asignadas.</td></tr>{% endfor %}</tbody></table></div>
+{% if s.exceptions %}<h3>Excepciones</h3><ul>{% for e in s.exceptions %}<li>{{ e.text }}</li>{% endfor %}</ul>{% endif %}
+{% if s.blocking %}<div class="alert alert-warn"><strong>Datos pendientes:</strong><ul>{% for b in s.blocking %}<li>{{ b }}</li>{% endfor %}</ul></div>{% endif %}
+<p class="muted small">Generado {{ s.generated_at }} · fuentes: {% for x in s.sources %}{{ x.name }} ({{ x.health_label }}, último éxito {{ x.last_success }}){% if not forloop.last %}; {% endif %}{% empty %}solo captura web{% endfor %}</p>
+{% endwith %}
+<div class="actions">
+<a class="btn" href="{% url 'shift:report_export' report.pk 'pdf' %}?inline=1" target="_blank" rel="noopener">PDF</a><a class="btn" href="{% url 'shift:report_export' report.pk 'xlsx' %}">Excel</a>
+{% if report.status != 'closed' %}<form method="post">{% csrf_token %}<button class="btn" name="action" value="refresh">Actualizar borrador</button></form>
+{% if can_close %}<form method="post">{% csrf_token %}<button class="btn" name="action" value="review" {% if report.status == 'reviewed' %}disabled{% endif %}>Marcar revisado</button></form>
+<form method="post" class="actions">{% csrf_token %}<input name="force_reason" placeholder="Motivo si cierra con datos pendientes" aria-label="Motivo" {% if report.snapshot.blocking %}required minlength="10"{% endif %}><button class="btn btn-primary" name="action" value="close" {% if report.status != 'reviewed' %}disabled title="Primero márquelo como revisado"{% endif %}>Cerrar reporte</button></form>{% endif %}
+{% else %}<span class="muted small">Cerrado por {{ report.closed_by.username }} {{ report.closed_at|date:"d/m H:i" }}. Datos tardíos generan una nueva revisión identificada.</span>{% endif %}</div>
+{% if revisions|length > 1 %}<p class="small">Revisiones: {% for r in revisions %}<a href="?line={{ line.pk }}&r={{ r.pk }}">r{{ r.revision }} ({{ r.get_status_display }})</a>{% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+</section>
+{% else %}<div class="alert alert-info">Aún no hay reporte para esta línea. Se genera automáticamente al terminar cada turno (servicio local) o puede generarlo ahora.</div>{% endif %}
+<form method="post" class="actions">{% csrf_token %}<button class="btn" name="action" value="generate">Generar borrador del último turno terminado</button></form>
+<section class="card"><h2>Reportes recientes</h2><ul>{% for r in reports %}<li><a href="?line={{ r.line_id }}&r={{ r.pk }}">{{ r.line.code }} · {{ r.date|date:"d/m" }} · {{ r.shift.code }} · r{{ r.revision }}</a> · {{ r.get_status_display }}</li>{% empty %}<li class="muted">—</li>{% endfor %}</ul></section>
+{% endblock %}

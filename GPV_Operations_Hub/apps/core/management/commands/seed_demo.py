@@ -63,6 +63,9 @@ class Command(BaseCommand):
         self._imports(tmp, admin)
         self._labels(admin, label_templates())
         self._extras(admin, users, areas, tmp)
+        from django.core.management import call_command
+
+        call_command("seed_smt_pilot", stdout=self.stdout)
         self.stdout.write(self.style.SUCCESS("Datos de demostración cargados."))
         if not opts["sin_usuarios"]:
             self.stdout.write("Usuarios demo: " + ", ".join(u[0] for u in DEMO_USERS) + f" · contraseña: {pwd}")

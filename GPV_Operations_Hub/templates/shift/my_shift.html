@@ -1,0 +1,40 @@
+{% extends "base.html" %}{% load static %}{% block title %}Mi turno{% endblock %}
+{% block content %}
+{% include "shift/_nav.html" %}
+<div class="page-head"><h1>Mi turno</h1>{% include "shift/_sources.html" %}</div>
+<section class="card context-card" aria-label="Contexto de trabajo">
+  <dl class="ctx-grid">
+    <div><dt>Sitio / Área</dt><dd>{% if line %}{{ line.site.name|default:"—" }} · {{ line.area.code }}{% else %}—{% endif %}</dd></div>
+    <div><dt>Línea</dt><dd>{{ line.code|default:"Sin confirmar" }}{% if line.synthetic %} <span class="tag tag-warn">EJEMPLO</span>{% endif %}</dd></div>
+    <div><dt>Estación</dt><dd>{% if ctx.station %}{{ ctx.station.code }} · {{ ctx.station.operation }}{% if ctx.station.side %} ({{ ctx.station.get_side_display }}){% endif %}{% else %}<strong>Sin confirmar</strong>{% endif %}</dd></div>
+    <div><dt>Turno</dt><dd>{% if shift %}{{ shift.name }} · {{ start|date:"d/m H:i" }}–{{ end|date:"d/m H:i" }}{% else %}Fuera de turno configurado{% endif %}</dd></div>
+    <div><dt>Orden activa</dt><dd>{{ ctx.work_order|default:"Sin orden" }}</dd></div>
+  </dl>
+  <a class="btn btn-sm" href="{% url 'shift:context' %}">Cambiar / confirmar contexto</a>
+  {% if ctx.confirmed_at %}<span class="muted small">Confirmado {{ ctx.confirmed_at|date:"d/m H:i" }}</span>{% endif %}
+</section>
+<a class="next-action card" href="{{ action.1 }}" data-next-action><span class="muted small">Siguiente acción</span><strong>{{ action.0 }}</strong></a>
+<div class="big-actions">
+  <a class="big-btn" href="{% url 'shift:work' %}">Ver mi trabajo</a>
+  <a class="big-btn big-btn-help" href="{% url 'shift:help' %}">Necesito ayuda</a>
+  <a class="big-btn" href="{% url 'shift:labels' %}">Imprimir etiqueta</a>
+  <a class="big-btn" href="{% url 'shift:closeout' %}">Revisar cierre de turno</a>
+</div>
+{% if order %}
+<section class="card"><h2>Orden {{ order.work_order }}</h2>
+  <div class="kpis" data-order-kpis>
+    <div class="kpi"><div class="kpi-label">Meta del turno</div><div class="kpi-value">{% if order.target is not None %}{{ order.target|floatformat:"-2" }} <small>{{ order.unit }}</small>{% else %}—{% endif %}</div></div>
+    <div class="kpi"><div class="kpi-label">Buenas confirmadas</div><div class="kpi-value">{% if order.good is not None %}{{ order.good|floatformat:"-2" }}{% else %}No calculable{% endif %}</div></div>
+    <div class="kpi"><div class="kpi-label">Manual pendiente de conciliación</div><div class="kpi-value">{{ order.provisional|floatformat:"-2" }}</div><div class="kpi-sub">No suma a confirmadas</div></div>
+    <div class="kpi"><div class="kpi-label">Pendiente</div><div class="kpi-value">{% if order.pending is not None %}{{ order.pending|floatformat:"-2" }}{% else %}—{% endif %}</div></div>
+    {% include "partials/metric.html" with m=order.compliance label="Cumplimiento" %}
+  </div>
+</section>
+{% endif %}
+{% if my_help %}<section class="card"><h2>Mis solicitudes abiertas</h2><ul>{% for h in my_help %}<li><a href="{% url 'shift:help_detail' h.pk %}">#{{ h.pk }} {{ h.reason.label }}</a> · {{ h.get_status_display }} · {{ h.created|date:"H:i" }}</li>{% endfor %}</ul></section>{% endif %}
+{% if views.attend and attend_count %}<section class="card"><h2>Por atender</h2><p><a href="{% url 'shift:help' %}#inbox">{{ attend_count }} solicitud(es) abierta(s) para su grupo/áreas</a></p></section>{% endif %}
+{% if views.supervisor %}<section class="card"><h2>Supervisión</h2><p><a href="{% url 'shift:board' %}">Tablero del turno</a> · <a href="{% url 'shift:plan' %}">Metas del turno</a> · <a href="{% url 'shift:reconciliation' %}">Conciliación</a>{% if line %} · <a href="{% url 'shift:area_screen' line.code %}">Pantalla del área</a>{% endif %}</p></section>{% endif %}
+{% if announcements %}<section class="card"><h2>Comunicados</h2><ul>{% for a in announcements %}<li><a href="{% url 'comms:detail' a.pk %}">{{ a.title }}</a> <span class="tag">{{ a.get_priority_display }}</span></li>{% endfor %}</ul></section>{% endif %}
+<p class="muted small" data-refresh-note>Se actualiza cada {{ GPV_POLL_SECONDS }} s · hora del servidor <span data-server-time>—</span></p>
+{% endblock %}
+{% block scripts %}<script src="{% static 'gpv/js/shift.js' %}?v={{ GPV_VERSION }}"></script>{% endblock %}

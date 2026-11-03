@@ -152,6 +152,13 @@
         if (form.method.toLowerCase() === "post") {
           GPV.ds(form).submitted = "1";
           const btn = ev.submitter || form.querySelector("[type=submit]");
+          // a disabled submitter is left out of the submitted data: keep its name/value (e.g. action=close)
+          if (btn && btn.name) {
+            form.querySelectorAll("input[data-submitter-copy]").forEach((x) => x.remove());
+            const h = document.createElement("input");
+            h.type = "hidden"; h.name = btn.name; h.value = btn.value; h.setAttribute("data-submitter-copy", "");
+            form.appendChild(h);
+          }
           GPV.setLoading(btn, true);
         }
         GPV.dirty = false;

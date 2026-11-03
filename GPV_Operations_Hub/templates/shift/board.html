@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% block title %}Supervisión del turno{% endblock %}
+{% block content %}{% include "shift/_nav.html" %}
+<div class="page-head"><h1>Tablero del turno {% if shift %}· {{ shift.name }} {{ date|date:"d/m" }}{% endif %}</h1>{% include "shift/_sources.html" %}</div>
+{% if pending_recon %}<div class="alert alert-warn"><a href="{% url 'shift:reconciliation' %}">{{ pending_recon }} captura(s) manual(es) por conciliar</a></div>{% endif %}
+{% for g in gaps %}{% if forloop.first %}<div class="alert alert-info"><strong>Periodos sin consulta a la fuente (equipo apagado/suspendido):</strong><ul>{% endif %}<li>{{ g.connection.name }}: {{ g.gap_from|date:"d/m H:i" }} → {{ g.gap_to|date:"d/m H:i" }} · {% if g.recoverable %}recuperable{% else %}<strong>no recuperable automáticamente</strong>{% endif %} · {{ g.note }}</li>{% if forloop.last %}</ul></div>{% endif %}{% endfor %}
+<div class="grid grid-2">{% for line, s in rows %}<section class="card"><h2>{{ line.code }} {% if line.synthetic %}<span class="tag tag-warn">EJEMPLO</span>{% endif %}</h2>
+{% if s %}<div class="kpis">{% include "partials/metric.html" with m=s.compliance label="Cumplimiento" %}
+<div class="kpi"><div class="kpi-label">Paro (min)</div><div class="kpi-value">{{ s.downtime_minutes }}</div></div>
+<div class="kpi"><div class="kpi-label">Ayudas abiertas</div><div class="kpi-value">{{ s.help|length }}</div></div>
+<div class="kpi"><div class="kpi-label">Excepciones</div><div class="kpi-value">{{ s.exceptions|length }}</div></div></div>
+<ul class="small">{% for o in s.orders %}<li>{{ o.work_order }}: {% if o.good is not None %}{{ o.good|floatformat:"-2" }}{% else %}no calculable{% endif %} / {{ o.target|floatformat:"-2" }} {{ o.unit }}{% if o.provisional %} (+{{ o.provisional|floatformat:"-2" }} manual pendiente){% endif %}</li>{% empty %}<li class="muted">Sin metas: <a href="{% url 'shift:plan' %}">asignar</a></li>{% endfor %}</ul>
+<a class="btn btn-sm" href="{% url 'shift:area_screen' line.code %}">Pantalla del área</a> <a class="btn btn-sm" href="{% url 'shift:closeout' %}?line={{ line.pk }}">Cierre</a>
+{% else %}<p class="muted">Fuera de turno.</p>{% endif %}</section>{% empty %}<p class="muted">No hay líneas configuradas en sus áreas.</p>{% endfor %}</div>
+<section class="card"><h2>Solicitudes abiertas</h2><div class="table-wrap"><table class="data"><thead><tr><th>#</th><th>Motivo</th><th>Línea</th><th>Grupo</th><th>Estado</th><th>Creada</th></tr></thead><tbody>
+{% for h in inbox %}<tr><td><a href="{% url 'shift:help_detail' h.pk %}">#{{ h.pk }}</a></td><td>{{ h.reason.label }}</td><td>{{ h.line.code }} · {{ h.station.code }}</td><td>{{ h.group.name|default:"—" }}</td><td>{{ h.get_status_display }}{% if h.escalation_level %} <span class="tag tag-err">escalada</span>{% endif %}</td><td>{{ h.created|date:"H:i" }}</td></tr>{% empty %}<tr><td colspan="6" class="muted">Ninguna.</td></tr>{% endfor %}</tbody></table></div></section>
+<section class="card"><h2>Reportes sin cerrar</h2><ul>{% for r in reports %}<li><a href="{% url 'shift:closeout' %}?line={{ r.line_id }}&r={{ r.pk }}">{{ r.line.code }} · {{ r.date|date:"d/m" }} · {{ r.shift.code }} r{{ r.revision }}</a> · {{ r.get_status_display }}</li>{% empty %}<li class="muted">Todos cerrados.</li>{% endfor %}</ul></section>
+{% endblock %}

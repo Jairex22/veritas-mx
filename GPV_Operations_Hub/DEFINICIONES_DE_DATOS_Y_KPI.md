@@ -1,4 +1,4 @@
-# Definiciones de indicadores (capa común de métricas)
+# Definiciones de datos e indicadores
 
 Todas las vistas (tabla del plan, dashboard, API, Excel, PDF, DOCX, PPTX, CSV) usan
 `apps/production/metrics.py`. Cada indicador devuelve `status`:
@@ -46,3 +46,44 @@ transacción de escritura en SQLite). Todos los formatos del mismo reporte usan 
 
 La antigüedad mostrada es la de la última importación o captura; los datos **no** son en tiempo
 real: cambian cuando alguien importa o captura. Las notificaciones se consultan cada `GPV_POLL_SECONDS`.
+
+
+---
+
+# Portal del turno (piloto SMT)
+
+Implementación: `apps/shift/counting.py` y `apps/shift/services.py › shift_summary`. Las mismas
+cifras alimentan Mi turno, la pantalla del área, el tablero, el relevo, el reporte en pantalla,
+el PDF y el Excel (el reporte guarda una instantánea).
+
+## Entidades
+
+| Dato | Definición |
+|---|---|
+| Turno | Horario configurado en *Administración › Turnos*. Si fin ≤ inicio, cruza medianoche; su **fecha operativa** es la del inicio |
+| Tiempo planeado | Duración del turno − descansos configurados |
+| Meta del turno | Cantidad esperada en la operación de conteo para esa orden, línea, turno y fecha (*Metas*, con motivo e historial) |
+| Operación de conteo | Estación marcada «cuenta como producto terminado del área»; solo sus eventos cuentan |
+| Evento de producción | Registro con origen (OData, manual, sintético), clave externa, instante del evento, instante de recepción, versión y estado de conciliación |
+
+## Indicadores del turno
+
+| Indicador | Fórmula | Cuándo no se calcula |
+|---|---|---|
+| Buenas confirmadas | Σ eventos vigentes de la operación de conteo con resultado PASS (o sin resultado) de fuente automática + capturas manuales **aceptadas** | — |
+| Manual pendiente | Σ capturas manuales pendientes o en revisión (se muestra aparte, no suma) | — |
+| Pendiente | máx(meta − buenas confirmadas, 0) | Cantidades no comparables |
+| Cumplimiento por orden | buenas confirmadas / meta × 100 | Sin meta («Datos insuficientes»); unidades no convertibles («No calculable») |
+| Cumplimiento del turno | Σ buenas confirmadas / Σ metas × 100 | Unidades distintas o alguna orden no comparable |
+| FPY | series que pasan en el primer intento / series con primer intento × 100 | Sin series con intento |
+| Minutos de paro | Σ duración de paros que se traslapan con el turno (abiertos hasta ahora o hasta el fin) | — |
+
+Reglas de conteo detalladas: ver `CONCILIACION_CAPTURA_ODATA.md` (Top/Bottom, retests, paneles,
+snapshots, estaciones no mapeadas).
+
+## Estados de reporte
+
+Borrador → (Datos pendientes) → Revisado → Cerrado. Revisar exige resolver las excepciones
+(paros sin motivo, paros abiertos, ayudas sin comentario). Cerrar con capturas pendientes o fuentes
+sin actualizar exige un motivo (≥ 10 caracteres) que queda en el reporte. Datos que llegan después
+del cierre crean una **revisión nueva** identificada; la cerrada se conserva.

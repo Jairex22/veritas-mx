@@ -141,3 +141,20 @@ class TemplateCompileTests(TestCase):
         for name in names:
             with self.subTest(template=name):
                 get_template(name)
+
+
+class OrderAreaTests(TestCase):
+    def setUp(self):
+        self.a = areas()
+        self.sup_ens = user("sup_ens", Role.SUPERVISOR, ("ENS",))
+        self.admin = user("root", superuser=True)
+
+    def test_order_detail_hides_records_of_other_areas(self):
+        """v1.1.0: an ENS order showed SMT records (and a batch link) to an ENS-only reader."""
+        ds = dataset("inc2", "incremental", self.a["SMT"], station="FINAL")
+        b, _r, _s = run_import(self.admin, ds, b"Fecha,Turno,Linea,OT,Estacion,Buenas\r\n2026-11-02,T1,L,OT-X,FINAL,3\r\n", "x.csv",
+                               mapping={"qty_good": "Buenas"})
+        wo = WorkOrder.objects.create(number="OT-X", area=self.a["ENS"], qty_planned=10)
+        html = cl(self.sup_ens).get(f"/produccion/ordenes/{wo.pk}/").content.decode()
+        self.assertNotIn(f"/produccion/importaciones/{b.pk}/", html)
+        self.assertIn(f"/produccion/importaciones/{b.pk}/", cl(self.admin).get(f"/produccion/ordenes/{wo.pk}/").content.decode())

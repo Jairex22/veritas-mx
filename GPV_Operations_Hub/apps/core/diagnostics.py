@@ -145,6 +145,38 @@ def check_runtime():
     return items
 
 
+def check_shift():
+    """Portal del turno: local service alive, source freshness and gaps (no secrets shown)."""
+    from apps.shift.models import ODataConnection, SyncGap
+
+    from .models import SchedulerLease
+
+    items = []
+    lease = SchedulerLease.objects.filter(name="shift-service").first()
+    if lease and lease.expires_at and lease.expires_at > timezone.now():
+        items.append(_item("Servicio del turno", "ok", f"Activo ({lease.holder})."))
+    else:
+        items.append(_item("Servicio del turno", "warn", "No hay un servicio del turno activo: no se sincroniza OData ni se generan borradores.",
+                           "Abra INICIAR.bat (o manage.py run_scheduler)."))
+    for c in ODataConnection.objects.all():
+        h = c.health()
+        st = {"connected": "ok", "delayed": "warn", "disconnected": "error"}.get(h, "info")
+        detail = f"{ODataConnection.Health(h).label}; último éxito {timezone.localtime(c.last_success_at):%Y-%m-%d %H:%M} " if c.last_success_at else \
+            f"{ODataConnection.Health(h).label}; sin sincronizaciones correctas. "
+        items.append(_item(f"Fuente «{c.name}»" + (" (SIMULADA)" if c.synthetic else ""), st, detail + (c.last_error[:160] if c.last_error else ""),
+                           "Diagnostique la fuente en Mi turno › Fuentes." if st != "ok" else ""))
+    import shutil
+
+    free_gb = shutil.disk_usage(settings.DATA_DIR).free / 1024 ** 3
+    items.append(_item("Espacio libre en la carpeta de datos", "warn" if free_gb < 2 else "ok", f"{free_gb:.1f} GB libres",
+                       "Libere espacio o mueva respaldos antiguos: con menos de 2 GB pueden fallar respaldos y reportes." if free_gb < 2 else ""))
+    gaps = SyncGap.objects.filter(recoverable=False).count()
+    if gaps:
+        items.append(_item("Lagunas no recuperables", "warn", f"{gaps} periodo(s) sin consulta que no se reconsultan automáticamente.",
+                           "Revise Mi turno › Fuentes y documente o capture manualmente."))
+    return items
+
+
 def run_all():
     sections = [
         ("Ejecución", check_runtime),
@@ -153,6 +185,7 @@ def run_all():
         ("Convertidores", check_converters),
         ("Trabajos y planificador", check_jobs),
         ("Impresión", check_printers),
+        ("Portal del turno", check_shift),
     ]
     out = []
     for title, func in sections:

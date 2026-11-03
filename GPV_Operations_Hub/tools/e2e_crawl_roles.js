@@ -31,7 +31,7 @@ let total = 0;
       for (let h of links) {
         if (!h || h.startsWith("#") || h.startsWith("http") || h.startsWith("javascript") || h.startsWith("mailto")) continue;
         if (!h.startsWith("/")) { try { h = new URL(h, BASE+path).pathname + new URL(h, BASE+path).search; } catch { continue; } }
-        if (/\/salir\/|\/archivos\/|exportar|\.pdf|\.zpl|\.svg|\.json|zip\/|page=|django-admin|\/versiones\/\?v=/.test(h)) continue;
+        if (/\/salir\/|\/archivos\/|exportar|\.pdf|\.xlsx|\.zpl|\.svg|\.json|zip\/|page=|django-admin|\/versiones\/\?v=/.test(h)) continue;
         const key = h.replace(/\d+/g, "N");
         if ([...seen].filter(s => s.replace(/\d+/g,"N")===key).length >= 2) continue;
         if (!seen.has(h)) queue.push(h);

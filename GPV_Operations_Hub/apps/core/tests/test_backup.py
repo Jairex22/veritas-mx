@@ -33,3 +33,31 @@ class BackupRestoreTests(TransactionTestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(b"".join(r.streaming_content), b"%PDF-1.4 contenido de prueba")
         self.assertTrue(Document.objects.filter(title="respaldo.pdf").exists())
+
+    def test_backup_restore_keeps_shift_portal_data(self):
+        from datetime import time
+        from decimal import Decimal
+
+        from django.utils import timezone
+
+        from apps.core.models import Shift
+        from apps.shift.models import HelpReason, HelpRequest, Line, ProductionEvent, Site, Station
+
+        a = areas()
+        u = user("op2", Role.OPERATOR, ("SMT",))
+        site = Site.objects.create(code="S", name="S", synthetic=True)
+        line = Line.objects.create(site=site, area=a["SMT"], code="L1", name="L1", pilot=True)
+        st = Station.objects.create(line=line, code="E1", name="E1", is_count_point=True)
+        HelpRequest.objects.create(reason=HelpReason.objects.create(code="m", label="M"), line=line, station=st, created_by=u)
+        auto = ProductionEvent.objects.create(source="odata", line=line, station=st, qty=Decimal(5), event_at=timezone.now(), external_key="K1")
+        ProductionEvent.objects.create(source="manual", line=line, station=st, qty=Decimal(5), event_at=timezone.now(), recon_status="reconciled",
+                                       reconciled_with=auto, user=u)
+        out = Path(tempfile.mkdtemp()) / "s.zip"
+        call_command("gpv_backup", output=str(out))
+        ProductionEvent.objects.all().delete()
+        HelpRequest.objects.all().delete()
+        call_command("gpv_restore", str(out), confirmar=True)
+        self.assertEqual(HelpRequest.objects.count(), 1)
+        m = ProductionEvent.objects.get(source="manual")
+        self.assertEqual(m.reconciled_with.external_key, "K1")
+        self.assertEqual(Station.objects.get(code="E1").qr_token, st.qr_token)

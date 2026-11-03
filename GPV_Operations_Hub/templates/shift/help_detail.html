@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% load hub_extras %}{% block title %}Ayuda #{{ h.pk }}{% endblock %}
+{% block content %}{% include "shift/_nav.html" %}
+<div class="page-head"><h1>Solicitud de ayuda #{{ h.pk }}</h1><span class="tag tag-info">{{ h.get_status_display }}</span></div>
+<section class="card"><dl class="ctx-grid">
+<div><dt>Motivo</dt><dd>{{ h.reason.label }}</dd></div><div><dt>Línea · estación</dt><dd>{{ h.line.code }} · {{ h.station.code|default:"—" }}</dd></div>
+<div><dt>Orden</dt><dd>{{ h.work_order|default:"—" }}</dd></div><div><dt>Grupo</dt><dd>{{ h.group.name|default:"Responsables del área" }}</dd></div>
+<div><dt>Solicitó</dt><dd>{{ h.created_by.get_full_name|default:h.created_by.username }} · {{ h.created|date:"d/m H:i" }}</dd></div>
+<div><dt>Atiende</dt><dd>{{ h.assignee.username|default:"—" }}</dd></div>
+{% if h.related_to %}<div><dt>Relacionada con</dt><dd><a href="{% url 'shift:help_detail' h.related_to_id %}">#{{ h.related_to_id }}</a></dd></div>{% endif %}
+{% if h.escalation_level %}<div><dt>Escalamiento</dt><dd><span class="tag tag-err">Nivel {{ h.escalation_level }}</span></dd></div>{% endif %}
+</dl>{% if h.comment %}<p>{{ h.comment|linebreaksbr }}</p>{% endif %}
+{% if h.photo %}<p><a href="{% url 'download' h.photo_id %}?inline=1">Ver foto</a></p>{% endif %}</section>
+{% if allowed %}<form method="post" class="card">{% csrf_token %}<h2>Actualizar</h2><label>Nota<input name="note" maxlength="500"></label>
+<div class="actions">{% for to in allowed %}<button class="btn {% if to == 'cancelled' %}btn-danger{% else %}btn-primary{% endif %}" name="to" value="{{ to }}" type="submit">{% if to == 'received' %}Recibir{% elif to == 'in_progress' %}Empezar atención{% elif to == 'resolved' %}Marcar resuelta{% elif to == 'verified' %}Verificar solución{% elif to == 'cancelled' %}Cancelar{% else %}{{ to }}{% endif %}</button>{% endfor %}</div>
+<p class="muted small">Solo el grupo responsable o un supervisor del área cambia el estado; quien solicitó puede cancelar o verificar.</p></form>{% endif %}
+{% if repeats >= 2 and caps.kaizen__create %}<form method="post" class="card">{% csrf_token %}<input type="hidden" name="action" value="kaizen">
+<p>Este motivo se ha repetido {{ repeats|add:1 }} veces en {{ h.line.code }}.{% if h.kaizen %} Vinculado a <a href="{% url 'kaizen:detail' h.kaizen_id %}">{{ h.kaizen.code }}</a>.{% endif %}</p>
+{% if not h.kaizen %}<button class="btn" type="submit">Proponer mejora Kaizen</button>{% endif %}</form>{% endif %}
+<section class="card"><h2>Historial</h2><ul>{% for e in events %}<li>{{ e.ts|date:"d/m H:i:s" }} · {{ status_labels|dictkey:e.status|default:e.status }} · {{ e.user.username|default:"sistema" }} {% if e.note %}— {{ e.note }}{% endif %}</li>{% endfor %}</ul></section>
+{% endblock %}

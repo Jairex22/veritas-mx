@@ -1,0 +1,4 @@
+<div class="source-strip" data-sources>{% for s in sources %}
+  <span class="tag {% if s.health == 'connected' %}tag-ok{% elif s.health == 'delayed' %}tag-warn{% elif s.health == 'disconnected' %}tag-err{% else %}tag-info{% endif %}" title="{{ s.error|default:'' }}">
+    {{ s.name }}: {{ s.health_label }} · último éxito {{ s.last_success }}{% if s.synthetic %} · SIMULADA{% endif %}</span>
+{% empty %}<span class="tag tag-info">Sin fuente OData configurada: solo captura web (manual pendiente de conciliación)</span>{% endfor %}</div>

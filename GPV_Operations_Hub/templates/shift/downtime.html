@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% block title %}Paros{% endblock %}
+{% block content %}{% include "shift/_nav.html" %}
+<div class="page-head"><h1>Paros</h1></div>
+<form method="post" class="card">{% csrf_token %}<input type="hidden" name="action" value="start"><h2>Iniciar paro en {{ ctx.station.code|default:"(confirme estación)" }}</h2>
+<div class="form-grid"><label>Motivo (puede completarse al cerrar)<select name="reason"><option value="">Por definir</option>{% for r in reasons %}<option value="{{ r.pk }}">{{ r.label }}</option>{% endfor %}</select></label>
+<label>Comentario<input name="comment" maxlength="300"></label></div>
+<button class="btn btn-danger" type="submit" {% if not ctx.station %}disabled{% endif %}>Iniciar paro</button></form>
+<section class="card"><h2>Paros abiertos</h2>{% for d in open %}<form method="post" class="actions row-form">{% csrf_token %}<input type="hidden" name="id" value="{{ d.pk }}"><input type="hidden" name="action" value="end">
+<span><strong>{{ d.station.code }}</strong> desde {{ d.started_at|date:"d/m H:i" }} · {{ d.reason|default:"motivo pendiente" }}</span>
+<select name="reason" aria-label="Motivo"><option value="">{% if d.reason %}Mantener motivo{% else %}Motivo…{% endif %}</option>{% for r in reasons %}<option value="{{ r.pk }}">{{ r.label }}</option>{% endfor %}</select>
+<input name="comment" placeholder="Comentario" aria-label="Comentario"><button class="btn btn-primary" type="submit">Terminar paro</button></form>{% empty %}<p class="muted">Sin paros abiertos.</p>{% endfor %}</section>
+<section class="card"><h2>Recientes y corrección</h2><div class="table-wrap"><table class="data"><thead><tr><th>Estación</th><th>Inicio</th><th>Fin</th><th class="right">Min</th><th>Motivo</th><th>Corregir (con motivo)</th></tr></thead><tbody>
+{% for d in recent %}<tr><td>{{ d.station.code }}</td><td>{{ d.started_at|date:"d/m H:i" }}</td><td>{{ d.ended_at|date:"d/m H:i"|default:"abierto" }}</td><td class="right">{{ d.minutes|floatformat:0 }}</td><td>{{ d.reason|default:"PENDIENTE" }}{% if d.corrected %} <span class="tag">corregido</span>{% endif %}</td>
+<td><details><summary>Corregir</summary><form method="post" class="form-grid">{% csrf_token %}<input type="hidden" name="id" value="{{ d.pk }}"><input type="hidden" name="action" value="correct">
+<label>Inicio<input type="datetime-local" name="started_at" value="{{ d.started_at|date:'Y-m-d\TH:i' }}"></label><label>Fin<input type="datetime-local" name="ended_at" value="{% if d.ended_at %}{{ d.ended_at|date:'Y-m-d\TH:i' }}{% endif %}"></label>
+<label>Motivo<select name="reason"><option value="">Mantener</option>{% for r in reasons %}<option value="{{ r.pk }}">{{ r.label }}</option>{% endfor %}</select></label>
+<label>Por qué se corrige<input name="why" required minlength="5"></label><button class="btn btn-sm" type="submit">Guardar corrección</button></form></details></td></tr>
+{% empty %}<tr><td colspan="6" class="muted">Sin paros.</td></tr>{% endfor %}</tbody></table></div></section>
+{% endblock %}

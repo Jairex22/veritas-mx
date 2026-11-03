@@ -13,6 +13,7 @@ urlpatterns = [
     path("documentos/", include("apps.documents.urls")),
     path("etiquetas/", include("apps.labels.urls")),
     path("kaizen/", include("apps.kaizen.urls")),
+    path("turno/", include("apps.shift.urls")),
 ]
 
 if not settings.DEBUG and getattr(settings, "GPV_SERVE_STATIC", False):

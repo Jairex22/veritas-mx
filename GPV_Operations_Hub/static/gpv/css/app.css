@@ -265,3 +265,42 @@ table.data tr.late td { background: #fff6f5; }
   body { background: #fff; }
   .card { box-shadow: none; border: 0; }
 }
+
+/* ---------------------------------------------------------------- Portal del turno */
+.shift-tabs { display: flex; gap: .25rem; overflow-x: auto; margin: -.25rem 0 1rem; padding-bottom: .25rem; border-bottom: 1px solid var(--border); }
+.shift-tabs a { padding: .4rem .7rem; border-radius: var(--radius) var(--radius) 0 0; text-decoration: none; color: var(--text); white-space: nowrap; font-size: .92rem; }
+.shift-tabs a[aria-current="page"] { background: var(--primary); color: #fff; }
+.source-strip { display: flex; flex-wrap: wrap; gap: .35rem; }
+.ctx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: .5rem 1rem; margin: 0 0 .75rem; }
+.ctx-grid dt { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
+.ctx-grid dd { margin: 0; font-weight: 600; }
+.next-action { display: flex; flex-direction: column; gap: .15rem; text-decoration: none; color: var(--text); border-left: 5px solid var(--accent); }
+.next-action strong { font-size: 1.15rem; }
+.big-actions { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .75rem; margin-bottom: 1rem; }
+.big-btn { display: flex; align-items: center; justify-content: center; min-height: 84px; padding: 1rem; border-radius: var(--radius); background: var(--primary); color: #fff;
+  font-size: 1.15rem; font-weight: 700; text-decoration: none; text-align: center; box-shadow: var(--shadow); }
+.big-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.big-btn-help { background: var(--err); }
+.btn-lg { min-height: 52px; font-size: 1.05rem; padding: .6rem 1.3rem; }
+.reason-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: .5rem; border: 0; padding: 0; margin: 0 0 .75rem; }
+.reason-btn { display: flex; flex-direction: column; gap: .15rem; border: 2px solid var(--border); border-radius: var(--radius); padding: .65rem; cursor: pointer; background: #fff; min-height: 64px; }
+.reason-btn input { position: absolute; opacity: 0; }
+.reason-btn:has(input:checked) { border-color: var(--primary); background: var(--primary-soft); }
+.reason-btn:focus-within { outline: 3px solid var(--accent); }
+.row-form { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; padding: .4rem 0; border-bottom: 1px solid var(--border); }
+.row-active td { background: var(--primary-soft); }
+.check-item { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: .5rem; }
+.span-2 { grid-column: span 2; }
+.grow { flex: 1; display: flex; flex-direction: column; }
+.stale { color: var(--warn); }
+.grid-2 { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.area-screen { font-size: 1.25rem; }
+.area-screen header { display: flex; flex-wrap: wrap; gap: 1rem; align-items: baseline; }
+.area-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1rem 0; }
+.area-kpis div { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; display: flex; flex-direction: column; }
+.area-kpis strong { font-size: 2.6rem; font-variant-numeric: tabular-nums; }
+.area-screen.stale .area-kpis strong { opacity: .6; }
+.area-table { font-size: 1.1rem; width: 100%; }
+@media (max-width: 640px) { .span-2 { grid-column: auto; } .area-kpis { grid-template-columns: 1fr; } .big-btn { min-height: 70px; } }
+.source-strip { min-width: 0; max-width: 100%; }
+.source-strip .tag { white-space: normal; overflow-wrap: anywhere; }

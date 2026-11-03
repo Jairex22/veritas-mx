@@ -1,4 +1,4 @@
-"""Build GPV_Operations_Hub_v<version>.zip with a single root folder and a SHA-256 manifest.
+"""Build GPV_SMT_Portal_Turno_Piloto.zip (GPV Operations Hub + Portal del turno) with a single root folder and a SHA-256 manifest.
 
   python tools/build_release.py --output ../dist
 
@@ -13,13 +13,14 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-VERSION = "1.0.1"
+VERSION = "1.1.0"
+PACKAGE = "GPV_SMT_Portal_Turno_Piloto"
 INCLUDE_DIRS = ["apps", "gpvhub", "templates", "static", "samples", "tools", "scripts"]
-INCLUDE_FILES = ["manage.py", "INSTALAR.bat", "INICIAR.bat", "requirements.txt", "requirements-optional.txt", ".env.example", ".gitignore"]
+INCLUDE_FILES = ["manage.py", "INSTALAR.bat", "INICIAR.bat", "INICIAR_ODATA_SIMULADO.bat", "requirements.txt", "requirements-optional.txt", ".env.example", ".gitignore"]
 EXCLUDE_PARTS = {"__pycache__", ".venv", "data", "node_modules", ".pytest_cache", "dist"}
 EXCLUDE_SUFFIX = {".pyc", ".pyo", ".sqlite3", ".log", ".png.tmp"}
 SECRET_PATTERNS = [re.compile(rb"-----BEGIN (RSA |EC |)PRIVATE KEY-----"), re.compile(rb"^GPV_SECRET_KEY=[^<\s]\S{9,}", re.M),
-                   re.compile(rb"^GPV_DB_PASSWORD=[^<\s]\S*", re.M), re.compile(rb"ghp_[A-Za-z0-9]{30,}"), re.compile(rb"sk-[A-Za-z0-9]{30,}")]
+                   re.compile(rb"^GPV_DB_PASSWORD=[^<\s]\S*", re.M), re.compile(rb"^GPV_ODATA_PASSWORD=\S+", re.M), re.compile(rb"ghp_[A-Za-z0-9]{30,}"), re.compile(rb"sk-[A-Za-z0-9]{30,}")]
 
 
 def files():
@@ -39,7 +40,7 @@ def main():
     a = ap.parse_args()
     out_dir = Path(a.output)
     out_dir.mkdir(parents=True, exist_ok=True)
-    name = f"GPV_Operations_Hub_v{VERSION}"
+    name = PACKAGE
     target = out_dir / f"{name}.zip"
     items = files()
     problems = []
@@ -56,7 +57,7 @@ def main():
     if problems:
         print("ERROR: no se empaqueta:\n" + "\n".join(problems))
         sys.exit(1)
-    man_text = "GPV Operations Hub v%s — manifiesto (ruta, bytes, sha256)\n" % VERSION
+    man_text = "GPV Operations Hub v%s · Portal del turno (piloto SMT) — manifiesto (ruta, bytes, sha256)\n" % VERSION
     man_text += "\n".join(f"{r}\t{s}\t{h}" for r, s, h in manifest) + "\n"
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
         for p in items:

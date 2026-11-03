@@ -29,6 +29,12 @@ def home(request):
     from apps.production.models import WorkOrder
 
     user = request.user
+    if request.session.pop("gpv_after_login", False) and getattr(getattr(user, "profile", None), "role", "") == "operator":
+        from apps.core.permissions import has_cap
+        from apps.shift.models import Line
+
+        if has_cap(user, "shift.use") and Line.objects.filter(pilot=True, active=True).exists():
+            return redirect("shift:home")  # pilot operators land on «Mi turno»
     anns = visible_announcements(user).order_by("-priority_rank", "-created")[:5]
     kpis = kpi_summary(user, Filters.from_dict({"period": "month"}))
     assigned = WorkOrder.objects.filter(assigned_users=user).order_by("due")[:8]

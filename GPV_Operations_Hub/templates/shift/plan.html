@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% block title %}Metas del turno{% endblock %}
+{% block content %}{% include "shift/_nav.html" %}
+<div class="page-head"><h1>Metas del turno (captura web)</h1></div>
+<p class="muted small">La meta es la cantidad esperada en la operación de conteo para ese turno. Cambiar una meta existente requiere motivo y queda en la bitácora.</p>
+<form method="post" class="card">{% csrf_token %}<div class="form-grid">
+<label>Línea<select name="line" required>{% for l in lines %}<option value="{{ l.pk }}">{{ l.code }}</option>{% endfor %}</select></label>
+<label>Turno<select name="shift" required>{% for s in shifts %}<option value="{{ s.pk }}" {% if current.0 == s %}selected{% endif %}>{{ s.name }}</option>{% endfor %}</select></label>
+<label>Fecha del turno<input type="date" name="date" value="{% if current.1 %}{{ current.1|date:'Y-m-d' }}{% else %}{{ today|date:'Y-m-d' }}{% endif %}" required></label>
+<label>Orden<input name="work_order" required maxlength="60"></label><label>Número de parte<input name="part_number" maxlength="80"></label>
+<label>Meta<input type="number" name="target" min="0" step="any" required></label><label>Unidad<select name="unit"><option value="pz">pz</option><option value="panel">panel</option></select></label>
+<label>Motivo (si cambia)<input name="reason" maxlength="200"></label></div><button class="btn btn-primary" type="submit">Guardar meta</button></form>
+<section class="card"><div class="table-wrap"><table class="data"><thead><tr><th>Fecha</th><th>Turno</th><th>Línea</th><th>Orden</th><th>Parte</th><th class="right">Meta</th><th>Registró</th><th>Motivo</th></tr></thead><tbody>
+{% for p in items %}<tr><td>{{ p.date|date:"d/m/Y" }}</td><td>{{ p.shift.code }}</td><td>{{ p.line.code }}</td><td>{{ p.work_order }}</td><td>{{ p.part_number }}</td><td class="right">{{ p.target|floatformat:"-2" }} {{ p.unit }}</td><td>{{ p.set_by.username }}</td><td class="small">{{ p.reason }}</td></tr>{% empty %}<tr><td colspan="8" class="muted">Sin metas.</td></tr>{% endfor %}</tbody></table></div></section>
+{% endblock %}

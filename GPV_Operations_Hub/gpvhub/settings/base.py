@@ -6,7 +6,7 @@ from pathlib import Path
 from .envfile import PROJECT_ROOT, env_bool, env_int, env_list
 
 BASE_DIR = PROJECT_ROOT
-GPV_VERSION = "1.0.1"
+GPV_VERSION = "1.1.0"
 
 # Runtime data lives outside of the static/public folders.
 DATA_DIR = Path(os.environ.get("GPV_DATA_DIR", BASE_DIR / "data")).resolve()
@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "apps.documents",
     "apps.labels",
     "apps.kaizen",
+    "apps.shift",
 ]
 
 MIDDLEWARE = [

@@ -1,0 +1,26 @@
+{% extends "base.html" %}{% load hub_extras %}{% block title %}{{ conn.name }}{% endblock %}
+{% block content %}{% include "shift/_nav.html" %}
+<div class="page-head"><h1>{{ conn.name }} {% if conn.synthetic %}<span class="tag tag-warn">SIMULADA</span>{% endif %}</h1><span class="tag">{{ health }}</span></div>
+<section class="card"><dl class="ctx-grid"><div><dt>URL del servicio</dt><dd>{{ conn.service_url|default:"POR CONFIRMAR" }}</dd></div><div><dt>Autenticación</dt><dd>{{ conn.get_auth_type_display }}{% if conn.auth_type != 'none' %} · variables {{ conn.username_env }}{% if conn.auth_type != 'bearer' %}/{{ conn.secret_env }}{% endif %}{% endif %}</dd></div>
+<div><dt>Versión OData</dt><dd>{{ conn.odata_version|default:"—" }}</dd></div><div><dt>Validada</dt><dd>{{ conn.validated_at|date:"d/m H:i"|default:"No" }}</dd></div>
+<div><dt>Refresco</dt><dd>{{ conn.refresh_seconds }} s · página {{ conn.page_size }} · máx. {{ conn.max_pages }} páginas</dd></div>
+<div><dt>Incremental</dt><dd>{% if conn.watermark_field %}por {{ conn.watermark_field }} (solape {{ conn.overlap_minutes }} min){% elif conn.time_field %}ventana acotada de {{ conn.window_hours }} h por {{ conn.time_field }}{% else %}—{% endif %}</dd></div></dl>
+{% if conn.last_error %}<div class="alert alert-err">{{ conn.last_error }}</div>{% endif %}
+{% if can_configure %}<div class="actions"><form method="post" action="{% url 'shift:source_action' conn.pk %}">{% csrf_token %}<button class="btn btn-primary" name="action" value="diagnose">Diagnosticar por etapas</button></form>
+<form method="post" action="{% url 'shift:source_action' conn.pk %}">{% csrf_token %}<button class="btn" name="action" value="sync" {% if not conn.validated_at %}disabled{% endif %}>Sincronizar ahora</button></form>
+<form method="post" action="{% url 'shift:source_action' conn.pk %}">{% csrf_token %}<button class="btn" name="action" value="toggle">{% if conn.enabled %}Desactivar{% else %}Activar sincronización automática{% endif %}</button></form>
+<a class="btn" href="/django-admin/shift/odataconnection/{{ conn.pk }}/change/">Editar conexión</a></div>{% endif %}</section>
+{% if stages %}<section class="card"><h2>Diagnóstico</h2><ol>{% for s in stages %}<li><span class="tag {% if s.ok %}tag-ok{% else %}tag-err{% endif %}">{% if s.ok %}OK{% else %}Falla{% endif %}</span> <strong>{{ s.stage }}</strong>: {{ s.detail }}{% if s.ms %} <span class="muted small">({{ s.ms }} ms)</span>{% endif %}</li>{% endfor %}</ol></section>{% endif %}
+{% if sets %}<section class="card"><h2>Mapeo (desde $metadata)</h2>
+{% if can_configure %}<form method="post" action="{% url 'shift:source_action' conn.pk %}">{% csrf_token %}<input type="hidden" name="action" value="save_mapping"><div class="form-grid">
+<label>Conjunto de entidades<select name="entity_set">{% for s in sets %}<option {% if s == conn.entity_set %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></label>
+<label>Clave(s) estable(s) (coma)<input name="key_fields" value="{{ conn.key_fields|join:',' }}"></label>
+<label>Campo de modificación (incremental)<input name="watermark_field" value="{{ conn.watermark_field }}" list="props"></label>
+<label>Campo de tiempo del evento<input name="time_field" value="{{ conn.time_field }}" list="props"></label>
+{% for f, label in fields.items %}<label>{{ label }}<input name="map_{{ f }}" value="{{ conn.mapping|dictkey:f|default:'' }}" list="props"></label>{% endfor %}</div>
+<datalist id="props">{% for p, t in props %}<option value="{{ p }}">{{ t }}</option>{% endfor %}</datalist>
+<p class="muted small">Cambiar el mapeo invalida la validación: vuelva a diagnosticar antes de activar.</p><button class="btn btn-primary" type="submit">Guardar mapeo</button></form>{% endif %}
+{% if props %}<details><summary>Propiedades de {{ conn.entity_set }}</summary><ul class="small">{% for p, t in props %}<li>{{ p }} · {{ t }}</li>{% endfor %}</ul></details>{% endif %}
+{% if meta.sample %}<details><summary>Muestra (máx. 5 filas)</summary><pre class="small">{{ meta.sample|pprint }}</pre></details>{% endif %}</section>{% endif %}
+<section class="card"><h2>Sincronizaciones</h2><ul class="small">{% for r in runs %}<li>{{ r.started|date:"d/m H:i:s" }} · {{ r.status }} · {{ r.pages }} pág · {{ r.read }} leídos · {{ r.created }} nuevos · {{ r.updated }} corregidos · {{ r.rejected }} rechazados{% if r.error %} · {{ r.error }}{% endif %}</li>{% empty %}<li class="muted">—</li>{% endfor %}</ul></section>
+{% endblock %}

@@ -1,6 +1,6 @@
 """Single metrics layer used by tables, dashboards, Excel/PDF reports and APIs.
 
-All KPI definitions are documented in DEFINICIONES_KPI.md. Results always carry a status:
+All KPI definitions are documented in DEFINICIONES_DE_DATOS_Y_KPI.md. Results always carry a status:
 ``ok``, ``not_calculable`` (e.g. target 0/unknown) or ``insufficient`` (missing inputs), plus a
 human readable ``reason``. No KPI is estimated from data that does not exist.
 """

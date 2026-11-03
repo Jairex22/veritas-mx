@@ -16,6 +16,7 @@ import urllib.parse
 import urllib.request
 
 PATHS = ["/", "/produccion/?period=all", "/analitica/api/dashboard/?period=all", "/api/notificaciones/", "/produccion/registros/?period=all"]
+SHIFT_PATHS = ["/turno/", "/turno/api/estado/", "/api/notificaciones/", "/turno/trabajo/", "/turno/api/pantalla/SMT-EJEMPLO/"]
 
 
 def session(base, user, password):
@@ -36,6 +37,7 @@ def main():
     ap.add_argument("--password", required=True)
     ap.add_argument("--users", type=int, default=10)
     ap.add_argument("--requests", type=int, default=20)
+    ap.add_argument("--turno", action="store_true", help="Mezcla del portal del turno (refresco de Mi turno, API de estado y pantalla de área).")
     a = ap.parse_args()
     lat, errors, lock = [], [], threading.Lock()
 
@@ -47,7 +49,8 @@ def main():
                 errors.append(f"login: {exc}")
             return
         for i in range(a.requests):
-            path = PATHS[(n + i) % len(PATHS)]
+            paths = SHIFT_PATHS if a.turno else PATHS
+            path = paths[(n + i) % len(paths)]
             t = time.perf_counter()
             try:
                 r = op.open(a.base + path, timeout=60)

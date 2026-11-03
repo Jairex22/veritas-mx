@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block title %}{{ t.name }}{% endblock %}
+{% block content %}{% include "shift/_nav.html" %}
+<div class="page-head"><h1>{{ t.name }} · v{{ t.version }}</h1></div>
+<form method="post" class="card">{% csrf_token %}
+{% for item in t.items %}<fieldset class="check-item"><legend>{{ forloop.counter }}. {{ item.text }}</legend>{% if item.rule %}<p class="muted small">Regla: {{ item.rule }}</p>{% endif %}
+<label><input type="radio" name="item{{ forloop.counter0 }}" value="ok" required> Conforme</label> <label><input type="radio" name="item{{ forloop.counter0 }}" value="no"> No conforme</label>
+<input name="note{{ forloop.counter0 }}" placeholder="{% if item.evidence %}Evidencia requerida{% else %}Nota{% endif %}" aria-label="Nota"></fieldset>{% endfor %}
+<p class="muted small">Registrar la lista no libera la estación: los puntos no conformes generan un pendiente para el grupo responsable.</p>
+<button class="btn btn-primary" type="submit">Registrar</button></form>
+{% endblock %}

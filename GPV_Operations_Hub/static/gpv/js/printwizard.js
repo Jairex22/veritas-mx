@@ -7,18 +7,28 @@ document.addEventListener("DOMContentLoaded", () => {
   const all = form.querySelector("[data-checkall]");
   if (all) all.addEventListener("change", () => form.querySelectorAll("[name=rec]").forEach((c) => { c.checked = all.checked; }));
   let busy = false;
+  // Scanner guard: barcode scanners send Enter after the code. Enter never submits/prints:
+  // it only moves to the next field. Printing requires pressing the «Imprimir» button.
+  form.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" || e.target.tagName === "TEXTAREA" || e.target.tagName === "BUTTON") return;
+    e.preventDefault();
+    const fields = Array.from(form.querySelectorAll("input:not([type=hidden]):not([type=checkbox]):not([type=radio]), select"));
+    const i = fields.indexOf(e.target);
+    if (i >= 0 && fields[i + 1]) fields[i + 1].focus();
+  });
   const preview = async () => {
     const r = await GPV.api(GPV.ds(form).previewUrl, { method: "POST", body: new FormData(form) });
     const d = r.data;
     out.innerHTML = '<div class="card"><p><strong>Total: ' + d.total + " etiquetas</strong> (" + d.records + " registros × " + d.copies + " copias) · destino: " + GPV.esc(d.printer) +
       "</p>" + (d.warnings.length ? '<div class="alert alert-warn">' + d.warnings.map(GPV.esc).join("<br>") + "</div>" : "") +
-      '<div style="max-width:420px;border:1px solid var(--border)">' + d.svg + '</div><p class="muted small">Primera etiqueta con datos reales (las líneas rojas indican contenido desbordado).</p></div>';
+      '<div style="max-width:min(420px,100%);border:1px solid var(--border);overflow:hidden">' + d.svg + '</div><p class="muted small">Primera etiqueta con datos reales (las líneas rojas indican contenido desbordado).</p></div>';
     return d;
   };
   form.querySelector("[data-print-preview]").addEventListener("click", () => preview().catch((e) => GPV.toast(e.message, "error")));
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     if (busy) return;
+    if (e.submitter && e.submitter.type !== "submit") return;
     const btn = form.querySelector("[type=submit]");
     busy = true;
     GPV.setLoading(btn, true);

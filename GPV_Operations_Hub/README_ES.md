@@ -1,89 +1,113 @@
-# GPV Operations Hub v1.0.1
+# GPV Operations Hub v1.1.0 · Portal del turno (piloto SMT)
 
-Sitio web interno (en español, responsive, Edge/Chrome y celular) para producción, colaboración,
-datos, documentos, etiquetas y Kaizen. Los empleados entran por una URL; no se instala nada en
-las computadoras cliente. El servidor es Python + Django y **no depende de Claude, de una
-suscripción ni de APIs de IA**: todos los cálculos son deterministas y verificables.
+Sitio web interno en español (Edge/Chrome y celular) para el trabajo diario del turno en GPV
+Americas, más las herramientas existentes de producción, comunicados, datos, documentos, etiquetas
+y Kaizen. Servidor Python + Django; **no depende de Claude ni de APIs de IA**: los cálculos son
+deterministas y verificables.
 
-> Estado: versión 1.0.1 con pruebas automatizadas y de navegador ejecutadas (ver `TEST_RESULTS.md`).
-> No se declara «listo para producción» sin la validación de infraestructura corporativa,
-> impresoras físicas y PostgreSQL descrita en `LIMITACIONES.md` y `DESPLIEGUE_INTERNO.md`.
+> Estado: portal del turno implementado y probado con **datos sintéticos** y un servicio OData
+> **simulado**. La conexión a FactoryLogix real está **pendiente de acceso de GPV** (URL, cuenta de
+> lectura, `$metadata`). No participó personal real en las pruebas. Ver `PRUEBAS_Y_RESULTADOS.md`
+> y `DECISIONES_PENDIENTES.md`.
 
-## Inicio rápido (Windows, sin privilegios de administrador)
+## Inicio en Windows (equipo del piloto)
 
-Requiere Python 3.11, 3.12 o 3.13. Al extraer el ZIP, Windows crea **dos carpetas con el mismo nombre**:
-trabaje en la **interior**, la que contiene `manage.py`.
+Requiere Python 3.11, 3.12 o 3.13 (sin privilegios de administrador). Al extraer
+`GPV_SMT_Portal_Turno_Piloto.zip`, entre a la carpeta que contiene `manage.py`
+(Windows puede crear `GPV_SMT_Portal_Turno_Piloto\GPV_SMT_Portal_Turno_Piloto\`: use la interior).
 
-**Sin terminal:** doble clic en `INSTALAR.bat` y luego en `INICIAR.bat`.
+**Sin terminal:** doble clic en `INSTALAR.bat` (una vez) y después en `INICIAR.bat` (cada día).
 
-**Con terminal (PowerShell), un comando a la vez:**
+**Con terminal (PowerShell o CMD), un comando a la vez, dentro de la carpeta con `manage.py`:**
 
-```powershell
-cd (Get-ChildItem "$HOME\Downloads" -Recurse -Filter manage.py -ErrorAction SilentlyContinue | Where-Object { $_.DirectoryName -like "*GPV_Operations_Hub_v1.0.1*" } | Select-Object -First 1).DirectoryName
-dir manage.py, requirements.txt
+```bat
 py -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt
 copy .env.example .env
 .venv\Scripts\python.exe manage.py migrate
 .venv\Scripts\python.exe manage.py createsuperuser
 .venv\Scripts\python.exe manage.py seed_demo
+start "GPV servicio del turno" /min .venv\Scripts\python.exe manage.py run_scheduler
 .venv\Scripts\python.exe manage.py runserver 127.0.0.1:8000
 ```
 
-Abra **http://127.0.0.1:8000/** en Edge o Chrome e inicie sesión con el administrador creado.
-`seed_demo` es opcional (datos sintéticos y usuarios de prueba; muestra la contraseña una vez).
-No hace falta activar el entorno (`Activate.ps1`): se invoca directamente `.venv\Scripts\python.exe`.
+Abra **http://127.0.0.1:8000/** en Edge o Chrome. `seed_demo` es opcional: crea datos **sintéticos**,
+la línea **SMT-EJEMPLO**, usuarios de prueba (muestra la contraseña una vez) y una fuente OData
+**SIMULADA**; para usarla abra también `INICIAR_ODATA_SIMULADO.bat`.
 
-> Un sitio dinámico se ve **iniciando el servidor y abriendo la URL**. Abrir un `.html` con doble
-> clic o con Live Server no ejecuta Django, importaciones ni la base de datos.
+* `127.0.0.1` solo es accesible **desde el mismo equipo**. El acceso desde otras estaciones requiere
+  un despliegue interno autorizado (`DESPLIEGUE_INTERNO.md`). No se cambia el firewall ni se escucha
+  en todas las interfaces.
+* **Puerto ocupado:** use otro, p. ej. `runserver 127.0.0.1:8001`, y abra `http://127.0.0.1:8001/`.
+* **Sin red de GPV:** el portal y la captura web funcionan; la fuente OData aparece «Desconectado»
+  y se conservan los últimos datos con su antigüedad.
 
-## Módulos
+## Procesos (qué debe quedar abierto)
 
-| Menú | Qué hace |
-|---|---|
-| Inicio | Indicadores del mes, comunicados vigentes, órdenes asignadas, trabajos recientes |
-| Comunicados | Avisos por área/turno/grupo/rol con prioridad, vigencia, adjuntos y confirmación de lectura; comentarios, dudas e incidencias; conversaciones internas; notificaciones con leído/no leído (consulta periódica configurable) |
-| Producción | Plan por hoy/semana/mes/rango con filtros, avance, pendiente, atraso, fuente y antigüedad; cambios de meta/prioridad con motivo e historial; captura de avance del operador asignado; proyección declarada |
-| Cargar información | Asistente XLSX/CSV: detección de hojas, codificación y separador, vista previa, mapeo, claves, validación por fila/columna, modos anexar/actualizar/reemplazar alcance, snapshots, perfiles de mapeo, errores exportables, historial y reversión |
-| Dashboard | KPIs, barras, tendencias, Pareto, atrasos, Kaizen; filtrado cruzado por clic; detalle de registros; exportación exacta de la selección; constructor de dashboards con campos calculados seguros y unión validada |
-| Reportes | Diario, cumplimiento semanal, atrasos, calidad, por línea y Kaizen en PDF/XLSX/CSV/DOCX/PPTX desde una instantánea consistente; programación diaria/semanal/por turno con planificador dedicado |
-| Hoja de cálculo | Varias hojas, edición, rangos, copiar/pegar, deshacer/rehacer, filas/columnas, ordenar, filtrar, buscar/reemplazar, congelar, anchos, formatos, formato condicional, validación, protección de columnas, agrupación, tabla dinámica, fórmulas recalculadas en el servidor, versiones y control de conflictos, publicación validada a un dataset |
-| Documentos | PDF (combinar, cortar, organizar con miniaturas, rotar, duplicar, recortar, numerar, marca de agua, texto, imágenes↔PDF, texto, tablas, optimizar, desbloquear con contraseña), PPTX (organizar, extraer, duplicar, combinar preservando temas), XLSX/CSV (hojas, dividir, combinar, duplicados, limpieza, separadores, PDF de rangos), DOCX (estructura, secciones, combinar, reemplazar, plantillas, corte por páginas vía PDF), conversión Office→PDF con LibreOffice si está disponible |
-| Etiquetas | Diseñador en mm (reglas, cuadrícula, zoom, guías, selección múltiple, alinear/distribuir, capas, bloqueo, deshacer), texto, campos variables, imágenes, líneas, rectángulos, QR y Code 128; plantillas JSON versionadas; vista previa con datos reales; PDF/SVG a escala y ZPL; impresión por navegador o impresoras registradas; consecutivos transaccionales; reimpresión con permiso y motivo; estados honestos |
-| Kaizen | Registro, flujo propuesta→evaluación→aprobada→implementación→verificación→cerrada/rechazada, 5 porqués, PDCA, acciones, antes/después con periodos y fuente, ahorros con fórmula y aprobación, A3 en PDF |
-| Administración | Usuarios, roles, áreas, turnos, matriz de permisos, logotipo, diagnóstico, auditoría, impresoras y contadores |
-
-## Procesos
-
-| Proceso | Comando | Cuándo |
+| Proceso | Comando | Necesario para |
 |---|---|---|
-| Sitio web | `manage.py runserver 127.0.0.1:8000` (local) / `waitress-serve` (interno) | Siempre |
-| Trabajador | `manage.py run_worker` | Si `GPV_JOBS_MODE=worker` (recomendado para uso compartido) |
-| Planificador | `manage.py run_scheduler` | Si usa reportes programados (una sola instancia) |
+| Sitio web | `manage.py runserver 127.0.0.1:8000` | Siempre |
+| Servicio del turno | `manage.py run_scheduler` (INICIAR.bat lo abre minimizado) | Sincronización OData de solo lectura cada 60 s, recordatorios/escalamientos internos, borradores de reporte y relevo al fin de turno, reportes programados |
+| Trabajador (opcional) | `manage.py run_worker` | Solo si `GPV_JOBS_MODE=worker` |
 
-## Estructura del proyecto
+Detener: cierre las ventanas o `Ctrl+C`. Si el equipo se suspende o apaga, las tareas se detienen;
+al volver se informa la laguna y se generan **una vez** los borradores pendientes
+(`RESPALDO_RESTAURACION_Y_SOPORTE.md`).
 
-```
-GPV_Operations_Hub_v1.0.1/
-├─ manage.py                 · comandos de Django
-├─ gpvhub/settings/          · configuración dev / prod / test (lee .env)
-├─ apps/core                 · usuarios, roles, permisos, archivos privados, auditoría, notificaciones, trabajos, diagnóstico, respaldo
-├─ apps/comms                · comunicados, comentarios, incidencias, conversaciones
-├─ apps/production           · datasets, importación, plan, registros, capa de métricas
-├─ apps/reports              · dashboards, constructor, reportes, exportadores, planificador
-├─ apps/sheets               · hoja de cálculo y motor de fórmulas
-├─ apps/documents            · centro de documentos y operaciones PDF/Office
-├─ apps/labels               · diseñador, render SVG/PDF/ZPL, Code 128, impresión
-├─ apps/kaizen               · mejoras, A3
-├─ templates/, static/gpv/   · HTML, CSS, JS e iconos propios (sin CDN)
-├─ samples/                  · archivos sintéticos de ejemplo y plantillas de etiquetas
-├─ tools/                    · E2E (Playwright, solo desarrollo), prueba de carga, empaquetado
-├─ scripts/                  · atajos .bat opcionales
-└─ *.md                      · documentación
-```
+## Dónde se guardan los datos
+
+| Qué | Dónde |
+|---|---|
+| Base SQLite | `data\gpvhub.sqlite3` (o `GPV_DATA_DIR`) |
+| Archivos privados (fotos, evidencias, PDF) | `data\private\` |
+| Registros | `data\logs\` |
+| Respaldos | `data\backups\` (`manage.py gpv_backup`) |
+| Credenciales OData | **Solo** variables de entorno del usuario de Windows (`CONFIGURACION_ODATA.md`) |
+
+SQLite (modo WAL) es adecuado para el piloto en un equipo con pocos usuarios simultáneos; no se le
+atribuye capacidad empresarial. Para uso compartido permanente se prevé PostgreSQL 16 en un
+servidor administrado por GPV (`DESPLIEGUE_INTERNO.md`; probado en las pruebas automatizadas).
+
+## Portal del turno (menú «Mi turno»)
+
+Mi turno (contexto y siguiente acción) · Ver mi trabajo · Necesito ayuda · Imprimir etiqueta ·
+Revisar cierre de turno · Paros · Materiales · Instrucciones y listas · Calidad · Relevo ·
+Supervisión · Metas · Conciliación · Fuentes · Pantalla del área. Detalle en `PILOTO_SMT.md`.
+
+## Herramientas existentes (se conservan)
+
+Comunicados, Producción (plan), Cargar información (Excel/CSV, opcional), Dashboard, Reportes,
+Hoja de cálculo, Documentos, Etiquetas (diseñador completo), Kaizen y Administración. Ver
+`GUIA_USUARIO_ES.md`.
 
 ## Documentación
 
-`INSTALACION_WINDOWS.md` · `DESPLIEGUE_INTERNO.md` · `GUIA_USUARIO_ES.md` · `GUIA_VALIDACION_ETIQUETAS.md` ·
-`MODELO_DATOS.md` · `DEFINICIONES_KPI.md` · `MATRIZ_FUNCIONAL.md` · `LIMITACIONES.md` · `TEST_RESULTS.md` ·
-`DIAGNOSTICO.md` · `CHANGELOG.md` · `THIRD_PARTY_NOTICES.md` · `CHECKPOINT.md`
+| Documento | Contenido |
+|---|---|
+| `PILOTO_SMT.md` | Alcance, pantallas, preparación y guion del piloto |
+| `GUIA_OPERADOR.md` / `GUIA_ADMINISTRACION.md` | Uso diario y administración |
+| `CONFIGURACION_ODATA.md` | Autenticación, diagnóstico por etapas, mapeo, refresco |
+| `FUENTES_Y_MAPEOS.md` | Fuentes, campos, claves y estado de cada integración |
+| `CONCILIACION_CAPTURA_ODATA.md` | Reglas de conciliación y conteo |
+| `DEFINICIONES_DE_DATOS_Y_KPI.md` | Definiciones y fórmulas |
+| `CONFIGURACION_TURNOS_Y_ROLES.md` | Turnos, descansos, roles, grupos, líneas y estaciones |
+| `ACTUALIZACION_Y_REVERSIÓN.md` | Actualizar desde v1.0.x conservando datos y cómo revertir |
+| `RESPALDO_RESTAURACION_Y_SOPORTE.md` | Respaldo, restauración, interrupciones y soporte |
+| `PRUEBAS_Y_RESULTADOS.md` | Pruebas ejecutadas, evidencia y límites |
+| `DECISIONES_PENDIENTES.md` / `CHECKPOINT.md` | Lo que falta confirmar y estado del trabajo |
+| `CAMBIOS.md` · `THIRD_PARTY_NOTICES.md` | Historial y licencias |
+| `INSTALACION_WINDOWS.md` · `DESPLIEGUE_INTERNO.md` · `DIAGNOSTICO.md` · `LIMITACIONES.md` · `MODELO_DATOS.md` · `MATRIZ_FUNCIONAL.md` · `GUIA_USUARIO_ES.md` · `GUIA_VALIDACION_ETIQUETAS.md` | Documentación de la plataforma base |
+
+## Estructura
+
+```
+GPV_SMT_Portal_Turno_Piloto/
+├─ manage.py · INSTALAR.bat · INICIAR.bat · INICIAR_ODATA_SIMULADO.bat · .env.example
+├─ gpvhub/settings/   configuración dev / prod / test
+├─ apps/shift/        portal del turno: modelo, conector OData de solo lectura, conteo/conciliación, reportes, vistas
+├─ apps/core …        usuarios, roles, permisos, archivos, auditoría, notificaciones, trabajos, respaldo
+├─ apps/comms, production, reports, sheets, documents, labels, kaizen
+├─ templates/, static/gpv/   HTML, CSS y JS propios (sin CDN)
+├─ samples/           archivos sintéticos de ejemplo
+└─ tools/             servicio OData SIMULADO, E2E (Playwright, desarrollo), medición de rendimiento, empaquetado
+```

@@ -1,0 +1,8 @@
+{% extends "base.html" %}{% block title %}Imprimir etiqueta{% endblock %}
+{% block content %}{% include "shift/_nav.html" %}
+<div class="page-head"><h1>Imprimir etiqueta</h1></div>
+{% if not ctx.station %}<div class="alert alert-warn">Confirme primero su estación para que la etiqueta tome línea, estación y orden. <a href="{% url 'shift:context' %}">Confirmar contexto</a></div>{% endif %}
+<section class="card"><p>Contexto: <strong>{{ ctx.station.line.code|default:"—" }} · {{ ctx.station.code|default:"—" }} · orden {{ ctx.work_order|default:"sin orden" }}</strong></p>
+<p class="muted small">Elija la plantilla autorizada. Un escáner que envíe «Enter» no imprime: la impresión se confirma con el botón y el total de etiquetas; una solicitud repetida no genera otro trabajo ni otro consecutivo.</p>
+<ul class="list">{% for t in templates %}<li><a class="btn" href="{% url 'labels:print' t.pk %}?source=shift">{{ t.name }} · v{{ t.published.version }}</a></li>{% empty %}<li class="muted">No hay plantillas publicadas para esta línea. Un responsable debe publicarlas y asignarlas a la línea.</li>{% endfor %}</ul></section>
+{% endblock %}

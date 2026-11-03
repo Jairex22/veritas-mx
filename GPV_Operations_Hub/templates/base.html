@@ -46,6 +46,7 @@
 <nav class="sidebar" id="sidebar" aria-label="Menú principal" data-sidebar>
   {% with p=request.path %}
   <a href="{% url 'home' %}" class="{% if p == '/' %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#home"></use></svg>Inicio</a>
+  {% if caps.shift__use %}<a href="{% url 'shift:home' %}" class="{% if '/turno/' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#factory"></use></svg>Mi turno</a>{% endif %}
   <a href="{% url 'comms:list' %}" class="{% if '/comunicados/' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#megaphone"></use></svg>Comunicados</a>
   {% if caps.production__view %}  <a href="{% url 'production:plan' %}" class="{% if '/produccion/' in p and '/importar' not in p and '/importaciones' not in p and '/datasets' not in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#factory"></use></svg>Producción</a>{% endif %}
   {% if caps.production__import %}  <a href="{% url 'production:import_start' %}" class="{% if '/importar' in p or '/importaciones' in p or '/datasets' in p %}active{% endif %}"><svg aria-hidden="true"><use href="{% static 'gpv/img/icons.svg' %}#upload"></use></svg>Cargar información</a>{% endif %}

@@ -1,4 +1,42 @@
-# Registro de cambios
+# Cambios
+
+## 1.1.0 · 2026-11-03 · Portal del turno (piloto SMT)
+
+Agregado (sin modificar tablas existentes; migración `shift/0001_initial`):
+
+* **Mi turno**: contexto sitio/área/línea/estación/turno/orden, QR que identifica la estación (con
+  confirmación), cambio de orden con motivo y registro, siguiente acción, 4 acciones principales,
+  vistas por rol y grupos combinados, actualización periódica con aviso de datos antiguos.
+* **Conector OData de FactoryLogix solo lectura** (backend): diagnóstico por etapas (conectividad,
+  autenticación/`$metadata`, mapeo, acceso real al conjunto), autenticación básica/token/Windows
+  opcional con secretos solo en variables de entorno, paginación por enlaces de continuación,
+  `$select`, filtros, upsert por clave estable, correcciones como versiones, incremental con solape
+  o ventana acotada, reintentos con espera, estado de la fuente, lagunas registradas.
+* **Servicio local único** (`run_scheduler`/`run_shift_service`) con *lease*: sincroniza, recuerda y
+  escala internamente y genera borradores de reporte al terminar el turno sin pestañas abiertas.
+* **Captura web**: paros (inicio/fin/corrección con historial), ayudas con enrutamiento a grupos,
+  estados y verificación, materiales (sin inventario), observaciones de calidad vs disposiciones,
+  instrucciones con revisiones y listas de verificación, metas del turno con motivo, captura manual de
+  producción «pendiente de conciliación».
+* **Conciliación** captura manual ↔ OData (mismo hecho no suma dos veces; lotes independientes sí;
+  casos ambiguos a revisión) y reglas de conteo (operación de conteo, Top/Bottom, retests, FPY por
+  primer intento, paneles con factor confirmado, snapshots).
+* **Reporte SMT del turno** (borrador/datos pendientes/revisado/cerrado, PDF y Excel, cruce de
+  medianoche, descansos, revisiones por datos tardíos, una vez por periodo) y **relevo digital**.
+* Etiquetas desde el contexto del turno; el «Enter» del escáner ya no puede imprimir.
+* Tablero de supervisión, pantalla del área de solo lectura, búsqueda por serie/panel/lote,
+  propuesta Kaizen desde ayudas repetidas, cola sin red de solicitudes de ayuda (idempotente).
+* Servicio OData **SIMULADO** para pruebas (`tools/fake_odata_server.py`) y configuración de EJEMPLO
+  (`seed_smt_pilot`). `INICIAR.bat` abre el servicio local minimizado y solo escucha en 127.0.0.1.
+
+Corregido:
+
+* Formularios con varios botones (`name`/`value`): la protección contra doble envío deshabilitaba el
+  botón y el navegador omitía su valor. Efecto real: en un trabajo de etiqueta, «Confirmar impresión
+  física» se registraba como **fallido**. Ahora se conserva el valor del botón pulsado (prueba E2E).
+* Vista previa de etiqueta desbordaba en celulares (ancho fijo de 420 px).
+* Detalle de una orden mostraba registros de producción de otra área (y el enlace a su lote) a
+  usuarios sin acceso a esa área.
 
 ## 1.0.1 — 2026-11-02
 

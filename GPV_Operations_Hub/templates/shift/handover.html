@@ -1,0 +1,18 @@
+{% extends "base.html" %}{% block title %}Relevo{% endblock %}
+{% block content %}{% include "shift/_nav.html" %}
+<div class="page-head"><h1>Relevo digital del turno</h1></div>
+<p class="muted small">Recibir el relevo confirma que se leyó; <strong>no</strong> cierra incidencias ni aprueba disposiciones de calidad.</p>
+{% for h in items %}<section class="card"><h2>{{ h.line.code }} · {{ h.date|date:"d/m" }} · {{ h.shift.name }}</h2>
+{% with s=h.summary %}
+{% if s.pending_orders %}<h3>Órdenes con pendiente</h3><ul>{% for o in s.pending_orders %}<li>{{ o.work_order }}: pendiente {{ o.pending|floatformat:"-2" }} {{ o.unit }}</li>{% endfor %}</ul>{% endif %}
+{% if s.open_help %}<h3>Ayudas abiertas</h3><ul>{% for x in s.open_help %}<li><a href="{% url 'shift:help_detail' x.id %}">#{{ x.id }}</a> {{ x.reason }} · {{ x.status }}</li>{% endfor %}</ul>{% endif %}
+{% if s.open_downtimes %}<h3>Paros abiertos</h3><ul>{% for d in s.open_downtimes %}<li>desde {{ d.from }} · {{ d.reason }}</li>{% endfor %}</ul>{% endif %}
+{% if s.materials %}<h3>Material pendiente</h3><ul>{% for m in s.materials %}<li>{{ m.material }} {{ m.qty }} {{ m.unit }} · {{ m.status }}</li>{% endfor %}</ul>{% endif %}
+{% if s.quality %}<h3>Observaciones de calidad</h3><ul>{% for q in s.quality %}<li>#{{ q.id }} {{ q.category }} · {{ q.status }}</li>{% endfor %}</ul>{% endif %}
+{% endwith %}
+{% if h.observations %}<p>{{ h.observations|linebreaksbr }}</p>{% endif %}
+<form method="post" class="actions">{% csrf_token %}<input type="hidden" name="id" value="{{ h.pk }}"><input name="text" placeholder="Observación" aria-label="Observación"><button class="btn btn-sm" name="action" value="observe">Agregar observación</button>
+{% if h.received_at %}<span class="tag tag-ok">Recibido por {{ h.received_by.username }} {{ h.received_at|date:"d/m H:i" }}</span>{% else %}<button class="btn btn-primary btn-sm" name="action" value="receive">Recibir relevo</button>{% endif %}</form></section>
+{% empty %}<div class="alert alert-info">Sin relevos. Se generan con el borrador del reporte al terminar el turno.</div>{% endfor %}
+<section class="card"><h2>Incidencias abiertas ahora</h2><ul>{% for x in open_help %}<li><a href="{% url 'shift:help_detail' x.pk %}">#{{ x.pk }}</a> {{ x.reason.label }} · {{ x.get_status_display }} · {{ x.assignee.username|default:"sin asignar" }}</li>{% empty %}<li class="muted">Ninguna.</li>{% endfor %}</ul></section>
+{% endblock %}

@@ -57,7 +57,9 @@ def order_detail(request, order_id):
     rows, warnings = order_rows(request.user, f)
     row = next((r for r in rows if r["id"] == wo.pk), None)
     proj = projection(request.user, f, row) if row else None
-    records = ProductionRecord.objects.filter(is_current=True, work_order__iexact=wo.number).select_related("dataset").order_by("-date", "-id")[:200]
+    # only records of areas the user may see (an order number can also appear in another area's datasets)
+    records = filter_by_area(ProductionRecord.objects.filter(is_current=True, work_order__iexact=wo.number), request.user).select_related(
+        "dataset").order_by("-date", "-id")[:200]
     can_edit = has_cap(request.user, "production.edit_plan")
     can_capture = has_cap(request.user, "production.capture") and (
         can_edit or wo.assigned_users.filter(pk=request.user.pk).exists())

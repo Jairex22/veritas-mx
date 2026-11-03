@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block title %}Estación {{ station.code }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Estación escaneada</h1></div>
+<section class="card"><p>El código identifica la <strong>estación</strong>, no a la persona. Usted está en sesión como <strong>{{ user.get_full_name|default:user.username }}</strong>.</p>
+<p>Estación: <strong>{{ station.line.code }} · {{ station.code }} · {{ station.operation }}</strong>{% if station.synthetic %} <span class="tag tag-warn">EJEMPLO</span>{% endif %}</p>
+{% if ctx.station and ctx.station != station %}<div class="alert alert-warn">Actualmente está en {{ ctx.station.line.code }} · {{ ctx.station.code }}. Confirme si cambia de estación.</div>{% endif %}
+<form method="post" action="{% url 'shift:context' %}">{% csrf_token %}<input type="hidden" name="station" value="{{ station.pk }}"><input type="hidden" name="via" value="qr">
+<input type="hidden" name="work_order" value="{{ ctx.work_order }}">
+<div class="actions"><button class="btn btn-primary" type="submit">Confirmar esta estación</button><a class="btn" href="{% url 'shift:home' %}">Cancelar</a></div></form></section>
+{% endblock %}

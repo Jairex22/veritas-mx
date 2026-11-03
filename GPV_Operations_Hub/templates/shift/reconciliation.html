@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% block title %}Conciliación{% endblock %}
+{% block content %}{% include "shift/_nav.html" %}
+<div class="page-head"><h1>Conciliación captura web ↔ FactoryLogix</h1></div>
+<p class="muted small">Regla: un mismo hecho (misma referencia de lote/panel o serie, orden, operación y periodo) no se suma dos veces. Dos lotes independientes sí se suman. Si no hay evidencia suficiente, se revisa aquí.</p>
+{% for m, cands in items %}<section class="card"><h2>Captura #{{ m.pk }} · {{ m.get_recon_status_display }}</h2>
+<p>{{ m.line.code }} · orden {{ m.work_order }} · {{ m.qty|floatformat:"-2" }} {{ m.unit }} · {{ m.event_at|date:"d/m H:i" }}–{{ m.period_end|date:"H:i" }} · ref «{{ m.lot_ref|default:'—' }}» · {{ m.user.username }} · {{ m.reason }}</p>
+<form method="post">{% csrf_token %}<input type="hidden" name="id" value="{{ m.pk }}">
+{% if cands %}<p>Candidatos en FactoryLogix:</p><ul>{% for c in cands %}<li><label><input type="radio" name="match" value="{{ c.pk }}"> #{{ c.pk }} · {{ c.event_at|date:"H:i" }} · {{ c.qty|floatformat:"-2" }} {{ c.unit }} · ref «{{ c.lot_ref|default:c.panel_id|default:'—' }}» · {{ c.operation }}</label></li>{% endfor %}</ul>{% else %}<p class="muted">Sin candidatos de FactoryLogix en el periodo.</p>{% endif %}
+<label>Nota<input name="note" required minlength="5"></label>
+<div class="actions"><button class="btn" name="decision" value="same" type="submit">Es el mismo hecho (no sumar)</button><button class="btn btn-primary" name="decision" value="distinct" type="submit">Es producción adicional (aceptar)</button><button class="btn btn-danger" name="decision" value="reject" type="submit">Rechazar captura</button></div></form></section>
+{% empty %}<div class="alert alert-ok">No hay capturas pendientes de conciliación.</div>{% endfor %}
+<section class="card"><h2>Resueltas recientemente</h2><ul>{% for d in done %}<li>#{{ d.pk }} · {{ d.work_order }} · {{ d.qty|floatformat:"-2" }} {{ d.unit }} · {{ d.get_recon_status_display }}{% if d.reconciled_with_id %} ↔ #{{ d.reconciled_with_id }}{% endif %} · {{ d.reason }}</li>{% empty %}<li class="muted">—</li>{% endfor %}</ul></section>
+{% endblock %}

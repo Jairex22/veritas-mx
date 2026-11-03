@@ -1,4 +1,107 @@
-# Resultados de pruebas (ejecutadas realmente)
+# Pruebas y resultados (ejecutadas realmente)
+
+## Versión 1.1.0 — Portal del turno, piloto SMT (2026-11-03)
+
+Entorno: contenedor Linux x86_64, 4 vCPU Intel Xeon @ 2.30 GHz, 15 GB RAM. **No se ejecutó en
+Windows** ni con personal de GPV. FactoryLogix **no** estuvo disponible: todas las pruebas de OData
+usan el servicio **simulado** `tools/fake_odata_server.py` (OData v4 JSON, solo GET).
+
+### Clasificación de la evidencia
+
+| Categoría | Qué incluye |
+|---|---|
+| Simulado | Conector OData, sincronización, diagnóstico, lagunas, conciliación con eventos OData |
+| Probado con muestras sintéticas | Mi turno, captura web, conteo, reportes, relevo, permisos, etiquetas (PDF), respaldo |
+| Conectado a fuente real | **Nada** (pendiente de acceso de GPV) |
+| Pendiente de entorno | Windows (INSTALAR/INICIAR.bat), FactoryLogix real, autenticación Windows integrada, impresora física, usuarios reales |
+
+### Resultados
+
+| Ejecución | Resultado |
+|---|---|
+| Suite automatizada, Python 3.13, SQLite | **121/121 OK** (72 existentes + 49 nuevas) |
+| Suite automatizada, PostgreSQL 16 | **121/121 OK** |
+| Suite en Python 3.11 y 3.12 | **121/121 OK** y **119 OK + 2 omitidas** (3.12 sin el lector opcional zxing-cpp) |
+| E2E portal del turno `tools/e2e_shift.js`, escritorio | **17/17** (base nueva; repetido 3 veces sobre la misma base: 17/17) |
+| E2E portal del turno, móvil 390×844 (incluye control de desbordamiento horizontal) | **17/17** |
+| E2E general `tools/e2e_smoke.js` (escritorio + móvil) | **45/45** |
+| Flujos por rol `tools/e2e_roles.js` escritorio / móvil | **19/19** / **19/19** |
+| Recorrido de enlaces por rol `tools/e2e_crawl_roles.js` (operador, lector, supervisor, ingeniero, admin; 687 páginas) | **0 problemas** (sin 403 desde el menú, sin 500, sin errores de consola) |
+| Errores 500 / trazas en registros del sitio y del servicio durante todas las corridas | **0** |
+| Extracción limpia del ZIP, Python 3.12, `migrate`, `check`, `seed_demo`, sitio + servicio | Arranque correcto; estáticos 200; **E2E del portal 17/17** contra esa instalación |
+| Actualización desde una base v1.0.1 con datos de demostración | `shift.0001_initial` aplicada; **44 tablas existentes con conteos idénticos** (solo crece el catálogo de permisos); páginas principales 200 |
+| Interfaces de escucha | Sitio y servicio simulado solo en `127.0.0.1` (verificado en `/proc/net/tcp`) |
+
+### Fallos encontrados y corregidos durante 1.1.0
+
+| Fallo | Cómo se detectó | Corrección |
+|---|---|---|
+| Re-sincronizar OData creaba eventos repetidos (la clave externa no se guardaba) | `test_paging_and_repeated_sync_do_not_duplicate` | Se guarda la clave; restricción única activa |
+| La búsqueda por clave externa no usaba índice en SQLite (sincronización O(n²)) | Medición de rendimiento | Índice `(conexión, clave externa)`; re-sincronización 1.78 s → 0.27 s |
+| Formularios con varios botones perdían el valor del botón pulsado (p. ej. «Confirmar impresión física» quedaba como **fallido**) | E2E del portal (diagnóstico sin efecto) | Se conserva `name/value` del botón; paso E2E de confirmación física |
+| Desbordamiento horizontal en móvil (estado de fuentes, vista previa de etiqueta de 420 px) | E2E móvil con medición de ancho | CSS/JS adaptable |
+| Detalle de una orden mostraba registros de otra área y un enlace a un lote sin permiso | Recorrido por rol (lector) | Registros filtrados por área + prueba `OrderAreaTests` |
+| En una instalación nueva el servicio generaba 21 borradores de la semana anterior al alta de la línea | Extracción limpia | Solo turnos posteriores al alta + `test_no_backfill_before_line_creation` |
+
+### Criterios de aceptación 1–28
+
+| # | Criterio | Evidencia | Estado |
+|---|---|---|---|
+| 1 | Arranque desde extracción limpia, estáticos, login, roles | Extracción limpia + E2E; `test_all_shift_pages_render_for_each_role` | Probado (Linux); Windows pendiente |
+| 2 | Operador localiza su orden y la siguiente acción | `test_my_shift_*`, `test_operator_lands_on_my_shift_after_login…`, E2E | Probado (sin usuarios reales) |
+| 3 | Fuente de ejemplo ingresa datos y actualiza la pantalla con trazabilidad | `test_ui_diagnose_then_enable_and_sync`, E2E (diagnóstico → sincronización → serie con historial) | Simulado |
+| 4 | Repetido, doble clic, consulta solapada y reinicio no duplican | `test_paging_and_repeated_sync…`, `test_manual_capture_idempotent…`, `test_offline_json_resend…`, `test_drafts_generated_once…` | Probado |
+| 5 | Reintento de prueba no es otra pieza; primera prueba conserva su significado | `test_retests_are_not_extra_pieces_and_fpy_uses_first_attempt` | Probado |
+| 6 | Snapshot reemplaza su alcance | `test_snapshot_replaces_previous`; `ImportTests.test_04` | Probado |
+| 7 | Interrupción conserva últimos datos y muestra retraso, nunca cero | `test_failure_keeps_last_data_backs_off_and_capture_still_works` | Simulado |
+| 8 | 230/300 = 76.67 % agrupado | `MetricsTests.test_06` (capa común); cumplimiento del turno usa Σ/Σ | Probado |
+| 9 | Reporte, PDF y exportación coinciden | `test_report_screen_pdf_and_excel_show_same_figures`; `MetricsTests.test_08` | Probado |
+| 10 | Cruce de medianoche, datos tardíos y revisión sin borrar historia | `test_midnight_window`, `test_late_data_creates_new_revision` | Probado |
+| 11 | Generación una vez por periodo con reintentos | `test_drafts_generated_once_by_process_even_after_restart`; `ScheduleTests.test_13` | Probado |
+| 12 | Relevo conserva incidencias y separa recepción de resolución | `test_handover_receipt_does_not_close_incidents` | Probado |
+| 13 | Aviso se asigna, atiende y verifica con permisos | `test_help_request_routing_dedupe_flow_and_verification`, E2E mantenimiento | Probado |
+| 14 | Material sin movimiento ficticio de inventario | `test_material_request_is_not_inventory` | Probado |
+| 15 | Instrucción vigente y lista según orden/operación | `test_instructions_only_approved_and_checklist_failure_creates_pending` | Probado |
+| 16 | Escaneo, vista previa e impresión sin duplicar trabajos ni consecutivos | `test_label_from_context_once_and_scanner_guard`, E2E (Enter no imprime); `SerialConcurrencyTests.test_20` | Probado (PDF); impresora física pendiente |
+| 17 | Borrador, error de sincronización y conflicto visibles y recuperables | Estado de fuente y `SyncRun` con error; borradores de reporte; `ConflictTests.test_10` | Probado |
+| 18 | Permisos en backend, incluidos archivos y descargas | `test_role_adapted_views_and_server_side_permissions`, `test_station_of_other_area_is_rejected`, reporte PDF 403 a otra área, `SecurityTests` | Probado |
+| 19 | Móvil y teclado | E2E móvil 17/17 y 19/19; Enter del escáner | Probado (Chromium) |
+| 20 | Respaldo restaurado abre registros, archivos y plantillas | `test_23_backup_restore…`, `test_backup_restore_keeps_shift_portal_data` | Probado |
+| 21 | OData distingue índice, metadata y permiso real a la entidad | `test_staged_diagnosis_distinguishes_index_metadata_and_entity_permission` | Simulado |
+| 22 | Manual + OData del mismo hecho no suman dos veces; historial | `test_same_fact_manual_80_and_odata_80_is_80_not_160` (80, no 160), `EventRevision` | Probado |
+| 23 | Dos lotes iguales no son duplicados; coincidencia ambigua a revisión | `test_two_independent_lots_are_160`, `test_ambiguous_equal_quantity_without_reference_goes_to_review` | Probado |
+| 24 | Top/Bottom y paneles sin factor supuesto | `test_top_and_bottom_of_same_panel_not_double_counted`, `test_panels_need_confirmed_factor` | Probado |
+| 25 | Captura web funciona con OData caído; cifras con aviso de antigüedad | `test_failure_keeps_last_data_backs_off_and_capture_still_works` | Simulado |
+| 26 | Paginación y reintentos sin omitir ni duplicar | `test_paging_and_repeated_sync_do_not_duplicate` (5 páginas), `test_source_correction_creates_new_version` | Simulado |
+| 27 | Apagado/reinicio recupera sincronización y reporte una sola vez, indicando lagunas no recuperables | `test_gap_after_computer_off_is_reported`, `test_drafts_generated_once…`, `test_service_lease_prevents_overlap` | Simulado |
+| 28 | Ninguna escritura a FactoryLogix; ningún navegador recibe credenciales | `test_client_is_read_only_and_secrets_never_reach_browser_or_db`; el simulado registra solo GET | Probado |
+
+### Rendimiento (datos sintéticos, `tools/perf_shift.py`, SQLite, un proceso)
+
+| Medición | Resultado |
+|---|---|
+| Sincronización inicial de 20 000 eventos (40 páginas de 500) | 23.6 s (una sola vez; incluye el costo del servicio simulado) |
+| Re-sincronización incremental con solape de 10 min (≈ 440 filas releídas, 0 nuevas) | 0.27 s |
+| Mi turno / API de estado / pantalla del área / tablero / cierre con 10 000 eventos de conteo en el turno (10 órdenes) | mediana 0.41–0.46 s, p95 ≤ 0.51 s por solicitud |
+| Igual con 1 000 eventos de conteo | ≈ 0.10 s |
+
+Con refresco de 60 s, un equipo atiende holgadamente las pantallas de una línea piloto. Concurrencia:
+ver la tabla de carga siguiente. Estas cifras **no** son de FactoryLogix real (su latencia y volumen son
+desconocidos); el intervalo de 60 s debe ajustarse tras medir el origen real.
+
+| Carga concurrente (`tools/load_test.py --turno`) | Resultado |
+|---|---|
+| 10 usuarios simultáneos × 20 solicitudes (Mi turno, API de estado, notificaciones, Mi trabajo, pantalla del área), `runserver` + SQLite, datos de demostración | 200 OK, **0 errores**, 18.3 solicitudes/s, p50 389 ms, p95 1 096 ms |
+
+En el uso real cada pantalla consulta cada 60 s, es decir, 10 pantallas ≈ 0.2 solicitudes/s.
+
+### Limitaciones de esta evidencia
+
+* Sin Windows, sin FactoryLogix, sin impresora física, sin personal de GPV: los resultados del piloto
+  con operadores **no existen** todavía (guion en `PILOTO_SMT.md`).
+* OData v2/v3 probado solo a nivel de formato (`ODataFormatTests`).
+
+---
 
 ## Versión 1.0.1 — auditoría por roles y correcciones (2026-11-02)
 

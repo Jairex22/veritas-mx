@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% load static %}{% block title %}Pantalla {{ line.code }}{% endblock %}{% block bodyclass %}area-screen-body{% endblock %}
+{% block content %}
+<section class="area-screen" data-area-screen data-url="{% url 'shift:area_api' line.code %}">
+<header><h1>{{ line.code }} · {{ line.name }}</h1><span data-a-shift>—</span><span class="muted" data-a-time>—</span></header>
+{% if line.synthetic %}<p class="tag tag-warn">DATOS SINTÉTICOS DE EJEMPLO</p>{% endif %}
+<div class="area-kpis"><div><span>Cumplimiento</span><strong data-a-comp>—</strong></div><div><span>Paro (min)</span><strong data-a-down>—</strong></div><div><span>Ayudas abiertas</span><strong data-a-help>—</strong></div></div>
+<table class="data area-table"><thead><tr><th>Orden</th><th>Meta</th><th>Buenas</th><th>Pendiente</th></tr></thead><tbody data-a-orders></tbody></table>
+<p class="small" data-a-sources>—</p><p class="muted small">Solo lectura · se actualiza cada {{ GPV_POLL_SECONDS }} s. Si una fuente se desconecta se conserva el último dato con su hora.</p>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{% static 'gpv/js/shift.js' %}?v={{ GPV_VERSION }}"></script>{% endblock %}

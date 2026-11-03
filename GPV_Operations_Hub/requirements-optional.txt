@@ -3,3 +3,6 @@ waitress==3.0.2           # ZPL-2.1 · servidor WSGI para despliegue interno en 
 zxing-cpp==3.1.1          # Apache-2.0 · lector independiente de códigos para verificar etiquetas (pruebas)
 # psycopg[binary]==3.2.13 # LGPL-3.0 · solo si usa PostgreSQL (descomente)
 # pywin32==311            # PSF · solo si imprime a una cola de Windows del servidor (descomente en Windows)
+# Solo si GPV confirma que el servicio OData de FactoryLogix exige autenticación Windows integrada (Negotiate/NTLM):
+# requests==2.32.3                  # Apache-2.0
+# requests-negotiate-sspi==0.5.2    # Apache-2.0 · solo Windows

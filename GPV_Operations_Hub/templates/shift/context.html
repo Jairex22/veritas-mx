@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% block title %}Contexto de trabajo{% endblock %}
+{% block content %}{% include "shift/_nav.html" %}
+<div class="page-head"><h1>Confirmar estación y orden</h1><a class="btn" href="{% url 'shift:scan' %}">Escanear código</a></div>
+<form method="post" class="card" data-dirty-check>{% csrf_token %}
+<div class="form-grid">
+<label>Estación<select name="station" required><option value="">Elija…</option>{% for s in stations %}<option value="{{ s.pk }}" {% if ctx.station_id == s.pk %}selected{% endif %}>{{ s.line.code }} · {{ s.code }} · {{ s.operation }}{% if s.side %} ({{ s.get_side_display }}){% endif %}{% if s.synthetic %} · EJEMPLO{% endif %}</option>{% endfor %}</select></label>
+<label>Orden activa<input name="work_order" value="{{ ctx.work_order }}" list="plans" autocomplete="off" placeholder="Escanee o escriba la orden"></label>
+<datalist id="plans">{% for p in plans %}<option value="{{ p.work_order }}">{{ p.part_number }} · meta {{ p.target|floatformat:"-2" }} {{ p.unit }}</option>{% endfor %}</datalist>
+<label>Motivo del cambio<input name="reason" placeholder="Obligatorio si cambia la orden activa"></label></div>
+<p class="muted small">El contexto nunca cambia en silencio: cada cambio queda registrado con su motivo.</p>
+<button class="btn btn-primary" type="submit">Confirmar</button></form>
+<section class="card"><h2>Cambios recientes</h2><ul>{% for c in history %}<li>{{ c.ts|date:"d/m H:i" }} · {{ c.get_field_display|default:c.field }}: «{{ c.old|default:'—' }}» → «{{ c.new|default:'—' }}» {% if c.reason %}({{ c.reason }}){% endif %} · {{ c.via }}</li>{% empty %}<li class="muted">Sin cambios.</li>{% endfor %}</ul></section>
+{% endblock %}

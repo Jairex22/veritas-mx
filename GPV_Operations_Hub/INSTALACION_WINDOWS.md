@@ -6,18 +6,18 @@ administrador. No se desactiva ninguna política de seguridad.
 
 ## 1. Descomprimir y ubicar la carpeta correcta
 
-1. Clic derecho sobre `GPV_Operations_Hub_v1.0.1.zip` › **Extraer todo…** › **Extraer**.
+1. Clic derecho sobre `GPV_SMT_Portal_Turno_Piloto.zip` › **Extraer todo…** › **Extraer**.
 2. **Importante:** Windows crea una carpeta con el nombre del ZIP y, dentro, está la carpeta del
    proyecto con el mismo nombre. La carpeta correcta es la que contiene `manage.py`, `INSTALAR.bat`
    y `requirements.txt`. Si extrajo en Descargas, la ruta queda así:
 
-   `C:\Users\SU_USUARIO\Downloads\GPV_Operations_Hub_v1.0.1\GPV_Operations_Hub_v1.0.1`
+   `C:\Users\SU_USUARIO\Downloads\GPV_SMT_Portal_Turno_Piloto\GPV_SMT_Portal_Turno_Piloto`
 
 ### Opción A — sin terminal (recomendada)
 
 Abra la carpeta que contiene `manage.py` y haga **doble clic en `INSTALAR.bat`**. Instala, prepara la
 base, le pide crear el administrador y, si quiere, carga datos de demostración. Después haga doble
-clic en **`INICIAR.bat`**: abre el navegador en http://127.0.0.1:8000/. Deje esa ventana abierta.
+clic en **`INICIAR.bat`**: abre el navegador en http://127.0.0.1:8000/ y, minimizada, la ventana «GPV servicio del turno». Deje ambas abiertas.
 Si su organización bloquea archivos `.bat`, use la opción B.
 
 ### Opción B — terminal (PowerShell o Símbolo del sistema)
@@ -26,7 +26,7 @@ Ubíquese en la carpeta del proyecto. En PowerShell, este comando la encuentra s
 (no hay que escribir el nombre de usuario):
 
 ```powershell
-cd (Get-ChildItem "$HOME\Downloads" -Recurse -Filter manage.py -ErrorAction SilentlyContinue | Where-Object { $_.DirectoryName -like "*GPV_Operations_Hub_v1.0.1*" } | Select-Object -First 1).DirectoryName
+cd (Get-ChildItem "$HOME\Downloads" -Recurse -Filter manage.py -ErrorAction SilentlyContinue | Where-Object { $_.DirectoryName -like "*GPV_SMT_Portal_Turno_Piloto*" } | Select-Object -First 1).DirectoryName
 ```
 
 Compruebe que está en el lugar correcto (deben listarse ambos archivos):

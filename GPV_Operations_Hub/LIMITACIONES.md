@@ -1,5 +1,21 @@
 # Limitaciones conocidas y dependencias externas
 
+## Portal del turno (v1.1.0)
+
+* **FactoryLogix no se ha conectado**: no hubo acceso a la URL, cuenta ni `$metadata` de GPV. El
+  conector se probó contra un servicio OData **simulado** (v4 JSON). OData v2/v3 (`d.results`,
+  `d.__next`, literales `datetime'…'`, fechas `/Date()/`) están implementados pero solo probados con
+  pruebas unitarias de formato, no contra un servidor real.
+* Autenticación Windows integrada (Negotiate) depende de paquetes opcionales en Windows y no se probó.
+* La cola sin red cubre **solo** solicitudes de ayuda (sin foto). Captura de producción, cierres,
+  disposiciones e impresión requieren conexión con el servidor.
+* El servicio del turno corre en el equipo del piloto: si se suspende o apaga, no hay sincronización
+  ni recordatorios; al volver se informa la laguna (ver `RESPALDO_RESTAURACION_Y_SOPORTE.md`).
+* `shift_summary` calcula en Python sobre los eventos de la operación de conteo: medido ≈ 0.45 s por
+  pantalla con 10 000 eventos de conteo en el turno (SQLite). Para volúmenes mayores, agregar en SQL o caché.
+* No se ejecutó en Windows ni con personal real de GPV.
+
+
 Este documento declara lo que **no** hace la versión 1.0.0 o lo que depende de elementos externos.
 No hay botones «próximamente»: lo no soportado se rechaza con un mensaje que indica la alternativa.
 

@@ -83,3 +83,20 @@ KaizenTransition (historial).
 Tipos: `text`, `qr`, `code128`, `line`, `rect`, `image` (PNG incrustado). Contenido con
 `{campo|transformación:arg}`; transformaciones permitidas: upper, lower, strip, strip_prefix,
 strip_suffix, left, right, pad, replace, default, date.
+
+## Portal del turno (`apps/shift`, v1.1.0)
+
+| Modelo | Propósito | Claves / reglas |
+|---|---|---|
+| Site, Line, Station | Sitio, línea (área, piloto, unidad, factor de panelización y si está confirmado, plantillas de etiqueta), estación (operación como en FactoryLogix, lado, operación de conteo, token QR) | `Line.code` único; `(line, code)` |
+| ShiftBreak | Descansos por turno | Se descuentan del tiempo planeado |
+| ShiftPlan | Meta por línea, turno, fecha y orden | Único `(line, shift, date, work_order)`; motivo del último cambio + bitácora |
+| UserContext, ContextChange | Estación y orden confirmadas por persona; historial de cambios con motivo y vía (web/QR/escaneo) | 1 por usuario |
+| ProductionEvent, EventRevision | Evento con origen (OData/manual/sintético), conexión, clave externa, incremental/snapshot, alcance, operación, serie/panel/lote, cantidad, unidad, resultado, intento, instante del evento, recepción, modificación en la fuente, versión, vigente, conciliación | Único `(connection, external_key)` vigente; `client_uuid` único para capturas; índices por línea/instante y clave externa |
+| HelpReason, HelpRequest, HelpEvent | Motivos con grupo, recordatorio, escalamiento y verificación; solicitudes con estados y tiempos; historial | `client_uuid` único (reenvío sin duplicar) |
+| DowntimeReason, Downtime | Paros con inicio/fin, motivo, corrección e historial | Un paro abierto por estación |
+| MaterialRequest | Solicitud de material (no inventario) | Historial de estados |
+| QualityObservation | Observación vs disposición autorizada con referencia oficial | |
+| OperationInstruction, InstructionRead, ChecklistTemplate, ChecklistRun | Instrucciones por revisión (vigente/obsoleta), lecturas, listas versionadas y sus resultados | |
+| ShiftReport, Handover | Reporte por línea/turno/fecha/revisión con instantánea, estados y PDF; relevo con recepción | Únicos `(line, shift, date, revision)` y `(line, shift, date)` |
+| ODataConnection, SyncRun, SyncGap | Conexión (sin secretos: solo nombres de variables), mapeo, marca incremental, estado; corridas con páginas/leídos/nuevos/corregidos/rechazados/ms; lagunas recuperables o no | |

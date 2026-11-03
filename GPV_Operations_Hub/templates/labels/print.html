@@ -2,13 +2,17 @@
 {% block content %}
 <div class="page-head"><h1>Imprimir · {{ t.name }} v{{ version.version }}</h1><a class="btn" href="{% url 'labels:list' %}">Etiquetas</a></div>
 <section class="card"><h2>1 · Origen de datos</h2><div class="actions">
+<a class="btn {% if source == 'shift' %}btn-primary{% endif %}" href="?source=shift">Mi contexto del turno</a>
 <a class="btn {% if source == 'manual' %}btn-primary{% endif %}" href="?source=manual">Captura manual</a>
 <form method="get" class="actions"><input type="hidden" name="source" value="dataset"><select name="dataset" aria-label="Dataset">{% for d in datasets %}<option value="{{ d.pk }}" {% if request.GET.dataset == d.pk|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select><input name="q" value="{{ request.GET.q }}" placeholder="Filtrar orden/serial/parte" aria-label="Filtro"><button class="btn {% if source == 'dataset' %}btn-primary{% endif %}" type="submit">Registros autorizados</button></form>
 <form method="post" action="{% url 'labels:upload_data' t.pk %}" enctype="multipart/form-data" class="actions">{% csrf_token %}<input type="file" name="file" accept=".csv,.xlsx" required aria-label="Archivo de datos"><button class="btn {% if source == 'file' %}btn-primary{% endif %}" type="submit">Usar Excel/CSV</button></form></div>
 {% if desc %}<p class="muted small">{{ desc }} · {{ total_records }} registros{% if total_records > 500 %} (se muestran 500; use rango para el resto){% endif %}</p>{% endif %}</section>
 <form method="post" action="{% url 'labels:api_print' t.pk %}" data-print-form data-preview-url="{% url 'labels:api_print_preview' t.pk %}">{% csrf_token %}
 <input type="hidden" name="source" value="{{ source }}"><input type="hidden" name="dataset" value="{{ request.GET.dataset }}"><input type="hidden" name="q" value="{{ request.GET.q }}"><input type="hidden" name="file_id" value="{{ request.GET.file_id }}"><input type="hidden" name="confirm_total" value="0">
-{% if records %}<section class="card"><h2>2 · Selección</h2><div class="form-grid">
+{% if source == 'shift' %}<section class="card"><h2>2 · Datos del contexto del turno</h2><input type="hidden" name="mode" value="all">
+<p class="muted small">Se usan la estación y la orden confirmadas en «Mi turno». Si no son correctas, cámbielas allí (queda registrado).</p>
+<dl class="ctx-grid">{% for i, r in records %}{% for c in columns %}<div><dt>{{ c }}</dt><dd>{{ r|dictkey:c|default:"—" }}</dd></div>{% endfor %}{% endfor %}</dl></section>
+{% elif records %}<section class="card"><h2>2 · Selección</h2><div class="form-grid">
 <label><input type="radio" name="mode" value="selection" checked> Registros marcados</label><label><input type="radio" name="mode" value="range"> Rango <input name="range" placeholder="1-20"></label><label><input type="radio" name="mode" value="all"> Todos ({{ total_records }})</label></div>
 <div class="table-wrap" style="max-height:320px"><table class="data"><thead><tr><th><input type="checkbox" data-checkall aria-label="Todos"></th><th>#</th>{% for c in columns %}<th>{{ c }}</th>{% endfor %}</tr></thead><tbody>
 {% for i, r in records %}<tr><td><input type="checkbox" name="rec" value="{{ i }}" aria-label="Registro {{ forloop.counter }}"></td><td>{{ forloop.counter }}</td>{% for c in columns %}<td>{{ r|dictkey:c }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div></section>

@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% block title %}Calidad{% endblock %}
+{% block content %}{% include "shift/_nav.html" %}
+<div class="page-head"><h1>Observaciones de calidad</h1></div>
+<div class="alert alert-info">Una observación del operador <strong>no</strong> es una disposición. Solo un rol autorizado registra confirmado, retrabajo, desecho o uso como está, con referencia al registro oficial cuando aplique.</div>
+<form method="post" enctype="multipart/form-data" class="card">{% csrf_token %}<input type="hidden" name="action" value="create"><div class="form-grid">
+<label>Categoría<input name="category" list="qcats" required maxlength="80"></label><datalist id="qcats"><option value="Soldadura"><option value="Componente faltante"><option value="Polaridad"><option value="Daño físico"><option value="Otro"></datalist>
+<label>Serie / panel<input name="serial" maxlength="80"></label><label>Orden<input name="work_order" value="{{ ctx.work_order }}"></label>
+<label class="span-2">Descripción<textarea name="description" rows="2" required></textarea></label><label>Evidencia (opcional)<input type="file" name="evidence" accept="image/png,image/jpeg,application/pdf"></label></div>
+<button class="btn btn-primary" type="submit" {% if not ctx.station %}disabled{% endif %}>Registrar observación</button></form>
+<section class="card"><div class="table-wrap"><table class="data"><thead><tr><th>#</th><th>Línea</th><th>Categoría</th><th>Serie</th><th>Estado</th><th>Disposición</th></tr></thead><tbody>
+{% for q in items %}<tr><td>{{ q.pk }}</td><td>{{ q.line.code }}</td><td>{{ q.category }}<br><span class="small muted">{{ q.description|truncatechars:80 }}</span></td><td>{{ q.serial }}</td><td>{{ q.get_status_display }}{% if q.official_reference %}<br><span class="small">Ref. {{ q.official_reference }}</span>{% endif %}</td>
+<td>{% if can_dispose %}<form method="post" class="actions">{% csrf_token %}<input type="hidden" name="id" value="{{ q.pk }}"><select name="to" aria-label="Disposición">{% for v, l in statuses %}<option value="{{ v }}" {% if q.status == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select><input name="official_reference" placeholder="Ref. oficial" value="{{ q.official_reference }}" aria-label="Referencia oficial"><input name="note" placeholder="Nota" aria-label="Nota"><button class="btn btn-sm" type="submit">Guardar</button></form>{% else %}<span class="muted small">{{ q.disposition_by.username|default:"Pendiente" }}</span>{% endif %}</td></tr>
+{% empty %}<tr><td colspan="6" class="muted">Sin observaciones.</td></tr>{% endfor %}</tbody></table></div></section>
+{% endblock %}
