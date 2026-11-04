@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- MUESTRA para pruebas sin red. Nombres de propiedades verificados por GPV; los tipos de Quality/QualityHistory
+     son supuestos hasta leer el $metadata real dentro de la red autorizada. -->
+<edmx:Edmx Version="4.0" xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx">
+  <edmx:DataServices>
+    <Schema Namespace="FactoryLogix.OData" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+      <EntityType Name="SMT">
+        <Key><PropertyRef Name="ODataKey"/></Key>
+        <Property Name="Customer" Type="Edm.String"/>
+        <Property Name="Assembly" Type="Edm.String"/>
+        <Property Name="AssemblyRevision" Type="Edm.String"/>
+        <Property Name="AssemblyDescription" Type="Edm.String"/>
+        <Property Name="Process" Type="Edm.String"/>
+        <Property Name="ProcessRevision" Type="Edm.String"/>
+        <Property Name="WorkOrder" Type="Edm.String"/>
+        <Property Name="Batch" Type="Edm.String"/>
+        <Property Name="OperationName" Type="Edm.String"/>
+        <Property Name="Attempts" Type="Edm.Int32"/>
+        <Property Name="Placements" Type="Edm.Int32"/>
+        <Property Name="Identifier" Type="Edm.String"/>
+        <Property Name="EventDate" Type="Edm.DateTimeOffset"/>
+        <Property Name="ODataKey" Type="Edm.Guid" Nullable="false"/>
+      </EntityType>
+      <EntityType Name="Quality">
+        <Key><PropertyRef Name="ODataKey"/></Key>
+        <Property Name="CustomerName" Type="Edm.String"/>
+        <Property Name="Assembly" Type="Edm.String"/>
+        <Property Name="AssemblyRevision" Type="Edm.String"/>
+        <Property Name="AssemblyDescription" Type="Edm.String"/>
+        <Property Name="ProcessName" Type="Edm.String"/>
+        <Property Name="ProcessRevision" Type="Edm.String"/>
+        <Property Name="WorkOrder" Type="Edm.String"/>
+        <Property Name="BatchName" Type="Edm.String"/>
+        <Property Name="BatchStatus" Type="Edm.String"/>
+        <Property Name="UnitOfIssue" Type="Edm.String"/>
+        <Property Name="Identifier" Type="Edm.String"/>
+        <Property Name="Lot" Type="Edm.String"/>
+        <Property Name="SourceOperation" Type="Edm.String"/>
+        <Property Name="CurrentOperation" Type="Edm.String"/>
+        <Property Name="CurrentOperationAlias" Type="Edm.String"/>
+        <Property Name="Operator" Type="Edm.String"/>
+        <Property Name="DefectStatus" Type="Edm.String"/>
+        <Property Name="AegisInspectionCode" Type="Edm.String"/>
+        <Property Name="AegisInspectionCodeName" Type="Edm.String"/>
+        <Property Name="AegisCategoryName" Type="Edm.String"/>
+        <Property Name="InspectionCode" Type="Edm.String"/>
+        <Property Name="DefectPartNumber" Type="Edm.String"/>
+        <Property Name="DefectPartDescription" Type="Edm.String"/>
+        <Property Name="DefectReference" Type="Edm.String"/>
+        <Property Name="DefectFootprint" Type="Edm.String"/>
+        <Property Name="DefectConnection" Type="Edm.String"/>
+        <Property Name="InspectionArea" Type="Edm.String"/>
+        <Property Name="InspectionWorkstation" Type="Edm.String"/>
+        <Property Name="SourceWorkstation" Type="Edm.String"/>
+        <Property Name="DefectComment" Type="Edm.String"/>
+        <Property Name="SymptomCode" Type="Edm.String"/>
+        <Property Name="SymptomCategory" Type="Edm.String"/>
+        <Property Name="SymptomDescription" Type="Edm.String"/>
+        <Property Name="SymptomStatus" Type="Edm.String"/>
+        <Property Name="OperationGroup" Type="Edm.String"/>
+        <Property Name="Line" Type="Edm.String"/>
+        <Property Name="RootCauseDefect" Type="Edm.String"/>
+        <Property Name="Location" Type="Edm.String"/>
+        <Property Name="ExternalDefectID" Type="Edm.String"/>
+        <Property Name="Source" Type="Edm.String"/>
+        <Property Name="DefectID" Type="Edm.Guid"/>
+        <Property Name="BatchQuantity" Type="Edm.Int32"/>
+        <Property Name="CompletedQuantity" Type="Edm.Int32"/>
+        <Property Name="DateCreated" Type="Edm.DateTimeOffset"/>
+        <Property Name="InspectionPostedTime" Type="Edm.DateTimeOffset"/>
+        <Property Name="Blocked" Type="Edm.Boolean"/>
+        <Property Name="ODataKey" Type="Edm.Guid" Nullable="false"/>
+      </EntityType>
+      <EntityType Name="QualityHistory">
+        <Key><PropertyRef Name="ODataKey"/></Key>
+        <Property Name="Identifier" Type="Edm.String"/>
+        <Property Name="DefectID" Type="Edm.Guid"/>
+        <Property Name="DefectStatus" Type="Edm.String"/>
+        <Property Name="DefectHistoryTime" Type="Edm.DateTimeOffset"/>
+        <Property Name="DefectHistoryOperation" Type="Edm.String"/>
+        <Property Name="DefectHistoryWorkstation" Type="Edm.String"/>
+        <Property Name="DefectHistoryComment" Type="Edm.String"/>
+        <Property Name="DefectHistoryOperator" Type="Edm.String"/>
+        <Property Name="DefectHistoryStatus" Type="Edm.String"/>
+        <Property Name="Line" Type="Edm.String"/>
+        <Property Name="CurrentOperation" Type="Edm.String"/>
+        <Property Name="SourceOperation" Type="Edm.String"/>
+        <Property Name="Batch" Type="Edm.String"/>
+        <Property Name="Assembly" Type="Edm.String"/>
+        <Property Name="DateCreated" Type="Edm.DateTimeOffset"/>
+        <Property Name="DefectPartNumber" Type="Edm.String"/>
+        <Property Name="DefectReference" Type="Edm.String"/>
+        <Property Name="ODataKey" Type="Edm.Guid" Nullable="false"/>
+      </EntityType>
+      <EntityContainer Name="Container">
+        <EntitySet Name="SMT" EntityType="FactoryLogix.OData.SMT"/>
+        <EntitySet Name="Quality" EntityType="FactoryLogix.OData.Quality"/>
+        <EntitySet Name="QualityHistory" EntityType="FactoryLogix.OData.QualityHistory"/>
+        <EntitySet Name="ProductivityOverTime" EntityType="FactoryLogix.OData.ProductivityOverTime"/>
+      </EntityContainer>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

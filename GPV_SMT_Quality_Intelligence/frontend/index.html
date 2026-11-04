@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{CSRF_TOKEN}}">
+  <title>GPV SMT Quality Intelligence</title>
+  <link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <div id="demo-banner" class="demo-banner" hidden>MODO DEMOSTRACIÓN — datos de ejemplo, no son producción. No se consulta FactoryLogix.</div>
+  <div id="policy-banner" class="policy-banner" hidden></div>
+  <div class="shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">GPV</div>
+        <div class="brand-text"><strong>SMT Quality Intelligence</strong><span id="site-name">GPV Americas E-MXG</span></div>
+      </div>
+      <nav class="nav" id="nav">
+        <a href="#dashboard" data-view="dashboard"><span class="ico">▦</span>Dashboard</a>
+        <a href="#trace" data-view="trace"><span class="ico">⌕</span>Buscar serial</a>
+        <a href="#pulse" data-view="pulse"><span class="ico">∿</span>Production Pulse</a>
+        <a href="#quality" data-view="quality"><span class="ico">◆</span>Quality Intelligence</a>
+        <a href="#rework" data-view="rework"><span class="ico">↻</span>Rework Detector</a>
+        <a href="#history" data-view="history"><span class="ico">☰</span>Historial</a>
+        <a href="#reports" data-view="reports"><span class="ico">⎙</span>Reportes</a>
+        <a href="#config" data-view="config"><span class="ico">⚙</span>Configuración</a>
+        <a href="#diagnostics" data-view="diagnostics"><span class="ico">⚕</span>Diagnóstico OData</a>
+      </nav>
+      <div class="sidebar-foot"><span id="version">v—</span></div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <button class="icon-btn menu-btn" id="menu-btn" aria-label="Abrir menú">☰</button>
+        <h1 id="view-title">Dashboard</h1>
+        <div class="topbar-right">
+          <span class="chip" id="mode-chip">—</span>
+          <span class="chip" id="conn-chip" title="Estado de la última consulta OData">—</span>
+          <button class="icon-btn" id="theme-btn" aria-label="Cambiar tema">◐</button>
+        </div>
+      </header>
+
+      <main class="content">
+        <!-- DASHBOARD -->
+        <section class="view" id="view-dashboard">
+          <div class="hero-search card">
+            <label for="dash-input" class="hero-label">Escanea o escribe el número de serie</label>
+            <form class="search-row" id="dash-form" autocomplete="off">
+              <input id="dash-input" class="big-input" maxlength="64" placeholder="Identifier / Serial Number" spellcheck="false">
+              <button class="btn primary big" type="submit">Consultar unidad</button>
+            </form>
+            <p class="hint">Compatible con lector de código de barras (Enter consulta automáticamente).</p>
+          </div>
+          <div class="grid-2">
+            <div class="card"><h2>Estado de fuentes OData</h2><div id="dash-health"></div></div>
+            <div class="card"><h2>Consultas recientes</h2><div id="dash-recent"></div></div>
+          </div>
+          <div class="card"><h2>Módulos</h2>
+            <div class="module-grid">
+              <a class="module" href="#pulse"><strong>Production Pulse</strong><span>Actividad reciente por cliente, ensamble y batch</span></a>
+              <a class="module" href="#quality"><strong>Quality Intelligence</strong><span>Defectos únicos por DefectID</span></a>
+              <a class="module" href="#rework"><strong>Rework Detector</strong><span>Operaciones repetidas y posibles reprocesos</span></a>
+              <a class="module" href="#reports"><strong>Reportes</strong><span>CSV, Excel y HTML imprimible</span></a>
+            </div>
+          </div>
+        </section>
+
+        <!-- TRACE -->
+        <section class="view" id="view-trace" hidden>
+          <div class="card">
+            <form class="search-row" id="trace-form" autocomplete="off">
+              <input id="trace-input" class="big-input" maxlength="64" placeholder="Escanea o escribe el número de serie" spellcheck="false">
+              <button class="btn primary big" type="submit">Consultar unidad</button>
+            </form>
+          </div>
+          <div id="trace-out"></div>
+        </section>
+
+        <!-- PULSE -->
+        <section class="view" id="view-pulse" hidden>
+          <div class="card">
+            <form class="filters" id="pulse-form" autocomplete="off">
+              <label>Intervalo
+                <select name="window" id="pulse-window">
+                  <option value="5m">Últimos 5 minutos</option>
+                  <option value="15m" selected>Últimos 15 minutos</option>
+                  <option value="1h">Última hora</option>
+                  <option value="4h">Últimas 4 horas</option>
+                  <option value="shift">Turno actual</option>
+                  <option value="custom">Periodo personalizado</option>
+                </select></label>
+              <label class="custom-only" hidden>Desde<input type="datetime-local" name="from"></label>
+              <label class="custom-only" hidden>Hasta<input type="datetime-local" name="to"></label>
+              <label>Cliente<input name="customer" maxlength="100"></label>
+              <label>Assembly<input name="assembly" maxlength="100"></label>
+              <label>Batch<input name="batch" maxlength="100"></label>
+              <label>OperationName<input name="operation" maxlength="100"></label>
+              <label>Línea<input disabled placeholder="No verificable en SMT" title="La entidad SMT no expone Line"></label>
+              <div class="filter-actions">
+                <button class="btn primary" type="submit">Actualizar</button>
+                <label class="toggle" id="pulse-auto-wrap" hidden><input type="checkbox" id="pulse-auto"> Auto</label>
+              </div>
+            </form>
+          </div>
+          <div id="pulse-out"></div>
+        </section>
+
+        <!-- QUALITY -->
+        <section class="view" id="view-quality" hidden>
+          <div class="card">
+            <form class="filters" id="quality-form" autocomplete="off">
+              <label>Intervalo
+                <select name="window">
+                  <option value="1h">Última hora</option>
+                  <option value="4h">Últimas 4 horas</option>
+                  <option value="24h" selected>Últimas 24 horas</option>
+                  <option value="shift">Turno actual</option>
+                  <option value="custom">Periodo personalizado</option>
+                </select></label>
+              <label class="custom-only" hidden>Desde<input type="datetime-local" name="from"></label>
+              <label class="custom-only" hidden>Hasta<input type="datetime-local" name="to"></label>
+              <label>Cliente<input name="customer" maxlength="100"></label>
+              <label>Assembly<input name="assembly" maxlength="100"></label>
+              <label>Batch<input name="batch" maxlength="100"></label>
+              <label>Estado
+                <select name="status"><option value="">Todos</option><option>Open</option><option>Closed</option></select></label>
+              <label>Línea registrada<input name="line" maxlength="100"></label>
+              <label>Operación origen<input name="operation" maxlength="100"></label>
+              <div class="filter-actions"><button class="btn primary" type="submit">Consultar</button></div>
+            </form>
+          </div>
+          <div id="quality-out"></div>
+        </section>
+
+        <!-- REWORK -->
+        <section class="view" id="view-rework" hidden>
+          <div class="card">
+            <form class="filters" id="rework-form" autocomplete="off">
+              <label>Buscar por
+                <select name="by"><option value="identifier">Identifier</option><option value="batch">Batch</option></select></label>
+              <label class="grow">Valor<input name="value" maxlength="100" placeholder="Identifier o Batch"></label>
+              <div class="filter-actions"><button class="btn primary" type="submit">Analizar</button></div>
+            </form>
+          </div>
+          <div class="grid-rework">
+            <div id="rework-out"></div>
+            <div class="card sticky" id="rework-detail"><h2>¿Por qué se generó la alerta?</h2><p class="muted">Selecciona una alerta para ver la regla, la evidencia y lo que no puede concluirse.</p></div>
+          </div>
+        </section>
+
+        <!-- HISTORY -->
+        <section class="view" id="view-history" hidden>
+          <div class="card"><div class="card-head"><h2>Historial local de consultas</h2>
+            <button class="btn" id="history-clear">Borrar historial</button></div>
+            <div id="history-searches"></div></div>
+          <div class="card"><h2>Auditoría de solicitudes OData</h2><div id="history-queries"></div></div>
+        </section>
+
+        <!-- REPORTS -->
+        <section class="view" id="view-reports" hidden>
+          <div class="card">
+            <h2>Reporte de unidad</h2>
+            <form class="filters" id="report-form" autocomplete="off">
+              <label class="grow">Identifier<input name="identifier" maxlength="64" placeholder="Número de serie"></label>
+              <div class="filter-actions">
+                <button class="btn primary" type="submit" data-format="xlsx">Excel (XLSX)</button>
+                <button class="btn" type="submit" data-format="csv">CSV</button>
+                <button class="btn" type="submit" data-format="html">HTML imprimible</button>
+              </div>
+            </form>
+            <p class="hint">El reporte usa el último análisis de la unidad; si no existe, consulta FactoryLogix. PDF: abra el HTML imprimible y use "Imprimir → Guardar como PDF".</p>
+          </div>
+          <div class="card"><h2>Unidades consultadas recientemente</h2><div id="report-recent"></div></div>
+        </section>
+
+        <!-- CONFIG -->
+        <section class="view" id="view-config" hidden>
+          <div class="card">
+            <h2>Configuración</h2>
+            <p class="hint">Las contraseñas nunca se guardan aquí. Use variables de entorno o el Administrador de credenciales de Windows (<code>py -3.14 main.py --set-credential</code>). Las banderas de seguridad solo se cambian en <code>config.json</code>.</p>
+            <form id="config-form" class="config-grid" autocomplete="off"></form>
+            <div class="row-actions">
+              <button class="btn primary" id="config-save">Guardar</button>
+              <button class="btn" id="config-reset">Restablecer a config.json</button>
+            </div>
+            <div id="config-msg"></div>
+          </div>
+          <div class="card"><h2>Seguridad (solo lectura)</h2><div id="config-security"></div></div>
+        </section>
+
+        <!-- DIAGNOSTICS -->
+        <section class="view" id="view-diagnostics" hidden>
+          <div class="card">
+            <div class="card-head"><h2>Diagnóstico OData</h2>
+              <div class="row-actions">
+                <button class="btn" data-test="$metadata">Probar $metadata</button>
+                <button class="btn" data-test="SMT">Probar SMT</button>
+                <button class="btn" data-test="Quality">Probar Quality</button>
+                <button class="btn" data-test="QualityHistory">Probar QualityHistory</button>
+                <button class="btn" id="diag-copy">Copiar diagnóstico</button>
+                <button class="btn" id="diag-logs">Abrir logs</button>
+              </div></div>
+            <div id="diag-info"></div>
+          </div>
+          <div class="card"><h2>Resultado de la prueba</h2><div id="diag-test"><p class="muted">Ejecute una prueba. Cada prueba envía una sola solicitud mínima ($top=1 con ventana temporal pequeña).</p></div></div>
+          <div class="card"><h2>Últimas solicitudes</h2><div id="diag-queries"></div></div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <div id="toast" class="toast" hidden></div>
+  <script src="/static/js/ui.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
