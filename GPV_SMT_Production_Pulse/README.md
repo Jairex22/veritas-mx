@@ -9,8 +9,11 @@ guarda los resultados en SQLite sin duplicados. El **Monitor** se actualiza solo
 
 ## Ejecutar en Windows 11 (sin administrador)
 
-```bat
-cd %USERPROFILE%\Apps\GPV_SMT_Production_Pulse
+Entra a la carpeta que contiene `app.py` (al extraer el ZIP queda dentro de
+`GPV_SMT_Production_Pulse_v1.1.0\GPV_SMT_Production_Pulse`). En PowerShell:
+
+```powershell
+cd "$env:USERPROFILE\Downloads\GPV_SMT_Production_Pulse_v1.1.0\GPV_SMT_Production_Pulse"
 ```
 
 ```bat
@@ -19,7 +22,7 @@ py app.py --live
 
 Abrir **http://127.0.0.1:8765**. Detener con `Ctrl + C`.
 
-Sin ventana de consola (sigue recolectando; registros en `logs\production_pulse.log`):
+Sin ventana de consola, una vez validado con `py` (sigue recolectando; `pyw` no muestra errores, ver `logs\production_pulse.log`):
 
 ```bat
 pyw app.py --live

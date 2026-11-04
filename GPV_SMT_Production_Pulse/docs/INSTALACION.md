@@ -3,17 +3,38 @@
 Windows 11 · Python 3.11 o superior (probado con 3.14) · cuenta estándar **sin permisos de
 administrador** · sin Docker, npm, instaladores MSI, `.bat`, `.exe` ni PowerShell sin firmar.
 
-Todos los comandos se escriben en una terminal: **Visual Studio Code → Terminal → Nueva terminal**,
-o la aplicación **Terminal / Símbolo del sistema** de Windows.
+Todos los comandos se escriben en una terminal (**Visual Studio Code → Terminal → Nueva terminal**,
+o **Terminal** de Windows) abierta en la carpeta que contiene `app.py`. Los comandos `py ...`
+funcionan igual en PowerShell y en CMD.
 
-## 1. Descomprimir
+## 1. Descomprimir y entrar a la carpeta correcta
 
-Clic derecho sobre `GPV_SMT_Production_Pulse_v1.1.0.zip` → **Extraer todo…** → por ejemplo
-`C:\Users\<usuario>\Apps\`. Usa un disco local (no una carpeta sincronizada de OneDrive).
+Clic derecho sobre el ZIP → **Extraer todo…**. Windows crea una carpeta con el nombre del ZIP y
+**dentro** está la carpeta de la aplicación:
+
+```
+GPV_SMT_Production_Pulse_v1.1.0\
+└── GPV_SMT_Production_Pulse\      ← aquí están app.py y config.json
+```
+
+Abre una terminal **en la carpeta que contiene `app.py`**. Ejemplo si extrajiste en Descargas:
+
+PowerShell (terminal predeterminada de Windows 11 y de VS Code):
+
+```powershell
+cd "$env:USERPROFILE\Downloads\GPV_SMT_Production_Pulse_v1.1.0\GPV_SMT_Production_Pulse"
+```
+
+Símbolo del sistema (CMD):
 
 ```bat
-cd %USERPROFILE%\Apps\GPV_SMT_Production_Pulse
+cd /d "%USERPROFILE%\Downloads\GPV_SMT_Production_Pulse_v1.1.0\GPV_SMT_Production_Pulse"
 ```
+
+> `%USERPROFILE%` solo funciona en CMD; en PowerShell se usa `$env:USERPROFILE`.
+> Comprueba con `dir app.py` que el archivo está en la carpeta actual.
+
+Recomendado: usa un disco local (no una carpeta sincronizada de OneDrive) para la carpeta `data\`.
 
 ## 2. Verificar Python
 
@@ -97,7 +118,8 @@ Usa un servidor OData simulado y la base separada `data\production_pulse_demo.db
 ## 7. Ejecutar sin ventana y al iniciar sesión (sin administrador)
 
 Para que siga funcionando sin una terminal abierta, usa `pyw` (Python sin consola). Los mensajes
-van a `logs\production_pulse.log`.
+van a `logs\production_pulse.log`. **`pyw` no muestra errores en pantalla**: valida primero con
+`py app.py --live` y usa `pyw` solo cuando funcione.
 
 ```bat
 pyw app.py --live
@@ -107,10 +129,10 @@ Para iniciarlo automáticamente al iniciar sesión en Windows (solo para tu usua
 
 1. Presiona `Win + R`, escribe `shell:startup` y presiona Enter.
 2. Clic derecho → **Nuevo → Acceso directo**.
-3. Ubicación del elemento (ajusta la ruta de la carpeta):
-   `pyw.exe "%USERPROFILE%\Apps\GPV_SMT_Production_Pulse\app.py" --live`
+3. Ubicación del elemento (usa la ruta real de la carpeta que contiene `app.py`):
+   `pyw.exe "C:\Users\<usuario>\Downloads\GPV_SMT_Production_Pulse_v1.1.0\GPV_SMT_Production_Pulse\app.py" --live`
 4. Nombre: `GPV SMT Production Pulse`. Abre las propiedades del acceso directo y en **Iniciar en**
-   escribe `%USERPROFILE%\Apps\GPV_SMT_Production_Pulse`.
+   escribe la misma carpeta (sin `app.py`).
 
 Para detenerlo: **Administrador de tareas → Detalles → pythonw.exe → Finalizar tarea**.
 
@@ -142,6 +164,8 @@ py -m unittest discover -s tests -v
 
 | Síntoma | Acción |
 |---|---|
+| `can't open file ... app.py` | No estás en la carpeta correcta: entra a la subcarpeta `GPV_SMT_Production_Pulse` (paso 1) |
+| `Cannot find path ...%USERPROFILE%...` | Estás en PowerShell: usa `$env:USERPROFILE` o la ruta completa |
 | "Ya hay otra instancia…" | Ya se está ejecutando (revisa `pythonw.exe` en el Administrador de tareas) |
 | "No se pudo abrir el puerto 8765" | `py app.py --live --port 8780` |
 | Error 401 en el monitor | Instalar el paso 3 y confirmar con TI el mecanismo de autenticación |
