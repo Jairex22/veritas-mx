@@ -230,9 +230,12 @@ class SspiHttpTransport:
     """
 
     def __init__(self, package: str = "Negotiate", use_system_proxy: bool = False,
-                 client_factory: "Callable[[str], Any] | None" = None) -> None:
+                 credentials: "Any | None" = None, client_factory: "Callable[[str], Any] | None" = None) -> None:
         self.package = package
-        self._factory = client_factory or (lambda host: sspi_auth.make_client(package, "HTTP/" + host))
+        self.credentials = credentials
+        self._factory = client_factory or (
+            lambda host: sspi_auth.make_client(package, "HTTP/" + host,
+                                               self.credentials.identity() if self.credentials else None))
 
     def get(self, url: str, headers: dict[str, str], timeout: float, max_bytes: int) -> TransportResponse:
         parts = urlsplit(url)
@@ -545,6 +548,7 @@ class ODataClient:
                                       config.limits.CIRCUIT_BREAKER_COOLDOWN_SECONDS, clock)
         self.last: dict[str, Any] = {}
         self.auth_description = "Simulador" if transport is not None and type(transport).__name__ == "DemoTransport" else "—"
+        self.credentials: Any = None
         self.request_log: list[str] = []  # relative URLs actually sent (bounded), for audits/tests
 
     # ----------------------------------------------------------------- URL building
@@ -609,9 +613,10 @@ class ODataClient:
         if schemes:
             text += f" El servidor solicita: {', '.join(schemes)}."
         if type(self.transport).__name__ == "SspiHttpTransport":
-            text += (" La aplicación se autenticó con tu sesión de Windows y el servidor la rechazó: tu usuario "
-                     "no tiene permiso de lectura sobre ProductivityOverTime. Pide a TI acceso de lectura para tu "
-                     "cuenta o el grupo de SMT.")
+            text += (" La aplicación se autenticó con tu sesión de Windows y el servidor la rechazó. "
+                     "Puedes escribir una cuenta de Windows autorizada en 'Estado de conexión → Credenciales de "
+                     "FactoryLogix'. Si ninguna cuenta tuya tiene acceso, TI debe conceder lectura de "
+                     "ProductivityOverTime a tu usuario o al grupo de SMT.")
         elif {"Negotiate", "NTLM", "Kerberos"} & set(schemes):
             text += (" El servidor pide autenticación de Windows pero la aplicación está consultando de forma "
                      "anónima. Ejecútala en la PC de planta (Windows) con auth_mode 'auto' para que use tu sesión.")
@@ -724,20 +729,29 @@ def auth_schemes(header_value: str) -> list[str]:
 def build_client(config: Config, transport: Transport | None = None) -> ODataClient:
     """Create the client with the transport selected by ``odata.auth_mode``.
 
-    * ``auto`` (default): on Windows, authenticate as the logged-on user via SSPI (Negotiate/NTLM,
+    * ``auto`` (default): on Windows authenticate as the logged-on user via SSPI (Negotiate/NTLM,
       no install, no stored password); on other systems fall back to anonymous HTTP.
     * ``sspi``: force SSPI (Windows only; anonymous fallback with a warning elsewhere).
     * ``none``: anonymous HTTP, never sends an Authorization header.
+
+    The returned client always carries a ``credentials`` holder (``sspi_auth.WindowsCredentials``)
+    so the operator can optionally supply an explicit account at runtime; it is used only by the
+    SSPI transport and never persisted or logged.
     """
+    credentials = sspi_auth.WindowsCredentials()
     if transport is not None:
-        return ODataClient(config, transport)
+        client = ODataClient(config, transport)
+        client.credentials = credentials
+        return client
     mode = getattr(config.odata, "auth_mode", "auto")
     if mode in ("auto", "sspi") and sspi_auth.sspi_available():
-        client = ODataClient(config, SspiHttpTransport("Negotiate", config.odata.use_system_proxy))
+        client = ODataClient(config, SspiHttpTransport("Negotiate", config.odata.use_system_proxy, credentials))
         client.auth_description = "Windows integrada (tu sesión, SSPI)"
+        client.credentials = credentials
         logger.info("auth: Windows integrated via SSPI as the logged-on user")
         return client
     client = ODataClient(config, UrllibTransport(config.odata.use_system_proxy))
+    client.credentials = credentials
     if mode == "sspi":
         client.auth_description = "Anónima (SSPI no disponible en este sistema)"
         logger.warning("auth_mode=sspi but SSPI is unavailable on this platform; using anonymous HTTP")

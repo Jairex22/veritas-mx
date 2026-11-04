@@ -310,6 +310,10 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._json(service.compare(body))
         elif path == "/api/compare-local":
             self._json(service.compare_local(body))
+        elif path == "/api/credentials":
+            self._json(service.set_credentials(body))
+        elif path == "/api/credentials/clear":
+            self._json(service.clear_credentials())
         else:
             self._error(HTTPStatus.NOT_FOUND, "No encontrado.")
 

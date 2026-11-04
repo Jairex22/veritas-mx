@@ -1,4 +1,4 @@
-# Manual de instalación — GPV SMT Production Pulse v1.1.2
+# Manual de instalación — GPV SMT Production Pulse v1.1.3
 
 Windows 11 · Python 3.11 o superior (probado con 3.14) · cuenta estándar **sin permisos de
 administrador** · sin Docker, npm, instaladores MSI, `.bat`, `.exe` ni PowerShell sin firmar.
@@ -14,7 +14,7 @@ Clic derecho sobre el ZIP → **Extraer todo…**. Windows crea una carpeta con 
 **dentro** está la carpeta de la aplicación:
 
 ```
-GPV_SMT_Production_Pulse_v1.1.2\
+GPV_SMT_Production_Pulse_v1.1.3\
 └── GPV_SMT_Production_Pulse\      ← aquí están app.py y config.json
 ```
 
@@ -23,13 +23,13 @@ Abre una terminal **en la carpeta que contiene `app.py`**. Ejemplo si extrajiste
 PowerShell (terminal predeterminada de Windows 11 y de VS Code):
 
 ```powershell
-cd "$env:USERPROFILE\Downloads\GPV_SMT_Production_Pulse_v1.1.2\GPV_SMT_Production_Pulse"
+cd "$env:USERPROFILE\Downloads\GPV_SMT_Production_Pulse_v1.1.3\GPV_SMT_Production_Pulse"
 ```
 
 Símbolo del sistema (CMD):
 
 ```bat
-cd /d "%USERPROFILE%\Downloads\GPV_SMT_Production_Pulse_v1.1.2\GPV_SMT_Production_Pulse"
+cd /d "%USERPROFILE%\Downloads\GPV_SMT_Production_Pulse_v1.1.3\GPV_SMT_Production_Pulse"
 ```
 
 > `%USERPROFILE%` solo funciona en CMD; en PowerShell se usa `$env:USERPROFILE`.
@@ -58,7 +58,9 @@ Excel. No se piden ni guardan contraseñas y no se necesita administrador. Esto 
 * `"sspi"`: fuerza la autenticación de Windows.
 * `"none"`: siempre anónimo (sin enviar identidad).
 
-Al iniciar con `py app.py --live`, en `logs\production_pulse.log` debe aparecer
+Si tu sesión de Windows **no** es la cuenta autorizada en FactoryLogix, abre *Estado de conexión →
+Credenciales de FactoryLogix* y escribe una cuenta de Windows con permiso (la contraseña queda solo en
+memoria). Al iniciar con `py app.py --live`, en `logs\production_pulse.log` debe aparecer
 `auth: Windows integrated via SSPI as the logged-on user`. Si tu cuenta **tiene permiso** sobre
 `ProductivityOverTime`, la recolección comienza. Si **no lo tiene**, el servidor responde 401 y el
 Monitor lo indica: en ese caso solo TI puede conceder lectura a tu cuenta (o al grupo de SMT); ver
@@ -134,7 +136,7 @@ Para iniciarlo automáticamente al iniciar sesión en Windows (solo para tu usua
 1. Presiona `Win + R`, escribe `shell:startup` y presiona Enter.
 2. Clic derecho → **Nuevo → Acceso directo**.
 3. Ubicación del elemento (usa la ruta real de la carpeta que contiene `app.py`):
-   `pyw.exe "C:\Users\<usuario>\Downloads\GPV_SMT_Production_Pulse_v1.1.2\GPV_SMT_Production_Pulse\app.py" --live`
+   `pyw.exe "C:\Users\<usuario>\Downloads\GPV_SMT_Production_Pulse_v1.1.3\GPV_SMT_Production_Pulse\app.py" --live`
 4. Nombre: `GPV SMT Production Pulse`. Abre las propiedades del acceso directo y en **Iniciar en**
    escribe la misma carpeta (sin `app.py`).
 

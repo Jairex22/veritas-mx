@@ -100,6 +100,21 @@ class ConfigSecurityTests(TempDirMixin, unittest.TestCase):
         expected = "SspiHttpTransport" if sspi_auth.sspi_available() else "UrllibTransport"
         self.assertEqual(type(auto.transport).__name__, expected)
 
+    def test_credentials_never_persisted_or_logged(self):
+        import logging, sspi_auth
+        from odata_client import SspiHttpTransport, build_client
+        cred = sspi_auth.WindowsCredentials()
+        cred.set("DOM\\juan", "s3cr3t-pw")
+        self.assertEqual(cred.identity(), ("juan", "s3cr3t-pw", "DOM"))
+        self.assertEqual(cred.display, "DOM\\juan")
+        # The password is held only in a private attribute for authentication, never exposed publicly.
+        self.assertNotIn("s3cr3t-pw", cred.display)
+        self.assertFalse(hasattr(cred, "password"))          # no public 'password' attribute
+        cred.clear()
+        self.assertFalse(cred.present)
+        # Redaction masks any accidental password logging.
+        self.assertNotIn("s3cr3t-pw", redact_text("password=s3cr3t-pw user=juan"))
+
     def test_invalid_auth_mode_rejected(self):
         with self.assertRaises(ConfigError):
             make_config(self.tmp, odata={"auth_mode": "basic"})

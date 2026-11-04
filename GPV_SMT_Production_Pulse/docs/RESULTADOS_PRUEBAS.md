@@ -1,4 +1,4 @@
-# Resultados de pruebas automatizadas — v1.1.2
+# Resultados de pruebas automatizadas — v1.1.3
 
 * Fecha de ejecución: 2026-11-04T16:55Z
 * Intérprete: Python 3.14.6 con `-W error::DeprecationWarning`; también Python 3.11: OK. (Entorno Linux de desarrollo; no se ejecutó en Windows.)
@@ -21,6 +21,7 @@
 | Recolector único | LockTests.test_single_instance |
 | 401 en la entidad con `$metadata` anónimo | WindowsAuthScenarioTests, test_repeated_auth_headers_kept |
 | Handshake SSPI (parseo de reto, header, reuso de conexión, límite de saltos, redirect/tamaño) | test_sspi.py |
+| Credenciales explícitas: holder en memoria, identidad al cliente SSPI, API set/clear, no persiste/log | test_security.py, test_collector.py |
 | Acumulado vs intervalo | test_live_metrics: SemanticsTests |
 | Sin datos recientes, incrementos, hora de producción vs consulta, dimensiones solo si existen | test_live_metrics: MonitorTests |
 
@@ -67,6 +68,9 @@ test_startup_validation_then_one_query_per_cycle (test_collector.CollectorTests.
 test_state_persists_across_restart (test_collector.CollectorTests.test_state_persists_across_restart) ... ok
 test_trend_not_computed_from_unsynced_hours (test_collector.CollectorTests.test_trend_not_computed_from_unsynced_hours) ... ok
 test_users_never_trigger_odata (test_collector.CollectorTests.test_users_never_trigger_odata) ... ok
+test_missing_fields (test_collector.CredentialsTests.test_missing_fields) ... ok
+test_rejected_without_sspi (test_collector.CredentialsTests.test_rejected_without_sspi) ... ok
+test_set_and_clear (test_collector.CredentialsTests.test_set_and_clear) ... ok
 test_single_instance (test_collector.LockTests.test_single_instance) ... ok
 test_auth_hint_for_anonymous_transport (test_collector.WindowsAuthScenarioTests.test_auth_hint_for_anonymous_transport) ... ok
 test_metadata_ok_entity_401 (test_collector.WindowsAuthScenarioTests.test_metadata_ok_entity_401) ... ok
@@ -142,6 +146,7 @@ test_snapshot_contents (test_reports.ReportTests.test_snapshot_contents) ... ok
 test_viewed_source_cannot_be_forged_for_old_data (test_reports.ReportTests.test_viewed_source_cannot_be_forged_for_old_data) ... ok
 test_xlsx_is_valid_workbook (test_reports.ReportTests.test_xlsx_is_valid_workbook) ... ok
 test_auto_refresh_default_off (test_security.ConfigSecurityTests.test_auto_refresh_default_off) ... ok
+test_credentials_never_persisted_or_logged (test_security.ConfigSecurityTests.test_credentials_never_persisted_or_logged) ... ok
 test_invalid_auth_mode_rejected (test_security.ConfigSecurityTests.test_invalid_auth_mode_rejected) ... ok
 test_no_credentials_in_url (test_security.ConfigSecurityTests.test_no_credentials_in_url) ... ok
 test_no_stored_credentials (test_security.ConfigSecurityTests.test_no_stored_credentials) ... ok
@@ -187,7 +192,7 @@ test_size_limit (test_sspi.SspiTransportTests.test_size_limit) ... ok
 test_sspi_error_becomes_connection_error (test_sspi.SspiTransportTests.test_sspi_error_becomes_connection_error) ... ok
 
 ----------------------------------------------------------------------
-Ran 160 tests in 11.159s
+Ran 164 tests in 13.530s
 
 OK
 ```

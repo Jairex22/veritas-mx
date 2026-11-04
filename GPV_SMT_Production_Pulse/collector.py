@@ -124,6 +124,7 @@ class Collector:
         self.clock = clock
         self.monotonic = monotonic
         self._stop = threading.Event()
+        self._wake = threading.Event()
         self._thread: threading.Thread | None = None
         self._validated = False
         self._metadata_ok = False
@@ -144,8 +145,16 @@ class Collector:
         self._thread = threading.Thread(target=self._loop, name="pulse-collector", daemon=True)
         self._thread.start()
 
+    def retry_now(self) -> None:
+        """Re-run validation and collection promptly (used after the operator sets credentials)."""
+        self._validated = False
+        self._metadata_ok = False
+        self.state["consecutive_failures"] = 0
+        self._wake.set()
+
     def stop(self, timeout: float = 5.0) -> None:
         self._stop.set()
+        self._wake.set()
         if self._thread:
             self._thread.join(timeout)
         self.state["status"] = "stopped"
@@ -159,7 +168,8 @@ class Collector:
                 logger.exception("collector cycle failed unexpectedly")
                 delay = self._backoff("internal_error", "Error interno del recolector; ver logs.")
             self.state["next_run_at"] = iso_utc(self.clock() + timedelta(seconds=delay))
-            self._stop.wait(delay)
+            if self._wake.wait(delay):      # woken early (e.g. new credentials): retry immediately
+                self._wake.clear()
         logger.info("collector stopped")
 
     # ------------------------------------------------------------------ helpers

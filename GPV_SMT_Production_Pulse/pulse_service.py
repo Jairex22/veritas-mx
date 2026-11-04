@@ -482,6 +482,7 @@ class PulseService:
             "data_mode": self.data_mode,
             "server": "Simulador local (modo DEMO)" if self.config.is_demo else self.config.odata.base_url,
             "auth_mode": self.config.odata.auth_mode,
+            "credentials": self.credentials_info(),
             "metadata": self.metadata_state,
             "summary": self.connection_summary(),
             "entity": {
@@ -603,6 +604,44 @@ class PulseService:
             return {"ok": False, "message": "Una de las consultas guardadas ya no existe."}
         return {"ok": True, "a": a, "b": b,
                 "comparison": analytics.compare_snapshots(a["analytics"], b["analytics"])}
+
+    # ------------------------------------------------------------------ credentials (in memory only)
+    def credentials_info(self) -> dict[str, Any]:
+        cred = getattr(self.client, "credentials", None)
+        supported = type(self.client.transport).__name__ == "SspiHttpTransport"
+        return {"supported": supported, "set": bool(cred and cred.present),
+                "account": cred.display if cred else "Sesión de Windows (usuario actual)",
+                "auth_description": getattr(self.client, "auth_description", "—")}
+
+    def set_credentials(self, body: dict[str, Any]) -> dict[str, Any]:
+        cred = getattr(self.client, "credentials", None)
+        if cred is None:
+            return {"ok": False, "message": "Esta configuración no admite credenciales."}
+        if type(self.client.transport).__name__ != "SspiHttpTransport":
+            return {"ok": False, "message": "Las credenciales de Windows solo se usan al ejecutar en Windows "
+                                            "con autenticación integrada (auth_mode 'auto' o 'sspi')."}
+        if not isinstance(body, dict):
+            return {"ok": False, "message": "Solicitud no válida."}
+        user, password, domain = body.get("user"), body.get("password"), body.get("domain")
+        if not isinstance(user, str) or not isinstance(password, str) or (domain is not None and not isinstance(domain, str)):
+            return {"ok": False, "message": "Usuario y contraseña son obligatorios."}
+        try:
+            cred.set(user, password, domain)
+        except ValueError as exc:
+            return {"ok": False, "message": str(exc)}
+        logger.info("explicit FactoryLogix credentials set for account %s (password not stored)", cred.display)
+        if self.collector is not None:
+            self.collector.retry_now()
+        return {"ok": True, "message": f"Credenciales guardadas en memoria para {cred.display}. "
+                                       "Reintentando la conexión…", "account": cred.display}
+
+    def clear_credentials(self) -> dict[str, Any]:
+        cred = getattr(self.client, "credentials", None)
+        if cred is not None:
+            cred.clear()
+        if self.collector is not None:
+            self.collector.retry_now()
+        return {"ok": True, "message": "Credenciales borradas. Se usará tu sesión de Windows."}
 
     # ------------------------------------------------------------------ collector mode (local data only)
     def _collector_state(self) -> dict[str, Any]:

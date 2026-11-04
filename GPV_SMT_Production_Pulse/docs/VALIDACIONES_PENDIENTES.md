@@ -14,7 +14,7 @@ Resultado observado en la PC de GPV (04/11/2026):
 * `GET ProductivityOverTime?$top=1` → **401** con `WWW-Authenticate: Negotiate, NTLM` (la entidad exige
   autenticación de Windows).
 
-Desde la v1.1.2 la aplicación se autentica con la **sesión de Windows del propio operador** (SSPI, sin
+Desde la v1.1.3 la aplicación se autentica con la **sesión de Windows del propio operador** (SSPI, sin
 instalar nada, sin contraseñas). Dos desenlaces posibles en la PC de planta:
 
 1. **La cuenta del operador tiene permiso de lectura** sobre la entidad → la recolección funciona sin
@@ -27,8 +27,12 @@ Cómo saber en cuál caso estás: inicia `py app.py --live` y observa el Monitor
 el aviso indica si "se autenticó con tu sesión de Windows y el servidor la rechazó" (caso 2) o si la
 recolección avanzó (caso 1). El log `logs\production_pulse.log` muestra `auth: Windows integrated via SSPI`.
 
-> Validación pendiente en Windows: la capa SSPI (ctypes/Secur32) se escribió y el intercambio HTTP se
-> probó con un proveedor simulado, pero las llamadas reales a Secur32.dll solo pueden ejecutarse en la
-> PC de planta. Confirmar ahí el inicio de sesión integrado.
+Si la cuenta de la sesión de Windows no es la autorizada, usa *Estado de conexión → Credenciales de
+FactoryLogix* para entrar con otra cuenta de Windows (contraseña solo en memoria).
+
+> Validación pendiente en Windows: la capa SSPI (ctypes/Secur32) se probó en la PC de planta en v1.1.3
+> (generó el token como el usuario conectado; se corrigió en v1.1.3 un error de declaración ctypes en
+> `FreeContextBuffer`). Confirmar en planta que el handshake completo entrega datos, con la sesión actual
+> o con credenciales explícitas.
 
 ## Requisitos que dependen de lo que exista

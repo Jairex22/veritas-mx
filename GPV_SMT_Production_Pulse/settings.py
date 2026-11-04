@@ -14,7 +14,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 APP_NAME = "GPV SMT Production Pulse"
-APP_VERSION = "1.1.2"
+APP_VERSION = "1.1.3"
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG_PATH = BASE_DIR / "config.json"
 ALLOWED_ENTITY_SET = "ProductivityOverTime"

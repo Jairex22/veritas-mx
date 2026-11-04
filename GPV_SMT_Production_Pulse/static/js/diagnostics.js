@@ -70,6 +70,7 @@
     if (d.entity.navigation_properties.length) ann.appendChild(h("div", { text: "Propiedades de navegación (no se consultan): " + d.entity.navigation_properties.join(", ") }));
     d.entity.warnings.forEach((w) => ann.appendChild(h("div", { text: "Advertencia: " + w })));
 
+    renderCredentials(d);
     renderMapping(d);
     renderProbes(d);
 
@@ -81,6 +82,16 @@
         h("td", { text: r.cache_status }), h("td", { class: "num", text: r.http_status || "" }), h("td", { class: "num", text: r.response_ms ? Math.round(r.response_ms) : "" }),
         h("td", { class: "num", text: r.record_count ?? "" }), h("td", { class: "mono", text: q })]));
     });
+  }
+
+  function renderCredentials(d) {
+    const c = d.credentials || {};
+    const panel = $("#cred-panel");
+    if (!panel) return;
+    panel.classList.toggle("hidden", !c.supported);
+    $("#cred-current").textContent = c.supported
+      ? (c.set ? "Cuenta activa: " + c.account : "Entrando con tu sesión de Windows")
+      : "";
   }
 
   function renderMapping(d) {
@@ -137,6 +148,21 @@
   document.addEventListener("DOMContentLoaded", () => {
     refresh();
     $("#btn-refresh").addEventListener("click", refresh);
+    const saveCred = $("#btn-cred-save");
+    if (saveCred) saveCred.addEventListener("click", (e) => withButton(e.target, "Guardando…", async () => {
+      const body = { user: $("#cred-user").value, domain: $("#cred-domain").value, password: $("#cred-pass").value };
+      const res = await api("/api/credentials", { method: "POST", body });
+      $("#cred-pass").value = "";                       // do not keep the password in the field
+      showMessage("#cred-msg", res);
+      setTimeout(refresh, 1500);
+    }));
+    const clearCred = $("#btn-cred-clear");
+    if (clearCred) clearCred.addEventListener("click", (e) => withButton(e.target, "Borrando…", async () => {
+      const res = await api("/api/credentials/clear", { method: "POST" });
+      ["cred-user", "cred-domain", "cred-pass"].forEach((id) => { $("#" + id).value = ""; });
+      showMessage("#cred-msg", res);
+      setTimeout(refresh, 1500);
+    }));
     $("#btn-check").addEventListener("click", (e) => withButton(e.target, "Verificando…", async () => {
       const res = await api("/api/diagnostics/check", { method: "POST" });
       showMessage("#diag-msg", res);

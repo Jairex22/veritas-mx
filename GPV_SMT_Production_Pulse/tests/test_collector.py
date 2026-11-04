@@ -298,6 +298,37 @@ class WindowsAuthScenarioTests(TempDirMixin, unittest.TestCase):
         self.assertNotIn("abc==", hint)             # challenge data is never shown
 
 
+class CredentialsTests(TempDirMixin, unittest.TestCase):
+    def service_with_sspi(self):
+        from odata_client import SspiHttpTransport
+        import sspi_auth
+        # Force a client whose transport looks like SSPI so credentials are accepted.
+        transport = SspiHttpTransport("Negotiate", client_factory=lambda host: None)
+        svc = self.service(mode="live", transport=transport)
+        svc.client.credentials = sspi_auth.WindowsCredentials()
+        return svc
+
+    def test_set_and_clear(self):
+        svc = self.service_with_sspi()
+        self.assertFalse(svc.credentials_info()["set"])
+        res = svc.set_credentials({"user": "PLANT\\op1", "password": "pw"})
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["account"], "PLANT\\op1")
+        self.assertTrue(svc.credentials_info()["set"])
+        self.assertNotIn("pw", str(svc.credentials_info()))         # password never surfaced
+        self.assertTrue(svc.clear_credentials()["ok"])
+        self.assertFalse(svc.credentials_info()["set"])
+
+    def test_rejected_without_sspi(self):
+        svc = self.service(mode="demo")                              # DemoTransport, not SSPI
+        res = svc.set_credentials({"user": "x", "password": "y"})
+        self.assertFalse(res["ok"])
+
+    def test_missing_fields(self):
+        svc = self.service_with_sspi()
+        self.assertFalse(svc.set_credentials({"user": "x"})["ok"])
+
+
 class LockTests(TempDirMixin, unittest.TestCase):
     def test_single_instance(self):
         first = SingleInstanceLock(self.tmp / "c.lock")

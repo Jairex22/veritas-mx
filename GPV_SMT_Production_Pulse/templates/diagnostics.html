@@ -40,6 +40,31 @@
 
 <div class="stat-tiles" id="diag-tiles"></div>
 
+<section class="panel" id="cred-panel">
+  <div class="panel-head">
+    <h2>Credenciales de FactoryLogix (opcional)</h2>
+    <span class="muted small" id="cred-current"></span>
+  </div>
+  <p class="note">De forma predeterminada la aplicación entra con <strong>tu sesión de Windows</strong>. Si esa
+  cuenta no tiene permiso sobre ProductivityOverTime, escribe aquí una cuenta de Windows autorizada. La
+  contraseña se usa solo para autenticarte y <strong>se guarda únicamente en memoria</strong> mientras la
+  aplicación está abierta: no se escribe en disco ni en los registros.</p>
+  <form id="cred-form" class="filters" autocomplete="off">
+    <div class="field"><label for="cred-user">Usuario (o DOMINIO\usuario)</label>
+      <input type="text" id="cred-user" name="user" maxlength="128" autocomplete="username"></div>
+    <div class="field"><label for="cred-domain">Dominio (opcional)</label>
+      <input type="text" id="cred-domain" name="domain" maxlength="128"></div>
+    <div class="field"><label for="cred-pass">Contraseña</label>
+      <input type="password" id="cred-pass" name="password" maxlength="256" autocomplete="current-password"></div>
+  </form>
+  <div class="actions">
+    <button type="button" class="btn btn-primary" id="btn-cred-save">Guardar y reintentar</button>
+    <button type="button" class="btn btn-danger" id="btn-cred-clear">Borrar y usar mi sesión</button>
+  </div>
+  <div id="cred-msg"></div>
+</section>
+
+
 <section class="panel">
   <div class="panel-head"><h2>Propiedades detectadas en metadata</h2><span class="muted small" id="props-meta"></span></div>
   <div id="props-empty" class="note hidden">Aún no se ha validado la metadata.</div>
