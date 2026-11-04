@@ -546,6 +546,25 @@ class ODataClient:
             result.more_available = True
         return result
 
+    def _auth_hint(self, headers: dict[str, str]) -> str:
+        """Explain a 401 using only the scheme names offered by the server (never the challenge data)."""
+        raw = ", ".join(v for k, v in headers.items() if k.lower() == "www-authenticate")
+        schemes = sorted(set(auth_schemes(raw)))
+        base = MESSAGES_ES[Status.AUTH_REQUIRED]
+        if not schemes:
+            return base
+        text = f"{base} El servidor solicita: {', '.join(schemes)}."
+        windows = {"Negotiate", "NTLM", "Kerberos"} & set(schemes)
+        if windows and isinstance(self.transport, UrllibTransport):
+            text += (" Instala la autenticación Windows integrada (py -m pip install --user -r "
+                     "requirements-windows-auth.txt) y reinicia la aplicación.")
+        elif windows:
+            text += " Se envió la identidad de Windows y fue rechazada: la cuenta no tiene permiso; consulta con TI."
+        elif "Basic" in schemes:
+            text += (" El servidor pide usuario y contraseña (Basic); esta aplicación no almacena contraseñas: "
+                     "consulta con TI el mecanismo aprobado.")
+        return text
+
     def snapshot(self) -> dict[str, Any]:
         return {"last": dict(self.last), "breaker": self.breaker.snapshot(), "busy": self.gate.is_busy()}
 
@@ -581,7 +600,10 @@ class ODataClient:
             if status != Status.OK:
                 retry_after = _parse_retry_after(response.headers.get("Retry-After") or response.headers.get("retry-after"))
                 detail = response.body[:500].decode("utf-8", "replace")
-                result = ODataResult(status, MESSAGES_ES[status], response.status, elapsed_ms=elapsed,
+                message = MESSAGES_ES[status]
+                if status == Status.AUTH_REQUIRED:
+                    message = self._auth_hint(response.headers)
+                result = ODataResult(status, message, response.status, elapsed_ms=elapsed,
                                      retry_after=retry_after, technical_detail=detail)
             elif parse_entities:
                 try:
@@ -629,6 +651,20 @@ class ODataClient:
         log("odata GET %s -> %s http=%s %.0fms records=%d %s", relative, result.status.value,
             result.http_status, result.elapsed_ms, len(result.records), result.technical_detail[:200])
         return result
+
+
+_KNOWN_SCHEMES = {"negotiate": "Negotiate", "ntlm": "NTLM", "kerberos": "Kerberos", "basic": "Basic",
+                  "bearer": "Bearer", "digest": "Digest"}
+
+
+def auth_schemes(header_value: str) -> list[str]:
+    """Scheme names from a WWW-Authenticate header (tokens/realms are ignored)."""
+    found = []
+    for token in header_value.replace(",", " ").split():
+        name = _KNOWN_SCHEMES.get(token.strip().lower())
+        if name:
+            found.append(name)
+    return found
 
 
 def build_client(config: Config, transport: Transport | None = None) -> ODataClient:

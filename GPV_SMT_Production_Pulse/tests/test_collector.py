@@ -257,6 +257,48 @@ class CollectorTests(TempDirMixin, unittest.TestCase):
         self.assertTrue(svc.mapping()["timestamp"])
 
 
+class EntityRequiresWindowsAuth(DemoTransport):
+    """GPV field observation: $metadata answers anonymously, the entity answers 401 Negotiate/NTLM."""
+
+    def get(self, url, headers, timeout, max_bytes):
+        if "/ProductivityOverTime" in url:
+            self.requests.append(url)
+            return TransportResponse(401, {"WWW-Authenticate": "Negotiate, NTLM"}, b"")
+        return super().get(url, headers, timeout, max_bytes)
+
+
+class WindowsAuthScenarioTests(TempDirMixin, unittest.TestCase):
+    def test_metadata_ok_entity_401(self):
+        from odata_client import ODataClient, UrllibTransport
+
+        transport = EntityRequiresWindowsAuth()
+        svc = self.service(mode="live", transport=transport)
+        svc.client.transport = transport
+        clock = Clock(T0)
+        col = Collector(svc, clock=clock)
+        svc.collector = col
+        delay = col.tick()
+        self.assertIsNotNone(svc.schema)                      # $metadata was read
+        self.assertEqual(svc._valid_probes(), {})             # aborted probes are not evidence
+        self.assertEqual(col.state["last_error"]["status"], "auth_required")
+        self.assertEqual(col.state["last_error"]["http_status"], 401)
+        self.assertGreaterEqual(delay, 600)                   # longer backoff for auth problems
+        entity = [u for u in transport.requests if "/ProductivityOverTime" in u]
+        self.assertEqual(len(entity), 1)                      # stops after the first 401
+        self.assertIn("Negotiate", svc.client.last["message"])
+
+    def test_auth_hint_for_anonymous_transport(self):
+        from odata_client import ODataClient, UrllibTransport, auth_schemes
+
+        self.assertEqual(sorted(auth_schemes('Negotiate abc==, NTLM, Basic realm="x"')), ["Basic", "NTLM", "Negotiate"])
+        client = ODataClient(self.service().config, UrllibTransport())
+        hint = client._auth_hint({"WWW-Authenticate": "Negotiate, NTLM"})
+        self.assertIn("requirements-windows-auth.txt", hint)
+        basic = client._auth_hint({"WWW-Authenticate": 'Basic realm="FactoryLogix"'})
+        self.assertIn("no almacena contraseñas", basic)
+        self.assertNotIn("FactoryLogix\"", basic)
+
+
 class LockTests(TempDirMixin, unittest.TestCase):
     def test_single_instance(self):
         first = SingleInstanceLock(self.tmp / "c.lock")

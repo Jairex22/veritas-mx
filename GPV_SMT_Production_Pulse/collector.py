@@ -210,8 +210,10 @@ class Collector:
             self._record_admin_run("probes", result)
             if not svc._valid_probes():
                 # Aborted because the server stopped answering: retry later with backoff (no probe loop).
-                return self._backoff(str(result.get("status", "probes_failed")),
-                                     "No se completaron las pruebas de compatibilidad: " + str(result.get("message", "")))
+                auth = svc.client.last.get("status") in {s.value for s in AUTH_ERRORS}
+                return self._backoff("auth_required" if auth else str(result.get("status", "probes_failed")),
+                                     "No se completaron las pruebas de compatibilidad: " + str(result.get("message", "")),
+                                     http_status=svc.client.last.get("http_status"), auth=auth)
         self._validated = True
         ready, reasons = svc.readiness()
         if not ready:

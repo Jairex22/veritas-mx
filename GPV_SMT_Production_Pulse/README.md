@@ -71,7 +71,7 @@ Detalle completo, inicio automático al iniciar sesión y solución de problemas
 | `analytics.py`, `report_generator.py` | Análisis histórico, CSV/XLSX/PDF |
 | `app.py` | Servidor local (127.0.0.1), API JSON, arranque del recolector |
 | `templates/`, `static/` | Monitor, Consulta histórica, Tendencias, Reportes, Estado de conexión |
-| `tests/` | 148 pruebas (`unittest`) |
+| `tests/` | 150 pruebas (`unittest`) |
 
 ## Documentación
 
