@@ -489,6 +489,7 @@ class ODataClient:
         self.breaker = CircuitBreaker(config.limits.CIRCUIT_BREAKER_FAILURE_THRESHOLD,
                                       config.limits.CIRCUIT_BREAKER_COOLDOWN_SECONDS, clock)
         self.last: dict[str, Any] = {}
+        self.auth_description = "Simulador" if transport is not None and type(transport).__name__ == "DemoTransport" else "—"
         self.request_log: list[str] = []  # relative URLs actually sent (bounded), for audits/tests
 
     # ----------------------------------------------------------------- URL building
@@ -631,13 +632,30 @@ class ODataClient:
 
 
 def build_client(config: Config, transport: Transport | None = None) -> ODataClient:
-    """Create the client with the transport selected by configuration."""
+    """Create the client with the transport selected by configuration.
+
+    ``auth_mode``:
+    * ``windows_negotiate``: Windows integrated auth is mandatory; if the optional libraries are
+      missing, no request is sent and the UI explains what to install.
+    * ``auto``: use Windows integrated auth when the optional libraries are installed (credentials
+      are only presented if the server asks for them with a 401 Negotiate/NTLM challenge);
+      otherwise anonymous HTTP.
+    * ``none``: anonymous HTTP only.
+    """
     if transport is not None:
         return ODataClient(config, transport)
-    if config.odata.auth_mode == "windows_negotiate":
+    mode = config.odata.auth_mode
+    if mode in ("windows_negotiate", "auto"):
         try:
-            return ODataClient(config, NegotiateTransport(config.odata.use_system_proxy))
+            client = ODataClient(config, NegotiateTransport(config.odata.use_system_proxy))
+            client.auth_description = "Windows integrada (SSPI)"
+            logger.info("auth: Windows integrated (Negotiate/NTLM via SSPI)")
+            return client
         except AuthNotAvailableError as exc:
-            logger.error("windows_negotiate configured but optional libraries missing: %s", exc)
-            return ODataClient(config, None, transport_error=str(exc))
-    return ODataClient(config, UrllibTransport(config.odata.use_system_proxy))
+            if mode == "windows_negotiate":
+                logger.error("windows_negotiate configured but optional libraries missing: %s", exc)
+                return ODataClient(config, None, transport_error=str(exc))
+            logger.info("auth auto: optional Windows auth libraries not installed; using anonymous HTTP")
+    client = ODataClient(config, UrllibTransport(config.odata.use_system_proxy))
+    client.auth_description = "Anónima / red" if mode == "none" else "Anónima (bibliotecas de autenticación Windows no instaladas)"
+    return client

@@ -2,9 +2,10 @@
 
 Run (Windows, standard user):
 
-    py app.py            # mode from config.json (default: demo)
+    py app.py            # mode from config.json (default: live)
     py app.py --demo     # force DEMO mode (simulated data)
     py app.py --live     # use the authorized FactoryLogix OData server
+    py app.py --no-collector   # web only, without the background collector
 
 Then open http://127.0.0.1:8765 in the browser.
 
@@ -49,12 +50,21 @@ STATIC_TYPES = {
     ".png": "image/png",
 }
 PAGES = {
-    "/": "index.html",
+    "/": "monitor.html",
+    "/production": "index.html",
     "/dashboard": "dashboard.html",
     "/diagnostics": "diagnostics.html",
     "/reports": "reports.html",
     "/reports/print": "report_print.html",
 }
+
+
+def _say(*parts: Any) -> None:
+    """Console output that also works under pythonw/pyw (no console: sys.stdout is None)."""
+    if sys.stdout is not None:
+        print(*parts, flush=True)
+    else:
+        logger.info(" ".join(str(p) for p in parts))
 
 
 def configure_logging(config: Config) -> None:
@@ -67,8 +77,10 @@ def configure_logging(config: Config) -> None:
     formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
     file_handler = RotatingFileHandler(config.logs_dir / "production_pulse.log", maxBytes=2_000_000,
                                        backupCount=5, encoding="utf-8")
-    console = logging.StreamHandler(sys.stdout)
-    for handler in (file_handler, console):
+    handlers: list[logging.Handler] = [file_handler]
+    if sys.stdout is not None:
+        handlers.append(logging.StreamHandler(sys.stdout))
+    for handler in handlers:
         handler.setFormatter(formatter)
         handler.addFilter(RedactingFilter())
         root.addHandler(handler)
@@ -230,6 +242,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._send(204, b"", "image/x-icon")
         elif path == "/api/status":
             self._json(service.status(sid))
+        elif path == "/api/monitor":
+            self._json(service.monitor())
         elif path == "/api/last-query":
             self._json(service.last_query())
         elif path == "/api/stored":
@@ -294,6 +308,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._json({"ok": deleted, "message": "Reporte eliminado." if deleted else "El reporte no existe."})
         elif path == "/api/compare":
             self._json(service.compare(body))
+        elif path == "/api/compare-local":
+            self._json(service.compare_local(body))
         else:
             self._error(HTTPStatus.NOT_FOUND, "No encontrado.")
 
@@ -313,6 +329,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--config", type=Path, default=None, help="Ruta alternativa a config.json")
     parser.add_argument("--port", type=int, default=None, help="Puerto local (por defecto 8765)")
     parser.add_argument("--open", action="store_true", help="Abrir el navegador al iniciar")
+    parser.add_argument("--no-collector", action="store_true",
+                        help="No iniciar el recolector automático (solo interfaz y consultas bajo demanda)")
     return parser.parse_args(argv)
 
 
@@ -328,7 +346,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         config = load_config(args.config, overrides)
     except ConfigError as exc:
-        print(f"Error de configuración: {exc}")
+        _say(f"Error de configuración: {exc}")
         return 2
     configure_logging(config)
     if sys.version_info < (3, 11):
@@ -336,33 +354,56 @@ def main(argv: list[str] | None = None) -> int:
     try:
         app = PulseApp(config)
     except RuntimeError as exc:
-        print(f"Error: {exc}")
+        _say(f"Error: {exc}")
         return 2
     try:
         app.service.startup()
     except Exception:  # noqa: BLE001 - the UI must start even if FactoryLogix/demo prep fails
         logger.exception("startup preparation failed; continuing")
+    collector = None
+    lock = None
+    if config.collector.enabled and not args.no_collector:
+        from collector import Collector, SingleInstanceLock
+
+        lock = SingleInstanceLock(config.data_dir / f"collector_{'demo' if config.is_demo else 'live'}.lock")
+        if not lock.acquire():
+            _say("Ya hay otra instancia de Production Pulse con el recolector en ejecución en este equipo. "
+                  "Usa esa instancia (un solo recolector evita consultas duplicadas a FactoryLogix).")
+            app.db.close()
+            return 3
+        collector = Collector(app.service)
+        app.service.collector = collector
     try:
         server = make_server(app)
     except OSError as exc:
-        print(f"No se pudo abrir el puerto {config.app.port}: {exc}. Usa --port para elegir otro.")
+        _say(f"No se pudo abrir el puerto {config.app.port}: {exc}. Usa --port para elegir otro.")
+        if lock:
+            lock.release()
         return 2
+    if collector:
+        collector.start()
     url = f"http://127.0.0.1:{config.app.port}/"
     banner = "MODO DEMOSTRACIÓN (datos simulados)" if config.is_demo else f"FactoryLogix: {config.odata.base_url}"
-    print("=" * 64)
-    print(f" {APP_NAME} v{APP_VERSION}")
-    print(f" {banner}")
-    print(f" Abre en el navegador: {url}")
-    print(" Presiona Ctrl+C para detener.")
-    print("=" * 64)
+    _say("=" * 64)
+    _say(f" {APP_NAME} v{APP_VERSION}")
+    _say(f" {banner}")
+    _say(" Recolector automático: " + (f"activo, 1 consulta cada {config.collector.interval_seconds} s" if collector
+                                       else "desactivado"))
+    _say(f" Abre en el navegador: {url}")
+    _say(" Presiona Ctrl+C para detener.")
+    _say("=" * 64)
     if args.open or config.app.open_browser:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
     try:
         server.serve_forever(poll_interval=0.5)
     except KeyboardInterrupt:
-        print("\nDeteniendo...")
+        _say("\nDeteniendo...")
     finally:
+        if collector:
+            collector.stop()
         server.server_close()
+        if lock:
+            lock.release()
         app.db.close()
     return 0
 

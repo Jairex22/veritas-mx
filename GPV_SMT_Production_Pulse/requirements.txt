@@ -1,4 +1,4 @@
-# GPV SMT Production Pulse v1.0.0
+# GPV SMT Production Pulse v1.1.0
 #
 # La aplicación NO requiere dependencias externas: usa solo la biblioteca estándar
 # de Python 3.11+ (probada en 3.14). Exportación Excel (.xlsx), CSV, servidor web,

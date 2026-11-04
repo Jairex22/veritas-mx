@@ -2,7 +2,9 @@
 (function () {
   "use strict";
   const { h, clear, $, api, fmtDateTime, alertBox } = Pulse;
-  const ROLES = ["timestamp", "quantity", "line", "station", "shift"];
+  const ROLES = ["timestamp", "quantity", "line", "station", "shift", "project", "work_order", "product"];
+  const MAP_SOURCE = { confirmed: "Confirmado en esta pantalla", config: "Definido en config.json", demo: "Mapeo DEMO",
+    auto: "Auto-detectado por nombre (pendiente de confirmar por MES)", none: "Sin mapeo" };
   const PROBE_STATUS = { ok: "Comprobado", failed: "Falló", not_tested: "No probado" };
   const BREAKER = { closed: "Normal (cerrado)", open: "Abierto: consultas en pausa", half_open: "Semiabierto: se permite 1 prueba" };
   let diag = null;
@@ -27,7 +29,13 @@
     const meta = d.metadata || {};
     const tiles = clear($("#diag-tiles"));
     const metaOk = meta.status === "ok" || meta.status === "loaded";
-    tiles.appendChild(tile("FactoryLogix", d.server, "Autenticación: " + (d.auth_mode === "none" ? "ninguna / red" : "Windows integrada")));
+    tiles.appendChild(tile("FactoryLogix", d.server, "Autenticación (" + d.auth_mode + "): " + d.auth));
+    const col = d.collector;
+    tiles.appendChild(tile("Recolector automático", col ? (col.running ? "En ejecución" : "Detenido") : "No iniciado",
+      col ? `${col.message || ""} Última lectura correcta: ${col.last_success_at ? fmtDateTime(col.last_success_at) : "ninguna"}` : "Inicia con: py app.py --live",
+      col && col.running && col.status !== "blocked" && col.status !== "backoff" ? "ok" : "failed"));
+    tiles.appendChild(tile("Mapeo de campos", MAP_SOURCE[d.mapping_source] || d.mapping_source, `Registros guardados: ${d.records.records} · lecturas: ${d.records.revisions}`,
+      d.mapping_source === "auto" ? "partial" : d.mapping_source === "none" ? "failed" : "ok"));
     tiles.appendChild(tile("Metadata", metaOk ? "Validada" : "No validada", meta.message + (meta.checked_at ? " · " + fmtDateTime(meta.checked_at) : ""), metaOk ? "ok" : "not_tested"));
     tiles.appendChild(tile("ProductivityOverTime", d.entity.compatible ? "Identificado" : "No identificado",
       d.entity.compatible ? `${d.entity.entity_type} · OData ${d.entity.odata_version}` : "Requiere metadata válida", d.entity.compatible ? "ok" : "failed"));

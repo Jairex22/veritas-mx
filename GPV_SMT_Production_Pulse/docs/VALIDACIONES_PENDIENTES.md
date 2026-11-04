@@ -1,43 +1,51 @@
-# Validaciones pendientes contra FactoryLogix real
+# Validaciones pendientes y requisitos que dependen del esquema real
 
-**Nada de lo siguiente se ha probado contra el servidor real.** El desarrollo no tuvo acceso a
-`http://10.62.54.10:6065/odata/`. Todas las pruebas usaron un simulador y datos ficticios.
-Ejecutar estas validaciones en una computadora autorizada de GPV, con la aplicación en `--live`,
-y registrar el resultado.
+**No se ha probado nada contra el servidor real.** El entorno de desarrollo no tiene acceso a
+`http://10.62.54.10:6065/odata/` (desde allí la conexión agota el tiempo de espera). Toda la
+funcionalidad se verificó con un servidor OData simulado y datos ficticios. Los nombres de campos
+del modo DEMO (`IntervalStart`, `GoodCount`, `LineName`, `WorkOrder`…) **son inventados para la
+simulación** y no se asumen en el código: en modo real se usan los campos que declare `$metadata`.
 
-| # | Validación | Cómo | Resultado esperado | Resultado GPV |
+## Requisitos que dependen de lo que exista en `ProductivityOverTime`
+
+| Requisito | Qué se necesita del esquema | Si no existe | Cómo resolverlo |
+|---|---|---|---|
+| 1. Leer `$metadata` e identificar campos | EntitySet `ProductivityOverTime` en el EDMX | Metadata incompatible: no se consulta nada | Confirmar con el administrador de FactoryLogix el nombre exacto de la entidad |
+| 2. Validar filtros de fecha y línea | Campo fecha/hora (`Edm.DateTimeOffset`/`DateTime`/`Date`) que acepte `$filter ge/lt`; campo de línea | Sin filtro de fecha: **recolección bloqueada** (nunca se consulta sin filtro). Sin filtro de línea: el recolector no lo necesita (lee todas las líneas y separa localmente) | Pedir a MES/TI que habiliten el filtrado por fecha en el servicio OData, o que expongan una entidad/vista ya filtrable (requiere nueva autorización) |
+| 4. `$select`, `$top`, `$orderby` | Que el servidor los acepte | `$top` no comprobado → bloqueado. Sin `$select`: se reciben todos los campos (siempre limitados por `$top`). Sin `$orderby asc`: no se puede recuperar historial por partes; si una ventana excede `MAX_RECORDS` se registra como **hueco** | Habilitar `$orderby` o aumentar `MAX_RECORDS` con aprobación de TI |
+| 6. Evitar duplicados | Clave (`Key`) del EntityType | Sin clave se usa hash de fecha + línea/estación/turno/proyecto/WO/producto; dos registros con esos mismos valores se tratarían como uno | Confirmar la clave real o qué campos identifican un registro |
+| 7. Acumulado vs intervalo | Significado del campo de cantidad | Detección automática heurística; si es ambigua: **"indeterminada" y no se suman unidades** | MES confirma y se fija `collector.quantity_semantics` en `config.json` |
+| 8. Líneas, proyectos, WO, productos | Campos de texto/entero con esos datos | La sección correspondiente **no se muestra** | Si están en otra entidad, se necesita autorización para consultarla (hoy está prohibido) |
+| 10. Unidades e incrementos | Campo numérico de cantidad | Sin cantidad: recolección bloqueada (no hay métricas verificables) | Confirmar el campo con MES |
+| 10. "Últimos 5 minutos" | Que FactoryLogix registre con ese detalle | Se muestra el **incremento entre las dos últimas lecturas** (≈5 min de hora de consulta) y su periodo real; la granularidad depende de cómo registre FactoryLogix | — |
+| Hora del último registro | Campo de fecha con hora real de producción | Si el campo es solo fecha (`Edm.Date`), no hay hora | Confirmar con MES |
+
+## Lista de verificación en una PC autorizada de GPV
+
+| # | Validación | Cómo | Esperado | Resultado GPV |
 |---|---|---|---|---|
-| 1 | Conectividad de red al puerto 6065 desde la PC | Estado de conexión → Verificar conexión | HTTP 200 de `$metadata` | ☐ |
-| 2 | Mecanismo de autenticación aprobado por TI | Si 401: confirmar con TI; `auth_mode` | 200 sin almacenar credenciales | ☐ |
-| 3 | `$metadata` se interpreta (EDMX V2/V3/V4) | Propiedades detectadas | Se identifica `ProductivityOverTime` y su EntityType | ☐ |
-| 4 | Tamaño de `$metadata` < `MAX_METADATA_BYTES` (10 MB) | Verificar conexión | Sin error de tamaño | ☐ |
-| 5 | Nombres reales de campos: fecha, cantidad, línea, estación, turno | Revisar con equipo MES y confirmar mapeo | Funciones sin campo = NO DISPONIBLE | ☐ |
-| 6 | Significado del campo de cantidad (¿piezas buenas? ¿paneles? ¿acumulado?) | Equipo MES | Definir `analytics.quantity_unit_label` | ☐ |
-| 7 | ¿Los registros son intervalos que se pueden sumar o valores acumulados? | Comparar con reporte FactoryLogix de un turno | Si son acumulados, **no** usar suma (ajuste requerido) | ☐ |
-| 8 | `$top` respetado | Probar compatibilidad | "Límite de registros" = Comprobado | ☐ |
-| 9 | Filtro por fecha y tipo EDM del campo | Probar compatibilidad | "Filtro por rango de fecha" = Comprobado | ☐ |
-| 10 | Zona horaria de los timestamps (UTC vs local; `Edm.DateTime` sin zona) | Comparar un registro conocido con FactoryLogix | Horas coinciden en pantalla | ☐ |
-| 11 | `$orderby` por fecha (y su costo en el servidor) | Probar compatibilidad + tiempo de respuesta | Comprobado y < 2 s | ☐ |
-| 12 | `$select` | Probar compatibilidad | Comprobado | ☐ |
-| 13 | Filtros por línea / estación / turno | Probar compatibilidad | Comprobado o se ocultan | ☐ |
-| 14 | Formato JSON (Accept). Si responde Atom/XML | `append_format_json=true` | Respuesta JSON | ☐ |
-| 15 | Paginación del servidor (`nextLink`) con `$top=50` | Consulta de 1 día | Se marca "resultado parcial" si aplica | ☐ |
-| 16 | Volumen típico de registros por día/línea | Consulta de 1 día por línea | Ajustar `MAX_RECORDS` con TI/MES si 50 es insuficiente | ☐ |
-| 17 | Tiempo de respuesta típico | Historial (ms) | < `REQUEST_TIMEOUT_SECONDS` | ☐ |
-| 18 | Impacto en el servidor aceptable para TI/MES | Revisar historial y límites | Aprobación de límites | ☐ |
-| 19 | Exportación Excel/PDF en equipos GPV | Exportar | Abre correctamente en Excel/Edge | ☐ |
-| 20 | Prueba piloto con operadores | 1 turno | Flujo sin asistencia | ☐ |
+| 1 | Conectividad al puerto 6065 | Monitor / Estado de conexión | `$metadata` HTTP 200 | ☐ |
+| 2 | Autenticación | Si 401: instalar `requirements-windows-auth.txt`, confirmar con TI | 200 sin guardar credenciales | ☐ |
+| 3 | Campos reales | Estado de conexión → Propiedades | Se identifica fecha, cantidad, línea… | ☐ |
+| 4 | Mapeo auto-detectado correcto | Comparar con MES y **Confirmar mapeo** | Origen "Confirmado" | ☐ |
+| 5 | `$top` y filtro de fecha comprobados | Compatibilidad de consultas | Ambos "Comprobado" | ☐ |
+| 6 | Filtro por línea comprobado | Compatibilidad de consultas | "Comprobado" (o justificar) | ☐ |
+| 7 | Semántica de la cantidad | Comparar 1 turno con el reporte de FactoryLogix | Fijar `quantity_semantics` | ☐ |
+| 8 | Zona horaria de los registros | Comparar un registro conocido | Horas coinciden | ☐ |
+| 9 | Retraso de registro en FactoryLogix | Monitor → "diferencia con la última consulta" durante un turno | Documentar el retraso típico | ☐ |
+| 10 | Volumen por ciclo ≤ `MAX_RECORDS` | Monitor → Últimas lecturas → "Recibidos" | Sin "Sincronizando" permanente | ☐ |
+| 11 | Recuperación inicial | Primeros ciclos tras iniciar | Termina la sincronización | ☐ |
+| 12 | Tiempo de respuesta | Últimas lecturas → ms | < 15 s | ☐ |
+| 13 | Comportamiento ante caída | Desconectar red 15 min | Advertencia visible, reintentos espaciados, datos previos visibles | ☐ |
+| 14 | Una sola instancia | Iniciar dos veces | La segunda termina con aviso | ☐ |
+| 15 | Ejecución sin ventana | `pyw app.py --live` + acceso directo en `shell:startup` | Sigue recolectando sin navegador | ☐ |
+| 16 | Carga aceptable para TI/MES | Revisar historial (1 consulta / 5 min) | Aprobación | ☐ |
 
-## Supuestos que deben confirmarse
+## Supuestos explícitos
 
-* El servidor acepta `Accept: application/json`.
-* Para `Edm.DateTime` (sin zona) el servidor almacena hora local de planta.
-* Turnos: el intervalo "Turno" agrupa por fecha calendario + valor del campo de turno; un turno
-  nocturno que cruza medianoche aparecerá en dos grupos.
-* La "línea con actividad" se determina por registros con cantidad > 0.
-
-## Qué NO se debe hacer durante la validación
-
-* No aumentar `MAX_RECORDS`, `MAX_CONCURRENT_REQUESTS` ni activar `AUTO_REFRESH_ENABLED` sin
-  aprobación de TI/MES.
-* No consultar otras entidades ni usar herramientas externas contra el servidor.
+* Las fechas `Edm.DateTime` sin zona se interpretan en hora local de la planta.
+* El campo de fecha identifica el **periodo de producción** de cada registro (no la hora de captura).
+* Registros que FactoryLogix corrija tarde se capturan si caen dentro de `lookback_minutes` (15 min);
+  correcciones más antiguas no se vuelven a leer (para no aumentar la carga).
+* Contadores acumulados se agrupan por línea + estación; un valor menor que el anterior se trata
+  como reinicio del contador.

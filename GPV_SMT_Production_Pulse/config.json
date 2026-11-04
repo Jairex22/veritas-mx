@@ -1,6 +1,6 @@
 {
   "app": {
-    "mode": "demo",
+    "mode": "live",
     "host": "127.0.0.1",
     "port": 8765,
     "allow_non_localhost": false,
@@ -9,10 +9,23 @@
   "odata": {
     "base_url": "http://10.62.54.10:6065/odata/",
     "entity_set": "ProductivityOverTime",
-    "auth_mode": "none",
+    "auth_mode": "auto",
     "use_system_proxy": false,
     "accept_header": "application/json",
     "append_format_json": false
+  },
+  "collector": {
+    "enabled": true,
+    "interval_seconds": 300,
+    "initial_backfill_hours": 8,
+    "lookback_minutes": 15,
+    "max_backoff_seconds": 3600,
+    "recent_activity_minutes": 30,
+    "quantity_semantics": "auto",
+    "auto_apply_detected_mapping": true,
+    "probe_recheck_hours": 24,
+    "record_retention_days": 30,
+    "dashboard_poll_seconds": 30
   },
   "limits": {
     "MAX_RECORDS": 50,
@@ -51,6 +64,9 @@
     "quantity": null,
     "line": null,
     "station": null,
-    "shift": null
+    "shift": null,
+    "project": null,
+    "work_order": null,
+    "product": null
   }
 }

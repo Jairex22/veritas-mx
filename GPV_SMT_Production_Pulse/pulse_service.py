@@ -13,15 +13,17 @@ Query pipeline (``run_query``):
 """
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 import analytics
-from capability_probe import PROBE_LABELS_ES, PROBE_ORDER, binding_hash, probes_to_json, run_probes
+import live_metrics
+from capability_probe import PROBE_LABELS_ES, PROBE_ORDER, binding_hash, probes_to_json, run_probes, was_aborted
 from database import Database, signature_for
 from metadata_inspector import (EntitySchema, MetadataError, ROLE_LABELS_ES, availability_report,
                                 best_guess_mapping, load_saved_schema, parse_metadata, save_schema,
@@ -71,6 +73,12 @@ class PulseService:
         self._last_probe_run: float | None = None
         self._admin_lock = threading.Lock()
         self._writes_since_cleanup = 0
+        self.collector: Any = None  # set by app.main() when the background collector runs
+
+    @property
+    def collector_mode(self) -> bool:
+        """With the collector running, every screen reads SQLite only (no per-user OData requests)."""
+        return self.collector is not None
 
     # ------------------------------------------------------------------ lifecycle
     @property
@@ -91,6 +99,7 @@ class PulseService:
                 from demo_source import DEMO_MAPPING
 
                 self.db.set_setting("field_mapping", dict(DEMO_MAPPING))
+                self.db.set_setting("field_mapping_source", "demo")
             if self.schema and not self._valid_probes():
                 self.run_capability_probes("demo-startup", force=True, delay=0)
         self.db.set_setting("effective_limits", self.config.public_limits())
@@ -115,6 +124,12 @@ class PulseService:
         clean, _ = validate_mapping(self.schema, {r: source.get(r) for r in FIELD_ROLES})
         return clean
 
+    def mapping_source(self) -> str:
+        """confirmed (UI) | config (config.json) | auto (name detection, unconfirmed) | demo | none."""
+        if self.db.get_setting("field_mapping"):
+            return self.db.get_setting("field_mapping_source") or "confirmed"
+        return "config" if any(self.config.field_mapping.values()) else "none"
+
     def _valid_probes(self) -> dict[str, dict[str, Any]]:
         stored = self.db.get_setting("probes")
         if not self.schema or not isinstance(stored, dict):
@@ -130,7 +145,11 @@ class PulseService:
         mapping = self.mapping()
         filters = {"date": self.capability("filter_date") == "ok"}
         for role in FILTER_ROLES:
-            filters[role] = bool(mapping.get(role)) and self.capability(f"filter_{role}") == "ok"
+            if self.collector_mode:
+                # Local filtering over stored records: no OData filter is sent for these.
+                filters[role] = bool(mapping.get(role))
+            else:
+                filters[role] = bool(mapping.get(role)) and self.capability(f"filter_{role}") == "ok"
         intervals = ["hour", "day"] + (["shift"] if mapping.get("shift") else [])
         return {"filters": filters, "intervals": intervals}
 
@@ -210,6 +229,8 @@ class PulseService:
     # ------------------------------------------------------------------ queries
     def run_query(self, body: dict[str, Any], session_id: str) -> dict[str, Any]:
         """Execute the operator query flow. Never raises for expected conditions."""
+        if self.collector_mode:
+            return self.local_query(body)
         try:
             nq = self.normalize_query(body)
         except ValidationError as exc:
@@ -419,6 +440,7 @@ class PulseService:
         if errors:
             return {"ok": False, "message": " ".join(errors)}
         self.db.set_setting("field_mapping", clean)
+        self.db.set_setting("field_mapping_source", "confirmed")
         logger.info("field mapping confirmed: %s", clean)
         return {"ok": True, "message": "Mapeo de campos confirmado. Ejecuta 'Probar compatibilidad' para validar filtros.",
                 "mapping": clean}
@@ -440,6 +462,10 @@ class PulseService:
                 if r.query:
                     self.db.add_history(kind="probe", query_text=r.query, result_status=r.status,
                                         cache_status="miss", http_status=r.http_status, error_detail=r.detail)
+            if was_aborted(results):
+                # Server/auth failure: these results are not evidence; nothing is stored.
+                reason = next(r.detail for r in results.values() if r.detail.startswith("Secuencia detenida"))
+                return {"ok": False, "status": "probes_aborted", "message": reason, "summary": self.connection_summary()}
             self.db.set_setting("probes", {"binding": binding_hash(self.schema, mapping),
                                            "executed_at": iso_utc(utc_now()), "results": probes_to_json(results)})
             ok_count = sum(1 for r in results.values() if r.status == "ok")
@@ -487,13 +513,21 @@ class PulseService:
             "cache": self.db.stats(),
             "history": self.db.list_history(15),
             "limits": self.config.public_limits(),
+            "auth": getattr(self.client, "auth_description", "—"),
+            "mapping_source": self.mapping_source(),
+            "collector": self.collector.snapshot() if self.collector else None,
+            "collector_runs": self.db.list_runs(15),
+            "records": self.db.record_stats(),
         }
 
     def status(self, session_id: str | None = None) -> dict[str, Any]:
         """Lightweight status for every page load (no network)."""
         ready, reasons = self.readiness()
         mapping = self.mapping()
-        known = {role: self.db.known_values(mapping[role]) if mapping.get(role) else [] for role in FILTER_ROLES}
+        if self.collector_mode:
+            known = {role: self.db.distinct_values(role) if mapping.get(role) else [] for role in FILTER_ROLES}
+        else:
+            known = {role: self.db.known_values(mapping[role]) if mapping.get(role) else [] for role in FILTER_ROLES}
         latest = self.db.latest_cache()
         return {
             "app": APP_NAME, "version": APP_VERSION, "data_mode": self.data_mode,
@@ -509,12 +543,25 @@ class PulseService:
             "breaker": self.client.breaker.snapshot(),
             "busy": self.client.gate.is_busy(),
             "latest_stored": ({"cache_id": latest["id"], "fetched_at": latest["fetched_at"]} if latest else None),
+            "collector_mode": self.collector_mode,
+            "mapping_source": self.mapping_source(),
+            "poll_seconds": self.config.collector.dashboard_poll_seconds,
         }
 
     # ------------------------------------------------------------------ reports & trends
     def create_report(self, body: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(body, dict):
             return {"ok": False, "message": "Solicitud no válida."}
+        if isinstance(body.get("local_query"), dict):
+            result = self.local_query(body["local_query"])
+            if not result.get("ok"):
+                return {"ok": False, "message": result["message"]}
+            snapshot = build_snapshot(result, iso_utc(utc_now()))
+            report_id = self.db.save_report(
+                period_start=result["query"]["period"]["start"], period_end=result["query"]["period"]["end"],
+                filters=result["query"]["filters"], data_source="local", data_fetched_at=result["fetched_at"] or "",
+                from_cache=True, snapshot=snapshot)
+            return {"ok": True, "report_id": report_id, "message": "Reporte generado."}
         try:
             cache_id = int(body.get("cache_id"))
         except (TypeError, ValueError):
@@ -556,3 +603,169 @@ class PulseService:
             return {"ok": False, "message": "Una de las consultas guardadas ya no existe."}
         return {"ok": True, "a": a, "b": b,
                 "comparison": analytics.compare_snapshots(a["analytics"], b["analytics"])}
+
+    # ------------------------------------------------------------------ collector mode (local data only)
+    def _collector_state(self) -> dict[str, Any]:
+        if self.collector is not None:
+            return self.collector.snapshot()
+        return self.db.get_setting("collector_state") or {}
+
+    def local_query(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Analyze stored collector records for a period. Never contacts FactoryLogix."""
+        try:
+            nq = self.normalize_query(body)
+        except ValidationError as exc:
+            return self._error("invalid_input", str(exc))
+        return self._local_result(nq)
+
+    def _local_analysis(self, nq: NormalizedQuery) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any]]:
+        mapping = self.mapping()
+        start, end = self.clock.period_bounds(nq.start, nq.end)
+        filters = {k: v for k, v in nq.filters.items() if v}
+        rows = self.db.query_records(iso_utc(start - timedelta(hours=24)), iso_utc(end), filters)
+        sem = live_metrics.resolve_semantics(self.config.collector.quantity_semantics, rows, mapping)
+        raw_records = []
+        for row, inc in live_metrics.increments(rows, sem["semantics"], mapping):
+            ts = datetime.fromisoformat(row["production_ts"])
+            if not start <= ts < end:
+                continue
+            raw = json.loads(row["raw_json"])
+            if mapping.get("quantity"):
+                raw[mapping["quantity"]] = inc
+            raw_records.append(raw)
+        state = self._collector_state()
+        coverage_start = state.get("coverage_start")
+        partial = bool(state.get("catching_up"))
+        warnings: list[str] = []
+        if coverage_start and datetime.fromisoformat(coverage_start) > start:
+            partial = True
+            warnings.append(f"La información local comienza en {coverage_start} (UTC); antes no hay lecturas guardadas.")
+        for gap in state.get("gaps", []):
+            if datetime.fromisoformat(gap["from"]) < end and datetime.fromisoformat(gap["to"]) > start:
+                partial = True
+                warnings.append(f"Periodo sin lectura completa: {gap['from']} – {gap['to']} ({gap['reason']})")
+        if state.get("catching_up"):
+            warnings.append("El recolector aún está recuperando historial; el resultado puede estar incompleto.")
+        if sem["semantics"] == "undetermined" and mapping.get("quantity"):
+            warnings.append("Semántica de la cantidad indeterminada (intervalo o acumulado): no se suman unidades. " + sem["reason"])
+        # Buckets after the point where local data is complete count as "in progress" (no drops, no trend).
+        complete_until = utc_now()
+        if state.get("catching_up") and state.get("cursor"):
+            complete_until = datetime.fromisoformat(state["cursor"])
+        elif state.get("last_success_at"):
+            complete_until = min(complete_until, datetime.fromisoformat(state["last_success_at"]))
+        a = self.config.analytics
+        result_analytics = analytics.analyze(
+            raw_records, mapping=mapping, clock=self.clock, period_start=start, period_end=end, interval=nq.interval,
+            truncated=partial, fetched_at=state.get("last_success_at") or "", from_cache=True,
+            unit_label=a.quantity_unit_label, drop_threshold_percent=a.drop_threshold_percent,
+            min_buckets_for_drop=a.min_buckets_for_drop_detection, now=self.clock.to_local(complete_until))
+        local_texts = {
+            "La respuesta alcanzó": "La cobertura local del periodo está incompleta (ver advertencias); los totales corresponden "
+                                     "solo a los registros guardados (resultado parcial).",
+            "Información obtenida de la caché local": "Información del almacenamiento local del recolector; ver hora de la "
+                                                       "última lectura.",
+        }
+        result_analytics["limitations"] = [next((v for k, v in local_texts.items() if t.startswith(k)), t)
+                                           for t in result_analytics["limitations"]]
+        for card in result_analytics["cards"]:
+            if card["id"] == "updated":
+                card["title"] = "Última lectura del recolector"
+                card["note"] = "Hora de consulta a FactoryLogix (no hora de producción)"
+        result_analytics["semantics"] = sem
+        if sem["semantics"] == "cumulative":
+            result_analytics["limitations"].insert(0, "Cantidad tratada como contador acumulado: la producción es la diferencia "
+                                                      "entre lecturas consecutivas de cada línea/estación.")
+        return result_analytics, raw_records, {"warnings": warnings, "partial": partial, "state": state}
+
+    def _local_result(self, nq: NormalizedQuery) -> dict[str, Any]:
+        mapping = self.mapping()
+        result_analytics, raw_records, info = self._local_analysis(nq)
+        prev_nq = nq.shifted_previous()
+        prev_analytics, prev_raw, _ = self._local_analysis(prev_nq)
+        trend = analytics.trend(result_analytics, prev_analytics if prev_raw else None,
+                                info["state"].get("last_success_at") if prev_raw else None)
+        trend["previous_period"] = {"start": prev_nq.start.isoformat(), "end": prev_nq.end.isoformat()}
+        last_success = info["state"].get("last_success_at")
+        age = (utc_now() - datetime.fromisoformat(last_success)).total_seconds() if last_success else None
+        used = result_analytics["records_used"]
+        return {
+            "ok": True,
+            "status": "ok" if used else "no_records",
+            "source": "local",
+            "message": ("Datos del almacenamiento local, actualizado por el recolector automático." if used
+                        else analytics.NO_DATA_MESSAGE),
+            "data_mode": self.data_mode,
+            "cache_id": None,
+            "fetched_at": last_success,
+            "age_seconds": round(age) if age is not None else None,
+            "is_fresh": age is not None and age <= self.config.collector.interval_seconds * 2,
+            "more_available": info["partial"],
+            "relative_url": "",
+            "query": {"period": {"start": nq.start.isoformat(), "end": nq.end.isoformat()},
+                      "filters": nq.filters, "interval": result_analytics["interval"]},
+            "mapping": mapping,
+            "analytics": result_analytics,
+            "trend": trend,
+            "rows": analytics.display_rows(raw_records, mapping, self.clock),
+            "warnings": info["warnings"],
+        }
+
+    def compare_local(self, body: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(body, dict) or not isinstance(body.get("a"), dict) or not isinstance(body.get("b"), dict):
+            return {"ok": False, "message": "Selecciona dos periodos."}
+        extra = {k: body.get(k) for k in ("line", "interval") if body.get(k)}
+        a = self.local_query({**body["a"], **extra})
+        b = self.local_query({**body["b"], **extra})
+        if not a.get("ok"):
+            return {"ok": False, "message": a["message"]}
+        if not b.get("ok"):
+            return {"ok": False, "message": b["message"]}
+        return {"ok": True, "a": a, "b": b, "comparison": analytics.compare_snapshots(a["analytics"], b["analytics"])}
+
+    def monitor_metrics(self, now: datetime | None = None) -> dict[str, Any]:
+        now = now or utc_now()
+        day_start = self.clock.day_start(self.clock.to_local(now).date())
+        rows = self.db.query_records(iso_utc(day_start - timedelta(hours=24)), iso_utc(now + timedelta(hours=1)))
+        return live_metrics.compute_monitor(
+            rows, mapping=self.mapping(), semantics_config=self.config.collector.quantity_semantics, clock=self.clock,
+            now=now, recent_minutes=self.config.collector.recent_activity_minutes,
+            runs=self.db.successful_collects(2), collector_state=self._collector_state(),
+            unit_label=self.config.analytics.quantity_unit_label)
+
+    def monitor(self) -> dict[str, Any]:
+        """Dashboard payload built only from SQLite and in-memory collector state."""
+        state = self._collector_state()
+        metrics = self.monitor_metrics()
+        warnings: list[dict[str, str]] = []
+        err = state.get("last_error")
+        if err:
+            last_ok = state.get("last_success_at")
+            warnings.append({"kind": "error", "text": (
+                f"Última consulta a FactoryLogix con error ({err.get('http_status') or err.get('status')}): {err.get('message')} "
+                + (f"Se muestran los últimos datos guardados (última lectura correcta: {last_ok})." if last_ok
+                   else "Todavía no hay lecturas correctas guardadas."))})
+        if state.get("status") == "blocked":
+            warnings.append({"kind": "error", "text": state.get("message", "Recolección bloqueada.")})
+        if not self.collector_mode:
+            warnings.append({"kind": "warn", "text": "El recolector automático no está en ejecución en este proceso; "
+                                                     "los datos no se actualizarán."})
+        if self.mapping_source() == "auto":
+            warnings.append({"kind": "warn", "text": "Campos detectados automáticamente por nombre, pendientes de confirmar por "
+                                                     "MES en 'Estado de conexión'."})
+        if metrics["semantics"]["semantics"] == "undetermined" and metrics["quantity_field"]:
+            warnings.append({"kind": "warn", "text": "No se pudo determinar si la cantidad es por intervalo o acumulada: "
+                                                     + metrics["semantics"]["reason"]})
+        elif metrics["semantics"].get("source") == "auto":
+            warnings.append({"kind": "info", "text": "Semántica de cantidad detectada automáticamente: "
+                                                     + metrics["semantics"]["label"] + ". Confirmar con MES y fijarla en config.json."})
+        if state.get("catching_up"):
+            warnings.append({"kind": "info", "text": "Sincronizando historial: el recolector recupera registros pendientes "
+                                                     "(una consulta por ciclo)."})
+        for text in state.get("warnings", []) or []:
+            warnings.append({"kind": "warn", "text": text})
+        return {"ok": True, "data_mode": self.data_mode, "app": APP_NAME, "version": APP_VERSION,
+                "collector_mode": self.collector_mode, "collector": state, "metrics": metrics,
+                "mapping": self.mapping(), "mapping_source": self.mapping_source(), "warnings": warnings,
+                "poll_seconds": self.config.collector.dashboard_poll_seconds,
+                "records": self.db.record_stats(), "runs": self.db.list_runs(10), "server_time": iso_utc(utc_now())}

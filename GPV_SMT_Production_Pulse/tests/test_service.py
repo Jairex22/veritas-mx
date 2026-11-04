@@ -139,7 +139,7 @@ class LiveModeBlockingTests(TempDirMixin, unittest.TestCase):
         svc.save_mapping(DEMO_MAPPING)
         svc.run_capability_probes(SID)
         entity = [u for u in transport.requests if "ProductivityOverTime" in u]
-        self.assertLessEqual(len(entity), 7)
+        self.assertLessEqual(len(entity), 8)
         self.assertTrue(all("$top=1" in u for u in entity))
 
     def test_mapping_rejects_nonexistent_fields(self):

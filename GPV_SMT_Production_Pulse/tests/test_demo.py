@@ -42,7 +42,14 @@ class DemoModeTests(TempDirMixin, unittest.TestCase):
         a = generate_records(now - timedelta(hours=5), now + timedelta(days=1), clock, now)
         b = generate_records(now - timedelta(hours=5), now + timedelta(days=1), clock, now)
         self.assertEqual(a, b)
-        self.assertTrue(all(r["IntervalEnd"] <= now.strftime("%Y-%m-%dT%H:%M:%SZ") for r in a))
+        stamp = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+        self.assertTrue(all(r["IntervalStart"] <= stamp for r in a))          # nothing starts in the future
+        open_intervals = [r for r in a if r["IntervalEnd"] > stamp]
+        self.assertLessEqual(len(open_intervals), 3)                          # only the current interval per line
+        later = generate_records(now - timedelta(hours=5), now + timedelta(days=1), clock, now + timedelta(minutes=5))
+        same_key = {r["RecordId"]: r for r in later}
+        for r in open_intervals:                                              # open interval grows, same key
+            self.assertGreaterEqual(same_key[r["RecordId"]]["GoodCount"], r["GoodCount"])
 
     def test_simulator_rejects_unsupported_options(self):
         t = DemoTransport()

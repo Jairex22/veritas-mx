@@ -4,6 +4,7 @@
   const { h, clear, $, api, fmtNumber, fmtDateTime, fmtDate, alertBox } = Pulse;
   const Charts = window.PulseCharts;
   let items = [];
+  let localMode = false;
 
   function optionLabel(item) {
     return `${fmtDate(item.start)} – ${fmtDate(item.end)} · ${Pulse.filtersText(item.filters)} · extraído ${fmtDateTime(item.fetched_at)}`;
@@ -41,12 +42,39 @@
     return h("div", { class: "tile" }, [h("div", { class: "tile-label", text: label }), h("div", { class: "tile-value", text: value }), h("div", { class: "tile-sub", text: sub || "" })]);
   }
 
+  async function setupLocal(status) {
+    localMode = true;
+    $("#local-form").classList.remove("hidden");
+    $("#stored-form").classList.add("hidden");
+    $("#stored-panel").classList.add("hidden");
+    const today = new Date(status.today + "T00:00:00");
+    const iso = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+    $("#la-start").value = $("#la-end").value = iso(today);
+    $("#lb-start").value = $("#lb-end").value = iso(yesterday);
+    (status.known_values.line || []).forEach((v) => $("#dl-lline").appendChild(h("option", { value: v })));
+    $("#btn-compare").disabled = false;
+    $("#btn-reload").classList.add("hidden");
+    $("#cmp-msg").textContent = "Compara dos periodos con la información guardada por el recolector automático (no consulta FactoryLogix).";
+  }
+
   async function compare() {
-    const aId = $("#cmp-a").value, bId = $("#cmp-b").value;
-    if (!aId || !bId) return;
-    if (aId === bId) { $("#cmp-msg").textContent = "Selecciona dos consultas distintas."; return; }
+    let res;
     $("#btn-compare").disabled = true;
-    const res = await api("/api/compare", { method: "POST", body: { a: Number(aId), b: Number(bId), interval: $("#cmp-interval").value } });
+    if (localMode) {
+      const body = { a: { start: $("#la-start").value, end: $("#la-end").value }, b: { start: $("#lb-start").value, end: $("#lb-end").value },
+        interval: $("#cmp-interval").value };
+      if ($("#l-line").value.trim()) body.line = $("#l-line").value.trim();
+      res = await api("/api/compare-local", { method: "POST", body });
+    } else {
+      const aId = $("#cmp-a").value, bId = $("#cmp-b").value;
+      if (!aId || !bId || aId === bId) {
+        $("#btn-compare").disabled = false;
+        $("#cmp-msg").textContent = "Selecciona dos consultas distintas.";
+        return;
+      }
+      res = await api("/api/compare", { method: "POST", body: { a: Number(aId), b: Number(bId), interval: $("#cmp-interval").value } });
+    }
     $("#btn-compare").disabled = false;
     if (!res.ok) {
       $("#cmp-results").classList.add("hidden");
@@ -61,7 +89,7 @@
     tiles.appendChild(tile("Periodo B (referencia)", fmtNumber(B.total), `${fmtDate(res.b.query.period.start)} – ${fmtDate(res.b.query.period.end)} · ${unit}`));
     tiles.appendChild(tile("Variación A vs B", C.percent_a_vs_b === null ? "—" : fmtNumber(C.percent_a_vs_b, 1) + " %",
       C.status === "verified" ? "Ambos periodos completos" : "Al menos un periodo es parcial"));
-    tiles.appendChild(tile("Calidad", Pulse.STATUS_LABELS[C.status], "Extraídos: " + fmtDateTime(res.a.fetched_at) + " / " + fmtDateTime(res.b.fetched_at)));
+    tiles.appendChild(tile("Calidad", Pulse.STATUS_LABELS[C.status], localMode ? "Datos locales del recolector" : "Extraídos: " + fmtDateTime(res.a.fetched_at) + " / " + fmtDateTime(res.b.fetched_at)));
 
     $("#a-unit").textContent = unit;
     $("#b-unit").textContent = unit;
@@ -80,13 +108,15 @@
     });
     const lim = clear($("#cmp-limits"));
     [...new Set([...A.limitations, ...B.limitations])].forEach((t) => lim.appendChild(h("li", { text: t })));
+    [...new Set([...(res.a.warnings || []), ...(res.b.warnings || [])])].forEach((t) => lim.appendChild(h("li", { text: t })));
     lim.appendChild(h("li", { text: "Comparación basada exclusivamente en información guardada localmente; no se consultó FactoryLogix." }));
     $("#cmp-results").classList.remove("hidden");
   }
 
-  document.addEventListener("DOMContentLoaded", () => {
-    Pulse.loadStatus();
-    loadList();
+  document.addEventListener("DOMContentLoaded", async () => {
+    const status = await Pulse.loadStatus();
+    if (status && status.collector_mode) setupLocal(status);
+    else loadList();
     $("#btn-compare").addEventListener("click", compare);
     $("#btn-reload").addEventListener("click", loadList);
   });

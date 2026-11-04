@@ -44,6 +44,9 @@ ROLE_LABELS_ES: dict[str, str] = {
     "line": "Línea SMT",
     "station": "Estación",
     "shift": "Turno",
+    "project": "Proyecto",
+    "work_order": "Orden de trabajo (WO)",
+    "product": "Producto / número de parte",
 }
 
 # Name fragments used ONLY to rank existing properties as suggestions. They never
@@ -55,6 +58,9 @@ _ROLE_HINTS: dict[str, tuple[str, ...]] = {
     "line": ("line", "linea"),
     "station": ("station", "machine", "workcell", "resource", "equipment", "estacion", "cell"),
     "shift": ("shift", "turno"),
+    "project": ("project", "proyecto", "program"),
+    "work_order": ("workorder", "work_order", "wonumber", "wo_", "ordennumber", "orden", "order"),
+    "product": ("product", "partnumber", "part_number", "assembly", "producto", "sku", "item", "model"),
 }
 
 
@@ -372,7 +378,7 @@ def role_type_compatible(role: str, prop: PropertyInfo) -> bool:
         return prop.category == "datetime"
     if role == "quantity":
         return prop.category == "numeric"
-    if role in ("line", "station", "shift"):
+    if role in ("line", "station", "shift", "project", "work_order", "product"):
         return prop.edm_type == "Edm.String" or prop.edm_type in INTEGER_EDM_TYPES
     return False
 
@@ -399,16 +405,24 @@ def suggest_roles(schema: EntitySchema) -> dict[str, list[str]]:
 
 
 def best_guess_mapping(schema: EntitySchema) -> dict[str, str | None]:
-    """Name-hint matches only (no fallback to arbitrary fields). Used as pre-selection in the UI."""
+    """Name-hint matches only (no fallback to arbitrary fields); a field is used once at most.
+
+    Used as pre-selection in the UI and, when enabled, as an *auto-detected* (unconfirmed)
+    mapping that the interface labels as pending confirmation by MES.
+    """
     result: dict[str, str | None] = {}
+    used: set[str] = set()
+    suggestions = suggest_roles(schema)
     for role in FIELD_ROLES:
         hints = _ROLE_HINTS[role]
         match = None
-        for name in suggest_roles(schema)[role]:
-            if any(h in name.lower() for h in hints):
+        for name in suggestions[role]:
+            if name not in used and any(h in name.lower() for h in hints):
                 match = name
                 break
         result[role] = match
+        if match:
+            used.add(match)
     return result
 
 

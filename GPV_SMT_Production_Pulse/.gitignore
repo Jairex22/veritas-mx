@@ -6,3 +6,4 @@ data/metadata_demo/
 logs/*.log*
 __pycache__/
 *.pyc
+data/*.lock

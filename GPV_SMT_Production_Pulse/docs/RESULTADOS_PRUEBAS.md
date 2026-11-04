@@ -1,24 +1,24 @@
-# Resultados de pruebas automatizadas
+# Resultados de pruebas automatizadas — v1.1.0
 
-* Fecha de ejecución: 2026-11-03T22:14Z
-* Intérprete: Python 3.14.6 (Linux, entorno de desarrollo). También ejecutadas con Python 3.13 y 3.11: OK.
-* Comando: `py -m unittest discover -s tests -v` (aquí con `-W error::DeprecationWarning`)
-* Alcance: código completo contra **simulador local** y servidores HTTP de prueba en 127.0.0.1.
-* **No incluye pruebas de integración con FactoryLogix real** (servidor no accesible desde el entorno de desarrollo).
+* Fecha de ejecución: 2026-11-04T16:55Z
+* Intérprete: Python 3.14.6 con `-W error::DeprecationWarning`; también Python 3.11: OK. (Entorno Linux de desarrollo; no se ejecutó en Windows.)
+* Comando: `py -m unittest discover -s tests -v`
+* Alcance: servidor OData **simulado** (`demo_source.DemoTransport` y variantes con fallas 401/500/timeout/desconexión/filtros rechazados) y servidores HTTP de prueba en 127.0.0.1.
+* **Sin pruebas de integración con FactoryLogix real.** Verificación manual adicional: `py app.py --live` contra `10.62.54.10:6065` desde el entorno de desarrollo → 1 intento a `$metadata`, timeout de 15 s, espera de 300 s, advertencia visible en el monitor; una segunda instancia fue rechazada por el lock.
+* Prueba de interfaz en Chromium (Playwright): Monitor con actualización sin recarga de página (1 navegación en 30+ s), Consulta histórica local con exportación XLSX, Tendencias local, Estado de conexión; ancho móvil 390 px sin desplazamiento horizontal; sin errores de consola ni de CSP. Con el hilo real del recolector (modo DEMO) el segundo ciclo se ejecutó solo, exactamente 300 s después del primero (48 registros nuevos, 2 sin cambio, sin duplicados).
 
-Además se realizó una prueba de interfaz en Chromium (Playwright): consulta, caché, tendencia con periodo anterior, exportación XLSX/CSV/PDF, pantallas Tendencias/Reportes/Estado de conexión y vista móvil 390 px, sin errores de consola ni violaciones CSP. El XLSX generado se abrió y convirtió correctamente con LibreOffice.
-
-| Requisito | Archivo de prueba |
+| Requisito v1.1 | Prueba |
 |---|---|
-| 1-2 Metadata y detección de campos | test_metadata.py |
-| 3 Validación de filtros | test_security.py, test_service.py |
-| 4-5 Caché y expiración | test_cache.py |
-| 6-10 Límites, concurrencia, HTTP, timeouts, circuit breaker | test_odata_client.py |
-| 11 Cálculos | test_analytics.py |
-| 12-13 CSV y reportes | test_reports.py |
-| 14 Seguridad | test_security.py |
-| 15 Modo DEMO | test_demo.py |
-| Otra entidad / descargas masivas / refresco / concurrencia / no inventar / sin bucles / sin consulta sin filtros | test_odata_client.py, test_service.py, test_analytics.py |
+| Validación al inicio, 1 consulta por ciclo | test_collector: test_startup_validation_then_one_query_per_cycle |
+| Filtro temporal y $top siempre presentes, sin nextLink | test_every_data_query_is_time_filtered_and_bounded |
+| Sin duplicados + historial de lecturas | test_dedup_and_reading_history |
+| Recuperación de historial sin paginación | test_catch_up_without_pagination, test_trend_not_computed_from_unsynced_hours, test_local_history_does_not_flag_unsynced_hours |
+| Backoff, datos conservados, sin bucles | test_backoff_keeps_data_and_does_not_loop, test_circuit_breaker_stops_requests, test_auth_error_backs_off_longer_without_probes, test_server_down_at_startup_no_probe_loop |
+| Bloqueo sin filtro de fecha validado | test_blocked_when_date_filter_fails |
+| Usuarios no generan consultas | test_users_never_trigger_odata |
+| Recolector único | LockTests.test_single_instance |
+| Acumulado vs intervalo | test_live_metrics: SemanticsTests |
+| Sin datos recientes, incrementos, hora de producción vs consulta, dimensiones solo si existen | test_live_metrics: MonitorTests |
 
 ```
 test_compare (test_analytics.AnalyticsTests.test_compare) ... ok
@@ -47,12 +47,46 @@ test_force_refresh_respects_min_interval (test_cache.ServiceCacheTests.test_forc
 test_interval_change_does_not_requery (test_cache.ServiceCacheTests.test_interval_change_does_not_requery) ... ok
 test_last_query_never_contacts_server (test_cache.ServiceCacheTests.test_last_query_never_contacts_server) ... ok
 test_second_query_served_from_cache_for_any_session (test_cache.ServiceCacheTests.test_second_query_served_from_cache_for_any_session) ... ok
+test_auth_error_backs_off_longer_without_probes (test_collector.CollectorTests.test_auth_error_backs_off_longer_without_probes) ... ok
+test_auto_mapping_is_flagged (test_collector.CollectorTests.test_auto_mapping_is_flagged) ... ok
+test_backfill_floor_and_gaps (test_collector.CollectorTests.test_backfill_floor_and_gaps) ... ok
+test_backoff_keeps_data_and_does_not_loop (test_collector.CollectorTests.test_backoff_keeps_data_and_does_not_loop) ... ok
+test_blocked_when_date_filter_fails (test_collector.CollectorTests.test_blocked_when_date_filter_fails) ... ok
+test_catch_up_without_pagination (test_collector.CollectorTests.test_catch_up_without_pagination) ... ok
+test_circuit_breaker_stops_requests (test_collector.CollectorTests.test_circuit_breaker_stops_requests) ... ok
+test_config_mapping_not_overridden (test_collector.CollectorTests.test_config_mapping_not_overridden) ... ok
+test_dedup_and_reading_history (test_collector.CollectorTests.test_dedup_and_reading_history) ... ok
+test_every_data_query_is_time_filtered_and_bounded (test_collector.CollectorTests.test_every_data_query_is_time_filtered_and_bounded) ... ok
+test_local_history_does_not_flag_unsynced_hours (test_collector.CollectorTests.test_local_history_does_not_flag_unsynced_hours) ... ok
+test_server_down_at_startup_no_probe_loop (test_collector.CollectorTests.test_server_down_at_startup_no_probe_loop) ... ok
+test_startup_validation_then_one_query_per_cycle (test_collector.CollectorTests.test_startup_validation_then_one_query_per_cycle) ... ok
+test_state_persists_across_restart (test_collector.CollectorTests.test_state_persists_across_restart) ... ok
+test_trend_not_computed_from_unsynced_hours (test_collector.CollectorTests.test_trend_not_computed_from_unsynced_hours) ... ok
+test_users_never_trigger_odata (test_collector.CollectorTests.test_users_never_trigger_odata) ... ok
+test_single_instance (test_collector.LockTests.test_single_instance) ... ok
 test_examples_are_marked_simulated (test_demo.DemoModeTests.test_examples_are_marked_simulated) ... ok
 test_full_flow (test_demo.DemoModeTests.test_full_flow) ... ok
 test_generator_deterministic_and_not_future (test_demo.DemoModeTests.test_generator_deterministic_and_not_future) ... ok
 test_separate_database_file (test_demo.DemoModeTests.test_separate_database_file) ... ok
 test_simulator_rejects_unsupported_options (test_demo.DemoModeTests.test_simulator_rejects_unsupported_options) ... ok
 test_starts_ready_without_network (test_demo.DemoModeTests.test_starts_ready_without_network) ... ok
+test_cumulative_today_uses_baseline_from_yesterday (test_live_metrics.MonitorTests.test_cumulative_today_uses_baseline_from_yesterday) ... ok
+test_dimensions_only_when_mapped (test_live_metrics.MonitorTests.test_dimensions_only_when_mapped) ... ok
+test_increment_between_readings (test_live_metrics.MonitorTests.test_increment_between_readings) ... ok
+test_no_data_at_all (test_live_metrics.MonitorTests.test_no_data_at_all) ... ok
+test_no_recent_data (test_live_metrics.MonitorTests.test_no_recent_data) ... ok
+test_production_time_vs_query_time (test_live_metrics.MonitorTests.test_production_time_vs_query_time) ... ok
+test_syncing_state (test_live_metrics.MonitorTests.test_syncing_state) ... ok
+test_trend_last_complete_hours (test_live_metrics.MonitorTests.test_trend_last_complete_hours) ... ok
+test_undetermined_semantics_produces_no_units (test_live_metrics.MonitorTests.test_undetermined_semantics_produces_no_units) ... ok
+test_units_today_and_lines (test_live_metrics.MonitorTests.test_units_today_and_lines) ... ok
+test_cumulative_detected (test_live_metrics.SemanticsTests.test_cumulative_detected) ... ok
+test_cumulative_groups_are_independent (test_live_metrics.SemanticsTests.test_cumulative_groups_are_independent) ... ok
+test_cumulative_increments_with_reset_and_no_baseline (test_live_metrics.SemanticsTests.test_cumulative_increments_with_reset_and_no_baseline) ... ok
+test_insufficient_or_conflicting (test_live_metrics.SemanticsTests.test_insufficient_or_conflicting) ... ok
+test_interval_detected (test_live_metrics.SemanticsTests.test_interval_detected) ... ok
+test_interval_increment_is_quantity (test_live_metrics.SemanticsTests.test_interval_increment_is_quantity) ... ok
+test_units_between_marks_partial (test_live_metrics.SemanticsTests.test_units_between_marks_partial) ... ok
 test_best_guess (test_metadata.FieldDetectionTests.test_best_guess) ... ok
 test_missing_role_reported_no_disponible (test_metadata.FieldDetectionTests.test_missing_role_reported_no_disponible) ... ok
 test_suggestions_only_use_existing_compatible_fields (test_metadata.FieldDetectionTests.test_suggestions_only_use_existing_compatible_fields) ... ok
@@ -137,7 +171,7 @@ test_rules (test_service.QueryValidationTests.test_rules) ... ok
 test_stored_data_labelled_not_live (test_service.QueryValidationTests.test_stored_data_labelled_not_live) ... ok
 
 ----------------------------------------------------------------------
-Ran 114 tests in 5.861s
+Ran 148 tests in 9.030s
 
 OK
 ```

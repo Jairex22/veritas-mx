@@ -14,11 +14,13 @@ from typing import Any
 from urllib.parse import urlparse
 
 APP_NAME = "GPV SMT Production Pulse"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG_PATH = BASE_DIR / "config.json"
 ALLOWED_ENTITY_SET = "ProductivityOverTime"
-FIELD_ROLES = ("timestamp", "quantity", "line", "station", "shift")
+FIELD_ROLES = ("timestamp", "quantity", "line", "station", "shift", "project", "work_order", "product")
+# Descriptive dimensions shown when a confirmed field exists (never filtered against OData).
+DIMENSION_ROLES = ("line", "station", "shift", "project", "work_order", "product")
 
 logger = logging.getLogger("pulse.settings")
 
@@ -89,7 +91,7 @@ class ODataSettings:
 
     base_url: str = "http://10.62.54.10:6065/odata/"
     entity_set: str = ALLOWED_ENTITY_SET
-    auth_mode: str = "none"  # "none" | "windows_negotiate"
+    auth_mode: str = "auto"  # "auto" | "none" | "windows_negotiate"
     use_system_proxy: bool = False
     accept_header: str = "application/json"
     append_format_json: bool = False
@@ -103,6 +105,35 @@ class AnalyticsSettings:
     drop_threshold_percent: float = 25.0
     min_buckets_for_drop_detection: int = 4
     plant_timezone: str = ""
+
+
+@dataclass(frozen=True)
+class CollectorSettings:
+    """Centralized background collector (one OData query per cycle)."""
+
+    enabled: bool = True
+    interval_seconds: int = 300
+    initial_backfill_hours: int = 8
+    lookback_minutes: int = 15
+    max_backoff_seconds: int = 3600
+    recent_activity_minutes: int = 30
+    quantity_semantics: str = "auto"  # auto | interval | cumulative
+    auto_apply_detected_mapping: bool = True
+    probe_recheck_hours: int = 24
+    record_retention_days: int = 30
+    dashboard_poll_seconds: int = 30
+
+
+_COLLECTOR_RANGES: dict[str, tuple[int, int]] = {
+    "interval_seconds": (300, 3600),
+    "initial_backfill_hours": (1, 72),
+    "lookback_minutes": (0, 240),
+    "max_backoff_seconds": (300, 86_400),
+    "recent_activity_minutes": (5, 1440),
+    "probe_recheck_hours": (1, 720),
+    "record_retention_days": (1, 365),
+    "dashboard_poll_seconds": (10, 300),
+}
 
 
 @dataclass(frozen=True)
@@ -125,6 +156,7 @@ class Config:
     limits: Limits
     retention: Retention
     analytics: AnalyticsSettings
+    collector: CollectorSettings = field(default_factory=CollectorSettings)
     field_mapping: dict[str, str | None] = field(default_factory=dict)
     base_dir: Path = BASE_DIR
 
@@ -212,8 +244,8 @@ def _validate_odata(odata: ODataSettings) -> None:
         raise ConfigError("odata.base_url no debe incluir parámetros, fragmentos ni credenciales.")
     if odata.entity_set != ALLOWED_ENTITY_SET:
         raise ConfigError(f"Solo está autorizada la entidad {ALLOWED_ENTITY_SET}.")
-    if odata.auth_mode not in ("none", "windows_negotiate"):
-        raise ConfigError("odata.auth_mode debe ser 'none' o 'windows_negotiate'.")
+    if odata.auth_mode not in ("auto", "none", "windows_negotiate"):
+        raise ConfigError("odata.auth_mode debe ser 'auto', 'none' o 'windows_negotiate'.")
 
 
 def load_config(path: Path | None = None, overrides: dict[str, Any] | None = None,
@@ -256,6 +288,14 @@ def load_config(path: Path | None = None, overrides: dict[str, Any] | None = Non
     retention = _build_section(Retention, raw.get("retention", {}), "retention")
     analytics = _build_section(AnalyticsSettings, raw.get("analytics", {}), "analytics")
 
+    collector = _build_section(CollectorSettings, raw.get("collector", {}), "collector")
+    for key, (low, high) in _COLLECTOR_RANGES.items():
+        value = getattr(collector, key)
+        if not low <= value <= high:
+            raise ConfigError(f"collector.{key}={value} está fuera del rango permitido [{low}, {high}].")
+    if collector.quantity_semantics not in ("auto", "interval", "cumulative"):
+        raise ConfigError("collector.quantity_semantics debe ser 'auto', 'interval' o 'cumulative'.")
+
     mapping_raw = raw.get("field_mapping", {}) or {}
     if not isinstance(mapping_raw, dict):
         raise ConfigError("field_mapping debe ser un objeto.")
@@ -267,4 +307,4 @@ def load_config(path: Path | None = None, overrides: dict[str, Any] | None = Non
         mapping[role] = value or None
 
     return Config(app=app, odata=odata, limits=limits, retention=retention,
-                  analytics=analytics, field_mapping=mapping, base_dir=base_dir or BASE_DIR)
+                  analytics=analytics, collector=collector, field_mapping=mapping, base_dir=base_dir or BASE_DIR)

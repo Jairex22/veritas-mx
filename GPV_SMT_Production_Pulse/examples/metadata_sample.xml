@@ -18,6 +18,9 @@
         <Property Name="LineName" Type="Edm.String" MaxLength="40"/>
         <Property Name="StationName" Type="Edm.String" MaxLength="60"/>
         <Property Name="ShiftName" Type="Edm.String" MaxLength="20"/>
+        <Property Name="ProjectName" Type="Edm.String" MaxLength="40"/>
+        <Property Name="WorkOrder" Type="Edm.String" MaxLength="30"/>
+        <Property Name="ProductName" Type="Edm.String" MaxLength="40"/>
         <Property Name="GoodCount" Type="Edm.Int32"/>
         <Property Name="RejectCount" Type="Edm.Int32"/>
         <NavigationProperty Name="SimulatedDetails" Type="Collection(Demo.Simulated.SimulatedDetail)"/>

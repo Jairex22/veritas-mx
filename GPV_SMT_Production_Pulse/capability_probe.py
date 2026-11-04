@@ -2,7 +2,7 @@
 
 Executed ONLY when an administrator presses "Probar compatibilidad" (or automatically in
 DEMO mode against the simulator). Every probe uses ``$top=1``; the full sequence is at most
-seven GET requests and can only run once per ``MIN_PROBE_INTERVAL_SECONDS``.
+eight GET requests and can only run once per ``MIN_PROBE_INTERVAL_SECONDS``.
 
 A probe result is one of:
 * ``ok``          - the server answered 200 and the result is consistent with the option.
@@ -28,7 +28,8 @@ from timeutil import PlantClock, iso_utc, parse_odata_datetime, utc_now
 PROBE_LABELS_ES: dict[str, str] = {
     "top": "Límite de registros ($top)",
     "select": "Selección de campos ($select)",
-    "orderby": "Orden por fecha ($orderby)",
+    "orderby": "Orden descendente por fecha ($orderby desc)",
+    "orderby_asc": "Orden ascendente por fecha ($orderby asc)",
     "filter_date": "Filtro por rango de fecha ($filter)",
     "filter_line": "Filtro por línea ($filter)",
     "filter_station": "Filtro por estación ($filter)",
@@ -87,7 +88,7 @@ def run_probes(client: ODataClient, schema: EntitySchema, mapping: dict[str, str
         res = client.query(spec, session_id, enforce_spacing=False)
         if res.status in _ABORT:
             aborted_reason = res.message
-            results[name] = _result(name, "not_tested", res.message, res)
+            results[name] = _result(name, "not_tested", f"Secuencia detenida: {res.message}", res)
             return None
         return res
 
@@ -128,8 +129,13 @@ def run_probes(client: ODataClient, schema: EntitySchema, mapping: dict[str, str
         if res is not None:
             results["orderby"] = _result("orderby", "ok" if res.ok else "failed",
                                          "El servidor aceptó el orden descendente por fecha." if res.ok else res.message, res)
+        res = run("orderby_asc", QuerySpec(top=1, orderby=(ts_prop.name, "asc")))
+        if res is not None:
+            results["orderby_asc"] = _result("orderby_asc", "ok" if res.ok else "failed",
+                                             "El servidor aceptó el orden ascendente por fecha." if res.ok else res.message, res)
     else:
         results["orderby"] = _result("orderby", "not_tested", "Campo de fecha no confirmado.")
+        results["orderby_asc"] = _result("orderby_asc", "not_tested", "Campo de fecha no confirmado.")
 
     # 4. date range filter (last 24 h)
     if ts_prop:
@@ -189,6 +195,11 @@ def run_probes(client: ODataClient, schema: EntitySchema, mapping: dict[str, str
         else:
             results[name] = _result(name, "failed", "El servidor devolvió registros que no coinciden: el filtro no se aplicó.", res)
     return results
+
+
+def was_aborted(results: dict[str, ProbeResult]) -> bool:
+    """True when the sequence stopped because the server/auth failed (results are not evidence)."""
+    return any(r.detail.startswith("Secuencia detenida") for r in results.values())
 
 
 def probes_to_json(results: dict[str, ProbeResult]) -> dict[str, dict[str, Any]]:

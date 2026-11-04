@@ -1,4 +1,60 @@
-# Arquitectura — GPV SMT Production Pulse v1.0.0
+# Arquitectura — GPV SMT Production Pulse v1.1.0
+
+## Novedades v1.1: recolector automático
+
+```
+                 ┌──────────── proceso único (py app.py --live) ────────────┐
+FactoryLogix ◄── │ collector.py  (1 hilo, lock de SO, 1 GET / 300 s)        │
+   OData         │      │ upsert sin duplicados + revisiones                │
+                 │      ▼                                                    │
+                 │ SQLite: production_records · record_revisions ·           │
+                 │         collector_runs · application_settings             │
+                 │      ▲                                                    │
+                 │ live_metrics.py / pulse_service.py (solo lectura local)   │
+                 │      ▲                                                    │
+                 │ app.py  /api/monitor  /api/query (local)  /api/compare-local
+                 └──────┼────────────────────────────────────────────────────┘
+                        │ fetch cada 30 s (JSON local, sin recargar la página)
+                 navegadores (N usuarios → 0 consultas OData adicionales)
+```
+
+**Ciclo del recolector** (`collector.Collector.tick`):
+
+1. *Validación* (al iniciar, tras un HTTP 400/404 o cada `probe_recheck_hours` si estaba bloqueado):
+   `$metadata` → mapeo (confirmado / `config.json` / auto-detectado y señalado) → sondas `$top=1`.
+   Si `$top` o el filtro de fecha no están comprobados → **bloqueado**, no se envía nada.
+2. *Recolección*: `GET ProductivityOverTime?$select=…&$filter=<fecha> ge A and <fecha> lt B&$orderby=<fecha> asc&$top=50`
+   (`$select`/`$orderby` solo si están comprobados). Ventana `A = min(cursor, ahora − lookback)`, `B = ahora`.
+3. *Página completa* con orden ascendente comprobado → el siguiente ciclo continúa desde el registro
+   más reciente recibido (**sincronización por cursor**: sigue siendo 1 consulta por ciclo; nunca se
+   sigue `nextLink`). Sin orden comprobado → se registra un hueco visible.
+4. *Persistencia*: `production_records` (1 fila por clave de entidad, último contenido),
+   `record_revisions` (cada lectura nueva o modificada: historial de lecturas), `collector_runs`
+   (bitácora de cada ciclo con ventana, HTTP, ms, recibidos/nuevos/actualizados/sin cambio y una
+   instantánea de métricas para calcular el incremento entre lecturas).
+5. *Errores*: 401/403/5xx/timeout/desconexión → se conservan los datos, advertencia en el monitor y
+   espera `300 · 2ⁿ` s (máx. `max_backoff_seconds`; errores de autenticación empiezan en 600 s).
+   El circuit breaker del cliente es una segunda barrera. Las sondas interrumpidas por caída del
+   servidor no se guardan como evidencia y no se repiten hasta el siguiente intento programado.
+
+**Instancia única**: `SingleInstanceLock` (`msvcrt.locking` en Windows, `fcntl.flock` en otros) sobre
+`data/collector_<modo>.lock`; una segunda instancia termina antes de abrir el puerto o consultar.
+
+**Semántica de la cantidad** (`live_metrics`): `interval` (se suma), `cumulative` (diferencia entre
+lecturas consecutivas por línea+estación, reinicio si baja, sin lectura base = desconocido) o
+`undetermined` (no se calculan unidades). Con `auto` se detecta por patrón y se rotula como
+pendiente de confirmar.
+
+**Tiempos**: *hora de consulta* (`collector_runs.started_at`, `last_success_at`) y *hora de producción*
+(campo de fecha de cada registro) se guardan y muestran por separado; el monitor muestra la
+antigüedad del registro más reciente y la diferencia con la última consulta. Durante la
+sincronización, las horas posteriores al cursor se marcan como incompletas y no entran en la
+tendencia.
+
+**Modo recolector en la interfaz**: Monitor, Consulta histórica, Tendencias y Reportes leen solo
+SQLite (`PulseService.collector_mode`); los filtros por línea/estación/turno se aplican localmente.
+Las únicas solicitudes adicionales son las acciones explícitas de administrador en "Estado de
+conexión" (limitadas en frecuencia).
 
 ## Decisiones principales
 

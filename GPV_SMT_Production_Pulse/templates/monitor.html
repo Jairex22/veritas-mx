@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monitor | GPV SMT Production Pulse</title>
+<link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body data-mode="{{DATA_MODE}}" data-page="monitor">
+<header class="app-header">
+  <div class="header-inner">
+    <div class="brand">
+      <span class="brand-title">GPV Americas<span class="sep">|</span>SMT Production Pulse</span>
+      <span class="brand-sub">Monitoreo inteligente de productividad de SMT.</span>
+    </div>
+    <nav class="nav" aria-label="Navegación principal">
+      <a href="/" data-nav="monitor">Monitor</a>
+      <a href="/production" data-nav="index">Consulta histórica</a>
+      <a href="/dashboard" data-nav="dashboard">Tendencias</a>
+      <a href="/reports" data-nav="reports">Reportes</a>
+      <a href="/diagnostics" data-nav="diagnostics">Estado de conexión</a>
+    </nav>
+    <div class="header-status" aria-live="polite"><span id="header-chip" class="chip chip-idle">Iniciando</span></div>
+  </div>
+</header>
+<div class="demo-banner" role="status">MODO DEMOSTRACIÓN — Datos simulados. No provienen de FactoryLogix.</div>
+<main>
+
+<section class="statusbar" id="mon-status" aria-live="polite">
+  <span id="mon-chip" class="chip chip-idle">Cargando</span>
+  <span class="msg" id="mon-msg">Leyendo el estado del recolector…</span>
+  <span class="when" id="mon-when"></span>
+</section>
+<div id="mon-warnings"></div>
+
+<div class="cards" id="mon-cards"></div>
+
+<div class="grid grid-2">
+  <section class="panel">
+    <div class="panel-head"><h2>Producción por hora (hoy)</h2><span class="muted small" id="mon-series-unit"></span></div>
+    <div class="chart" id="mon-chart"></div>
+    <div class="legend"><span class="lg-navy">Hora completa</span><span class="lg-gray">En curso / sin sincronizar</span></div>
+  </section>
+  <section class="panel">
+    <div class="panel-head"><h2>Líneas SMT</h2><span class="muted small" id="mon-lines-note"></span></div>
+    <div id="mon-lines-empty" class="note hidden"></div>
+    <div class="table-wrap"><table id="mon-lines"><thead><tr><th>Línea</th><th class="num">Unidades hoy</th><th class="num" id="mon-recent-head">Recientes</th><th>Último registro (producción)</th><th>Estado</th></tr></thead><tbody></tbody></table></div>
+  </section>
+</div>
+
+<div class="grid grid-3" id="mon-dims"></div>
+
+<section class="panel">
+  <div class="panel-head"><h2>Origen y tiempos de los datos</h2><span class="muted small">Hora de consulta ≠ hora de producción</span></div>
+  <div class="stat-tiles" id="mon-times"></div>
+  <p class="note" id="mon-semantics"></p>
+  <p class="note">El tablero se actualiza leyendo la base local cada pocos segundos; solo el recolector consulta FactoryLogix (una consulta por ciclo), sin importar cuántos navegadores estén abiertos. FactoryLogix puede registrar la producción con retraso: la hora del último registro indica hasta dónde llegan los datos recibidos, no la hora actual de la línea.</p>
+</section>
+
+<section class="panel">
+  <h2>Últimas lecturas del recolector</h2>
+  <div class="table-wrap mt-8"><table id="mon-runs"><thead><tr><th>Inicio</th><th>Tipo</th><th>Resultado</th><th class="num">HTTP</th><th class="num">ms</th><th class="num">Recibidos</th><th class="num">Nuevos</th><th class="num">Actualizados</th><th class="num">Sin cambio</th><th>Ventana (UTC)</th><th>Nota</th></tr></thead><tbody></tbody></table></div>
+</section>
+</main>
+<div class="footer">GPV SMT Production Pulse v{{APP_VERSION}} · Solo lectura · Entidad autorizada: ProductivityOverTime</div>
+<script src="/static/js/app.js" defer></script>
+<script src="/static/js/charts.js" defer></script>
+<script src="/static/js/monitor.js" defer></script>
+</body>
+</html>

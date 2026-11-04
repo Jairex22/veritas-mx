@@ -19,7 +19,7 @@ from typing import Any
 
 from timeutil import iso_utc, utc_now
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _DDL = """
 CREATE TABLE IF NOT EXISTS odata_cache (
@@ -69,6 +69,66 @@ CREATE TABLE IF NOT EXISTS saved_reports (
     snapshot_json  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ix_reports_generated ON saved_reports(generated_at);
+
+-- Collector: one row per distinct OData record (identity = entity key), latest content.
+CREATE TABLE IF NOT EXISTS production_records (
+    record_key     TEXT PRIMARY KEY,
+    data_mode      TEXT NOT NULL CHECK (data_mode IN ('demo', 'live')),
+    production_ts  TEXT NOT NULL,          -- production time (from the record), UTC ISO
+    line           TEXT,
+    station        TEXT,
+    shift          TEXT,
+    project        TEXT,
+    work_order     TEXT,
+    product        TEXT,
+    quantity       REAL,
+    raw_json       TEXT NOT NULL,
+    content_hash   TEXT NOT NULL,
+    first_seen_at  TEXT NOT NULL,          -- query time of the first reading
+    last_seen_at   TEXT NOT NULL,          -- query time of the latest reading
+    last_changed_at TEXT NOT NULL,
+    revision_count INTEGER NOT NULL DEFAULT 1,
+    schema_hash    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_records_ts ON production_records(production_ts);
+CREATE INDEX IF NOT EXISTS ix_records_line_ts ON production_records(line, production_ts);
+
+-- History of readings: a row each time a record is first seen or its content changes.
+CREATE TABLE IF NOT EXISTS record_revisions (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    record_key    TEXT NOT NULL,
+    run_id        INTEGER NOT NULL,
+    seen_at       TEXT NOT NULL,
+    quantity      REAL,
+    previous_quantity REAL,
+    content_hash  TEXT NOT NULL,
+    raw_json      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_revisions_key ON record_revisions(record_key, id);
+CREATE INDEX IF NOT EXISTS ix_revisions_seen ON record_revisions(seen_at);
+
+CREATE TABLE IF NOT EXISTS collector_runs (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    data_mode        TEXT NOT NULL,
+    started_at       TEXT NOT NULL,
+    finished_at      TEXT,
+    kind             TEXT NOT NULL,        -- collect | metadata | probes | blocked | skipped
+    status           TEXT NOT NULL,
+    http_status      INTEGER,
+    elapsed_ms       REAL,
+    window_start     TEXT,
+    window_end       TEXT,
+    relative_url     TEXT,
+    records_received INTEGER DEFAULT 0,
+    inserted         INTEGER DEFAULT 0,
+    updated          INTEGER DEFAULT 0,
+    unchanged        INTEGER DEFAULT 0,
+    truncated        INTEGER DEFAULT 0,
+    message          TEXT,
+    error_detail     TEXT,
+    metrics_json     TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_runs_started ON collector_runs(started_at);
 
 CREATE TABLE IF NOT EXISTS application_settings (
     key        TEXT PRIMARY KEY,
@@ -303,6 +363,162 @@ class Database:
         with self._lock, self._conn:
             self._conn.execute("DELETE FROM application_settings WHERE key = ?", (key,))
 
+
+    # ------------------------------------------------------------------ collector
+    def start_run(self, kind: str, now: datetime | None = None) -> int:
+        with self._lock, self._conn:
+            cur = self._conn.execute(
+                "INSERT INTO collector_runs (data_mode, started_at, kind, status) VALUES (?,?,?,?)",
+                (self.data_mode, _now_iso(now), kind, "running"))
+            return int(cur.lastrowid)
+
+    def finish_run(self, run_id: int, **fields: Any) -> None:
+        allowed = {"status", "http_status", "elapsed_ms", "window_start", "window_end", "relative_url",
+                   "records_received", "inserted", "updated", "unchanged", "truncated", "message",
+                   "error_detail", "metrics_json", "kind"}
+        fields = {k: v for k, v in fields.items() if k in allowed}
+        if "metrics_json" in fields and not isinstance(fields["metrics_json"], (str, type(None))):
+            fields["metrics_json"] = json.dumps(fields["metrics_json"], ensure_ascii=False)
+        fields["finished_at"] = fields.pop("finished_at", None) or _now_iso()
+        cols = ", ".join(f"{k} = ?" for k in fields)
+        with self._lock, self._conn:
+            self._conn.execute(f"UPDATE collector_runs SET {cols} WHERE id = ?", (*fields.values(), run_id))
+
+    def list_runs(self, limit: int = 20, kind: str | None = None) -> list[dict[str, Any]]:
+        sql = "SELECT * FROM collector_runs"
+        args: tuple[Any, ...] = ()
+        if kind:
+            sql += " WHERE kind = ?"
+            args = (kind,)
+        sql += " ORDER BY id DESC LIMIT ?"
+        with self._lock:
+            rows = self._conn.execute(sql, (*args, int(limit))).fetchall()
+        out = []
+        for row in rows:
+            data = dict(row)
+            data["metrics"] = json.loads(data.pop("metrics_json")) if data.get("metrics_json") else None
+            data["truncated"] = bool(data.get("truncated"))
+            out.append(data)
+        return out
+
+    def last_successful_collect(self) -> dict[str, Any] | None:
+        runs = self.successful_collects(1)
+        return runs[0] if runs else None
+
+    def _run_by_id(self, run_id: int) -> dict[str, Any] | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM collector_runs WHERE id = ?", (run_id,)).fetchone()
+        if not row:
+            return None
+        data = dict(row)
+        data["metrics"] = json.loads(data.pop("metrics_json")) if data.get("metrics_json") else None
+        data["truncated"] = bool(data.get("truncated"))
+        return data
+
+    def successful_collects(self, limit: int = 2) -> list[dict[str, Any]]:
+        with self._lock:
+            ids = [r[0] for r in self._conn.execute(
+                "SELECT id FROM collector_runs WHERE kind = 'collect' AND status = 'ok' ORDER BY id DESC LIMIT ?",
+                (int(limit),)).fetchall()]
+        return [r for r in (self._run_by_id(i) for i in ids) if r]
+
+    def upsert_records(self, run_id: int, rows: list[dict[str, Any]], schema_hash: str,
+                       now: datetime | None = None) -> dict[str, int]:
+        """Insert new records, update changed ones (keeping a revision), ignore identical ones."""
+        seen_at = _now_iso(now)
+        counts = {"inserted": 0, "updated": 0, "unchanged": 0}
+        with self._lock, self._conn:
+            for row in rows:
+                existing = self._conn.execute(
+                    "SELECT content_hash, quantity FROM production_records WHERE record_key = ?",
+                    (row["record_key"],)).fetchone()
+                values = (row["production_ts"], row.get("line"), row.get("station"), row.get("shift"),
+                          row.get("project"), row.get("work_order"), row.get("product"), row.get("quantity"),
+                          row["raw_json"], row["content_hash"])
+                if existing is None:
+                    self._conn.execute(
+                        """INSERT INTO production_records (record_key, data_mode, production_ts, line, station, shift,
+                               project, work_order, product, quantity, raw_json, content_hash, first_seen_at,
+                               last_seen_at, last_changed_at, revision_count, schema_hash)
+                           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)""",
+                        (row["record_key"], self.data_mode, *values, seen_at, seen_at, seen_at, schema_hash))
+                    self._conn.execute(
+                        """INSERT INTO record_revisions (record_key, run_id, seen_at, quantity, previous_quantity,
+                               content_hash, raw_json) VALUES (?,?,?,?,?,?,?)""",
+                        (row["record_key"], run_id, seen_at, row.get("quantity"), None, row["content_hash"], row["raw_json"]))
+                    counts["inserted"] += 1
+                elif existing["content_hash"] != row["content_hash"]:
+                    self._conn.execute(
+                        """UPDATE production_records SET production_ts=?, line=?, station=?, shift=?, project=?,
+                               work_order=?, product=?, quantity=?, raw_json=?, content_hash=?, last_seen_at=?,
+                               last_changed_at=?, revision_count = revision_count + 1, schema_hash=?
+                           WHERE record_key = ?""",
+                        (*values, seen_at, seen_at, schema_hash, row["record_key"]))
+                    self._conn.execute(
+                        """INSERT INTO record_revisions (record_key, run_id, seen_at, quantity, previous_quantity,
+                               content_hash, raw_json) VALUES (?,?,?,?,?,?,?)""",
+                        (row["record_key"], run_id, seen_at, row.get("quantity"), existing["quantity"],
+                         row["content_hash"], row["raw_json"]))
+                    counts["updated"] += 1
+                else:
+                    self._conn.execute("UPDATE production_records SET last_seen_at = ? WHERE record_key = ?",
+                                       (seen_at, row["record_key"]))
+                    counts["unchanged"] += 1
+        return counts
+
+    def query_records(self, start_utc: str, end_utc: str, filters: dict[str, str | None] | None = None,
+                      limit: int = 50_000) -> list[dict[str, Any]]:
+        """Stored records with production_ts in [start, end), optional equality filters on dimensions."""
+        sql = "SELECT * FROM production_records WHERE production_ts >= ? AND production_ts < ?"
+        args: list[Any] = [start_utc, end_utc]
+        for column, value in (filters or {}).items():
+            if value is None:
+                continue
+            if column not in ("line", "station", "shift", "project", "work_order", "product"):
+                raise ValueError("invalid filter column")
+            sql += f" AND {column} = ?"
+            args.append(value)
+        sql += " ORDER BY production_ts ASC, record_key ASC LIMIT ?"
+        args.append(int(limit))
+        with self._lock:
+            rows = self._conn.execute(sql, args).fetchall()
+        return [dict(r) for r in rows]
+
+    def record_stats(self) -> dict[str, Any]:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COUNT(*), MAX(production_ts), MIN(production_ts), MAX(last_changed_at) FROM production_records"
+            ).fetchone()
+            revisions = self._conn.execute("SELECT COUNT(*) FROM record_revisions").fetchone()[0]
+        return {"records": row[0], "latest_production_ts": row[1], "earliest_production_ts": row[2],
+                "latest_change_at": row[3], "revisions": revisions}
+
+    def distinct_values(self, column: str, limit: int = 200) -> list[str]:
+        if column not in ("line", "station", "shift", "project", "work_order", "product"):
+            raise ValueError("invalid column")
+        with self._lock:
+            rows = self._conn.execute(
+                f"SELECT DISTINCT {column} FROM production_records WHERE {column} IS NOT NULL ORDER BY {column} LIMIT ?",
+                (int(limit),)).fetchall()
+        return [r[0] for r in rows]
+
+    def recent_revisions(self, since_iso: str, limit: int = 1000) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._conn.execute(
+                """SELECT r.record_key, r.run_id, r.seen_at, r.quantity, r.previous_quantity, p.line, p.production_ts
+                   FROM record_revisions r JOIN production_records p ON p.record_key = r.record_key
+                   WHERE r.seen_at >= ? ORDER BY r.id DESC LIMIT ?""", (since_iso, int(limit))).fetchall()
+        return [dict(r) for r in rows]
+
+    def cleanup_collector(self, record_retention_days: int, now: datetime | None = None) -> dict[str, int]:
+        now = now or utc_now()
+        limit = _now_iso(now - timedelta(days=record_retention_days))
+        with self._lock, self._conn:
+            revs = self._conn.execute("DELETE FROM record_revisions WHERE seen_at < ?", (limit,)).rowcount
+            recs = self._conn.execute("DELETE FROM production_records WHERE production_ts < ?", (limit,)).rowcount
+            runs = self._conn.execute("DELETE FROM collector_runs WHERE started_at < ?", (limit,)).rowcount
+        return {"records": recs, "revisions": revs, "runs": runs}
+
     # ------------------------------------------------------------------ maintenance
     def size_bytes(self) -> int:
         total = 0
@@ -332,13 +548,19 @@ class Database:
         while self.size_bytes() > limit and guard < 20:
             guard += 1
             with self._lock, self._conn:
-                count = self._conn.execute("SELECT COUNT(*) FROM odata_cache").fetchone()[0]
-                if count == 0:
+                trimmed = 0
+                # Oldest data first: cached responses, then reading history, then records.
+                for table, order in (("odata_cache", "fetched_at"), ("record_revisions", "seen_at"),
+                                     ("production_records", "production_ts")):
+                    count = self._conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+                    if count:
+                        key = "record_key" if table == "production_records" else "id"
+                        trimmed = self._conn.execute(
+                            f"DELETE FROM {table} WHERE {key} IN (SELECT {key} FROM {table} ORDER BY {order} ASC LIMIT ?)",
+                            (max(1, count // 4),)).rowcount
+                        break
+                if not trimmed:
                     break
-                trimmed = self._conn.execute(
-                    """DELETE FROM odata_cache WHERE id IN (
-                           SELECT id FROM odata_cache ORDER BY fetched_at ASC LIMIT ?)""",
-                    (max(1, count // 4),)).rowcount
                 removed["size_trim"] += trimmed
             self.vacuum()
         if any(removed.values()):

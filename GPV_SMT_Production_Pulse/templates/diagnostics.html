@@ -14,7 +14,8 @@
       <span class="brand-sub">Monitoreo inteligente de productividad de SMT.</span>
     </div>
     <nav class="nav" aria-label="Navegación principal">
-      <a href="/" data-nav="index">Producción</a>
+      <a href="/" data-nav="monitor">Monitor</a>
+      <a href="/production" data-nav="index">Consulta histórica</a>
       <a href="/dashboard" data-nav="dashboard">Tendencias</a>
       <a href="/reports" data-nav="reports">Reportes</a>
       <a href="/diagnostics" data-nav="diagnostics">Estado de conexión</a>
@@ -62,7 +63,7 @@
     <h2>Compatibilidad de consultas</h2>
     <button type="button" class="btn btn-primary" id="btn-probe">Probar compatibilidad</button>
   </div>
-  <p class="note">Ejecuta como máximo 7 consultas de lectura con <span class="mono">$top=1</span>, separadas en el tiempo, una sola vez por periodo de espera configurado. “Declarado” = existe en metadata · “Anunciado” = anotaciones lo indican · “Comprobado” = el servidor respondió correctamente.</p>
+  <p class="note">Ejecuta como máximo 8 consultas de lectura con <span class="mono">$top=1</span>, separadas en el tiempo, una sola vez por periodo de espera configurado. “Declarado” = existe en metadata · “Anunciado” = anotaciones lo indican · “Comprobado” = el servidor respondió correctamente.</p>
   <div class="table-wrap"><table id="probes-table"><thead><tr><th>Opción</th><th>Estado</th><th>Detalle</th><th>HTTP</th><th>Consulta enviada</th></tr></thead><tbody></tbody></table></div>
   <div id="probe-msg"></div>
 </section>

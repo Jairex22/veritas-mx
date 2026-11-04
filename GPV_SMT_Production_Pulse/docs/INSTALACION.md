@@ -1,133 +1,150 @@
-# Manual de instalación — GPV SMT Production Pulse v1.0.0
+# Manual de instalación — GPV SMT Production Pulse v1.1.0
 
-Requisitos: Windows 11, Python 3.11 o superior (probado con 3.14), cuenta estándar sin
-privilegios de administrador. No se usan instaladores MSI, `.bat`, `.exe`, PowerShell, Node.js
-ni Docker. La aplicación no necesita bibliotecas externas.
+Windows 11 · Python 3.11 o superior (probado con 3.14) · cuenta estándar **sin permisos de
+administrador** · sin Docker, npm, instaladores MSI, `.bat`, `.exe` ni PowerShell sin firmar.
 
-## 1. Descomprimir el ZIP
+Todos los comandos se escriben en una terminal: **Visual Studio Code → Terminal → Nueva terminal**,
+o la aplicación **Terminal / Símbolo del sistema** de Windows.
 
-Clic derecho sobre `GPV_SMT_Production_Pulse_v1.0.0.zip` → **Extraer todo…** → elegir una carpeta
-del usuario, por ejemplo `C:\Users\<usuario>\Apps\`. Se crea la carpeta `GPV_SMT_Production_Pulse`.
+## 1. Descomprimir
 
-> Evita carpetas sincronizadas (OneDrive) para la carpeta `data\`: SQLite funciona mejor en disco local.
+Clic derecho sobre `GPV_SMT_Production_Pulse_v1.1.0.zip` → **Extraer todo…** → por ejemplo
+`C:\Users\<usuario>\Apps\`. Usa un disco local (no una carpeta sincronizada de OneDrive).
 
-## 2. Abrir la carpeta
+```bat
+cd %USERPROFILE%\Apps\GPV_SMT_Production_Pulse
+```
 
-En Visual Studio Code: **Archivo → Abrir carpeta…** → `GPV_SMT_Production_Pulse`.
-Abre una terminal con **Terminal → Nueva terminal** (se abre en la carpeta del proyecto).
-
-## 3. Verificar Python
+## 2. Verificar Python
 
 ```bat
 py --version
 ```
 
-Debe mostrar `Python 3.11` o superior (por ejemplo `Python 3.14.7`). Si `py` no existe, prueba
-`python --version`. Si no hay Python, solicita a TI la instalación por usuario desde python.org
-("Install for me only", no requiere administrador).
+Debe mostrar `Python 3.11` o superior (por ejemplo `Python 3.14.7`). Si `py` no existe, usa
+`python --version`. Sin Python: instalador de python.org con la opción "Install for me only"
+(no requiere administrador).
 
-## 4. Instalar dependencias (solo si hace falta)
+## 3. Autenticación Windows integrada (opcional, solo si TI la aprueba)
 
-**No hay dependencias obligatorias.** Únicamente en estos casos opcionales:
-
-| Caso | Comando (por usuario, sin administrador) |
-|---|---|
-| TI aprueba autenticación Windows integrada | `py -m pip install --user -r requirements-windows-auth.txt` |
-| Se configura `analytics.plant_timezone` con nombre IANA | `py -m pip install --user tzdata` |
-
-Una vez instaladas, funcionan sin conexión a internet. Si pip requiere proxy, TI debe indicarlo;
-no desactives controles de seguridad corporativos.
-
-## 5. Ejecutar la aplicación
+La aplicación **no tiene dependencias obligatorias**. Si el servidor exige autenticación de Windows
+(responde HTTP 401), instala estas dos bibliotecas **para tu usuario**:
 
 ```bat
-py app.py
+py -m pip install --user -r requirements-windows-auth.txt
 ```
 
-Por defecto `config.json` inicia en modo DEMO. Opciones:
+Con `"auth_mode": "auto"` (valor por defecto en `config.json`) la aplicación usa tu sesión de Windows
+(Negotiate/NTLM mediante SSPI) **solo si estas bibliotecas están instaladas**; las credenciales se
+presentan únicamente cuando el servidor las solicita. **No se escribe ni guarda ninguna contraseña.**
+Valores posibles: `"auto"`, `"windows_negotiate"` (obligatoria) y `"none"` (nunca).
+
+## 4. Revisar `config.json`
+
+Valores ya configurados para GPV:
+
+```json
+"app":   { "mode": "live", "host": "127.0.0.1", "port": 8765 },
+"odata": { "base_url": "http://10.62.54.10:6065/odata/", "entity_set": "ProductivityOverTime",
+           "auth_mode": "auto", "use_system_proxy": false },
+"collector": { "enabled": true, "interval_seconds": 300, "initial_backfill_hours": 8,
+               "lookback_minutes": 15, "max_backoff_seconds": 3600, "recent_activity_minutes": 30,
+               "quantity_semantics": "auto", "auto_apply_detected_mapping": true }
+```
+
+* `interval_seconds` admite valores de 300 a 3600: **nunca menos de 5 minutos**.
+* `quantity_semantics`: cuando MES confirme el significado del campo de cantidad, cambia `"auto"`
+  por `"interval"` (cantidad por periodo) o `"cumulative"` (contador acumulado).
+* `field_mapping`: si MES confirma los nombres de los campos, puedes escribirlos aquí (por ejemplo
+  `"line": "NombreRealDelCampo"`) o confirmarlos desde la pantalla **Estado de conexión**.
+
+## 5. Ejecutar con el servidor real (recolector automático)
 
 ```bat
-py app.py --demo          :: forzar modo demostración
-py app.py --live          :: usar FactoryLogix
-py app.py --port 8780     :: otro puerto si 8765 está ocupado
-py app.py --open          :: abrir el navegador automáticamente
+py app.py --live
 ```
+
+Abre **http://127.0.0.1:8765** en Edge o Chrome. El recolector se inicia solo:
+
+1. lee `$metadata` (1 solicitud);
+2. identifica los campos y ejecuta las pruebas de compatibilidad (máximo 8 solicitudes `$top=1`, solo
+   la primera vez);
+3. hace **1 consulta cada 300 s** mientras la ventana de la terminal esté abierta, **aunque no haya
+   ningún navegador abierto**.
 
 Detener: `Ctrl + C` en la terminal.
 
-## 6. Abrir en el navegador
+Variantes:
 
-**http://127.0.0.1:8765** (Edge o Chrome). La aplicación solo escucha en `127.0.0.1`: no es
-accesible desde otras computadoras. Exponerla en red requiere autorización de TI, cambiar
-`app.host` y `app.allow_non_localhost`, y controles adicionales (no incluidos en v1.0).
-
-## 7. Activar el modo DEMO
-
-`py app.py --demo` o en `config.json`: `"app": {"mode": "demo"}`. Se muestra la franja
-**MODO DEMOSTRACIÓN** en todas las pantallas y reportes. Los datos simulados se guardan en
-`data\production_pulse_demo.db`, separado de los datos reales (`data\production_pulse.db`).
-
-## 8. Configurar la conexión OData autorizada
-
-Editar `config.json`, sección `odata`:
-
-```json
-"odata": {
-  "base_url": "http://10.62.54.10:6065/odata/",
-  "entity_set": "ProductivityOverTime",
-  "auth_mode": "none",
-  "use_system_proxy": false,
-  "accept_header": "application/json",
-  "append_format_json": false
-}
+```bat
+py app.py --live --port 8780
 ```
 
-* `auth_mode`: `"none"` (acceso anónimo o por red) o `"windows_negotiate"` (usa la sesión
-  Windows del usuario; requiere el paso 4). **Nunca** se escriben usuarios ni contraseñas en
-  `config.json`; la URL no admite credenciales.
-* `use_system_proxy`: `false` para servidores internos (evita enviar tráfico interno al proxy).
-* `append_format_json`: solo si el servidor ignora `Accept: application/json` y responde XML.
-* `entity_set` solo acepta `ProductivityOverTime`.
+```bat
+py app.py --live --no-collector
+```
 
-Los límites (`limits`) ya están en valores conservadores: `MAX_RECORDS=50`,
-`CACHE_TTL_SECONDS=300`, `REQUEST_TIMEOUT_SECONDS=15`, `MAX_CONCURRENT_REQUESTS=1`,
-`MIN_REFRESH_INTERVAL_SECONDS=60`, `AUTO_REFRESH_ENABLED=false`. Son límites iniciales de
-seguridad, no garantías de rendimiento del servidor.
+(`--no-collector`: solo interfaz, sin consultas automáticas.)
 
-## 9. Validar la metadata
+## 6. Modo DEMO (sin FactoryLogix)
 
-Con la aplicación en modo `--live`, abrir **Estado de conexión**:
+```bat
+py app.py --demo
+```
 
-1. **Verificar conexión** → 1 solicitud GET a `$metadata`. Se guarda copia en `data\metadata\`.
-2. Revisar **Propiedades detectadas** (campos reales del servidor).
-3. **Mapeo de campos**: elegir qué propiedad es fecha/hora, cantidad producida, línea, estación y
-   turno. Las sugerencias son solo por nombre; confirmar con el equipo MES. Funciones sin campo
-   quedan como **NO DISPONIBLE**. Presionar **Confirmar mapeo**.
-4. **Probar compatibilidad** → máximo 7 GET con `$top=1` (límite de registros, `$select`,
-   `$orderby`, filtro por fecha, línea, estación, turno).
+Usa un servidor OData simulado y la base separada `data\production_pulse_demo.db`.
 
-Alternativa por línea de comandos (sin iniciar el servidor web):
+## 7. Ejecutar sin ventana y al iniciar sesión (sin administrador)
+
+Para que siga funcionando sin una terminal abierta, usa `pyw` (Python sin consola). Los mensajes
+van a `logs\production_pulse.log`.
+
+```bat
+pyw app.py --live
+```
+
+Para iniciarlo automáticamente al iniciar sesión en Windows (solo para tu usuario):
+
+1. Presiona `Win + R`, escribe `shell:startup` y presiona Enter.
+2. Clic derecho → **Nuevo → Acceso directo**.
+3. Ubicación del elemento (ajusta la ruta de la carpeta):
+   `pyw.exe "%USERPROFILE%\Apps\GPV_SMT_Production_Pulse\app.py" --live`
+4. Nombre: `GPV SMT Production Pulse`. Abre las propiedades del acceso directo y en **Iniciar en**
+   escribe `%USERPROFILE%\Apps\GPV_SMT_Production_Pulse`.
+
+Para detenerlo: **Administrador de tareas → Detalles → pythonw.exe → Finalizar tarea**.
+
+Solo puede existir **un recolector por equipo**: si intentas iniciar una segunda instancia, el
+programa lo indica y termina sin consultar FactoryLogix.
+
+## 8. Validación inicial en GPV
+
+1. **Estado de conexión** → revisar las *Propiedades detectadas* (campos reales del servidor).
+2. Revisar el *Mapeo de campos*: si muestra "Auto-detectado por nombre", confírmalo con MES y presiona
+   **Confirmar mapeo** (corrige los campos si hace falta).
+3. Revisar *Compatibilidad de consultas*: "Límite de registros" y "Filtro por rango de fecha" deben
+   decir **Comprobado**; si no, la recolección queda **bloqueada** y la pantalla explica el motivo.
+4. Registrar los resultados en [VALIDACIONES_PENDIENTES.md](VALIDACIONES_PENDIENTES.md).
+
+Inspección de metadata por línea de comandos (1 solicitud):
 
 ```bat
 py metadata_inspector.py --remote --save
 ```
 
-## 10. Iniciar las primeras consultas reales
+## 9. Pruebas automatizadas
 
-En **Producción**: elegir un periodo corto (un día), presionar **Consultar producción**. Si el
-filtro por fecha no fue comprobado, la consulta se **bloquea** con la explicación (nunca se
-envía una consulta sin filtros). Revisa en **Estado de conexión → Historial** cada URL enviada.
-
-Registra los resultados en [VALIDACIONES_PENDIENTES.md](VALIDACIONES_PENDIENTES.md).
+```bat
+py -m unittest discover -s tests -v
+```
 
 ## Solución de problemas
 
 | Síntoma | Acción |
 |---|---|
-| "No se pudo abrir el puerto 8765" | `py app.py --port 8780` |
-| "Autenticación requerida" (401) | Consultar con TI el mecanismo aprobado; `auth_mode` |
-| "Consultas en pausa" | El circuit breaker se abrió tras errores; espera el tiempo indicado |
-| Pantalla sin estilos | Recargar con `Ctrl+F5` |
-| Revisar errores | `logs\production_pulse.log` (sin credenciales ni encabezados Authorization) |
-
-Ejecutar pruebas: `py -m unittest discover -s tests -v`
+| "Ya hay otra instancia…" | Ya se está ejecutando (revisa `pythonw.exe` en el Administrador de tareas) |
+| "No se pudo abrir el puerto 8765" | `py app.py --live --port 8780` |
+| Error 401 en el monitor | Instalar el paso 3 y confirmar con TI el mecanismo de autenticación |
+| "Recolección bloqueada" | Ver Estado de conexión → motivo (campo de fecha o filtros no comprobados) |
+| "Error: reintento programado" | Servidor sin respuesta: se reintenta con espera creciente (máx. 1 h); los datos previos se conservan |
+| Registro de eventos | `logs\production_pulse.log` (rotativo; sin credenciales ni encabezados Authorization) |

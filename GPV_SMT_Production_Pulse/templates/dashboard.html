@@ -14,7 +14,8 @@
       <span class="brand-sub">Monitoreo inteligente de productividad de SMT.</span>
     </div>
     <nav class="nav" aria-label="Navegación principal">
-      <a href="/" data-nav="index">Producción</a>
+      <a href="/" data-nav="monitor">Monitor</a>
+      <a href="/production" data-nav="index">Consulta histórica</a>
       <a href="/dashboard" data-nav="dashboard">Tendencias</a>
       <a href="/reports" data-nav="reports">Reportes</a>
       <a href="/diagnostics" data-nav="diagnostics">Estado de conexión</a>
@@ -30,7 +31,14 @@
     <h2>Tendencias y comparación de periodos</h2>
     <span class="muted small">Usa solo información guardada en este equipo: no consulta FactoryLogix.</span>
   </div>
-  <div class="filters">
+  <div class="filters hidden" id="local-form">
+    <div class="field"><label for="la-start">Periodo A: inicio</label><input type="date" id="la-start"></div>
+    <div class="field"><label for="la-end">Periodo A: fin</label><input type="date" id="la-end"></div>
+    <div class="field"><label for="lb-start">Periodo B: inicio</label><input type="date" id="lb-start"></div>
+    <div class="field"><label for="lb-end">Periodo B: fin</label><input type="date" id="lb-end"></div>
+    <div class="field"><label for="l-line">Línea (opcional)</label><input type="text" id="l-line" list="dl-lline" maxlength="64" placeholder="Todas"><datalist id="dl-lline"></datalist></div>
+  </div>
+  <div class="filters" id="stored-form">
     <div class="field"><label for="cmp-a">Periodo A</label><select id="cmp-a"></select></div>
     <div class="field"><label for="cmp-b">Periodo B (referencia)</label><select id="cmp-b"></select></div>
     <div class="field"><label for="cmp-interval">Intervalo</label>
@@ -58,7 +66,7 @@
   <section class="panel"><h2>Limitaciones</h2><ul class="list mt-8" id="cmp-limits"></ul></section>
 </section>
 
-<section class="panel">
+<section class="panel" id="stored-panel">
   <div class="panel-head"><h2>Consultas guardadas</h2><span class="muted small" id="stored-count"></span></div>
   <div class="table-wrap"><table id="stored-table"><thead><tr><th>Periodo</th><th>Filtros</th><th>Extraído</th><th class="num">Registros</th><th>Estado</th></tr></thead><tbody></tbody></table></div>
 </section>

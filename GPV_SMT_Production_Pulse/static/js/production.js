@@ -82,7 +82,15 @@
       : "";
 
     const readiness = $("#readiness");
-    if (!status.ready) {
+    if (status.collector_mode) {
+      // All data comes from the local store filled by the background collector.
+      $("#f-force").closest("label").classList.add("hidden");
+      $("#btn-last").classList.add("hidden");
+      clear(readiness).classList.remove("hidden");
+      readiness.className = "alert alert-info";
+      readiness.appendChild(document.createTextNode("Consulta sobre la información local guardada por el recolector automático. " +
+        "Esta pantalla no envía consultas a FactoryLogix; los filtros se aplican sobre los registros guardados."));
+    } else if (!status.ready) {
       clear(readiness).classList.remove("hidden");
       readiness.appendChild(h("strong", { text: "Las consultas a FactoryLogix están bloqueadas hasta completar la validación:" }));
       readiness.appendChild(h("ul", null, status.readiness_reasons.map((r) => h("li", { text: r }))));
@@ -193,11 +201,14 @@
     if (empty) setChip($("#state-chip"), "idle", "Sin registros");
     else if (result.source === "odata") setChip($("#state-chip"), "ok", "Datos disponibles");
     else if (result.source === "cache") setChip($("#state-chip"), "cache", "Información desde caché");
+    else if (result.source === "local") setChip($("#state-chip"), result.is_fresh ? "ok" : "warn", result.is_fresh ? "Datos locales" : "Datos locales no recientes");
     else setChip($("#state-chip"), "warn", "Información guardada");
     const demo = result.data_mode === "demo" ? " (DATOS SIMULADOS)" : "";
     $("#state-msg").textContent = result.message + demo + " · Periodo " + fmtDate(result.query.period.start) + " – " +
       fmtDate(result.query.period.end) + " · " + Pulse.filtersText(result.query.filters);
-    $("#state-when").textContent = "Extraído: " + fmtDateTime(result.fetched_at) + " (" + fmtAge(result.fetched_at) + ")";
+    $("#state-when").textContent = result.fetched_at
+      ? (result.source === "local" ? "Última lectura del recolector: " : "Extraído: ") + fmtDateTime(result.fetched_at) + " (" + fmtAge(result.fetched_at) + ")"
+      : "Sin lecturas del recolector";
     const extra = clear($("#state-extra"));
     if (result.notice) extra.appendChild(alertBox("info", result.notice));
     if (result.warnings && result.warnings.length) extra.appendChild(alertBox("warn", "Atención:", result.warnings));
@@ -211,7 +222,7 @@
     a.limitations.forEach((t) => lim.appendChild(h("li", { text: t })));
     let decoded = result.relative_url;
     try { decoded = decodeURIComponent(result.relative_url); } catch (e) { /* keep raw */ }
-    $("#query-url").textContent = "Consulta OData utilizada: " + decoded;
+    $("#query-url").textContent = decoded ? "Consulta OData utilizada: " + decoded : "Fuente: almacenamiento local SQLite (recolector automático).";
   }
 
   function card(title, status, value, unit, note, extraNode) {
@@ -243,7 +254,7 @@
     const prevText = prev ? "Periodo anterior: " + fmtDate(prev.start) + " – " + fmtDate(prev.end) : "";
     if (t.status === "unavailable") {
       let action = null;
-      if (prev && status && status.ready && result.analytics.total !== null && result.analytics.total !== undefined) {
+      if (prev && status && status.ready && !status.collector_mode && result.analytics.total !== null && result.analytics.total !== undefined) {
         action = h("button", { type: "button", class: "btn btn-sm", text: "Consultar periodo anterior", onclick: () => fetchPrevious(result) });
       }
       return card("Tendencia vs periodo anterior", "unavailable", "—", "", (t.note || "") + " " + prevText, action);
@@ -333,11 +344,16 @@
   // ------------------------------------------------------------------ exports
   async function exportReport(format) {
     if (!current) return;
-    const key = current.cache_id + "|" + current.query.interval;
+    const local = current.source === "local";
+    const key = local ? "local|" + JSON.stringify(current.query) : current.cache_id + "|" + current.query.interval;
     const popup = format === "pdf" ? window.open("about:blank", "_blank") : null;
     let id = reportIds[key];
     if (!id) {
-      const res = await api("/api/reports", { method: "POST", body: { cache_id: current.cache_id, interval: current.query.interval, viewed_source: current.source } });
+      const body = local
+        ? { local_query: Object.assign({ start: current.query.period.start, end: current.query.period.end, interval: current.query.interval },
+          ...Object.entries(current.query.filters).filter(([, v]) => v).map(([k, v]) => ({ [k]: v }))) }
+        : { cache_id: current.cache_id, interval: current.query.interval, viewed_source: current.source };
+      const res = await api("/api/reports", { method: "POST", body });
       if (!res.ok) {
         if (popup) popup.close();
         clear($("#state-extra")).appendChild(alertBox("error", res.message || "No se pudo generar el reporte."));

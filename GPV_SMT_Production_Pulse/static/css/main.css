@@ -99,6 +99,7 @@ main { max-width: 1440px; margin: 0 auto; padding: 18px 20px 40px; }
 }
 .panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 .grid { display: grid; gap: 16px; }
+.grid > *, .cards > *, .stat-tiles > * { min-width: 0; }  /* let wide tables scroll inside their panel */
 .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); margin-bottom: 16px; }
@@ -264,6 +265,7 @@ tbody tr:hover { background: #fafcfe; }
 .lg-green { --c: var(--green-600); }
 .lg-amber { --c: var(--amber-600); }
 .lg-gray { --c: var(--gray-300); }
+#mon-lines td:first-child, #mon-runs td:first-child { white-space: nowrap; }
 .footer { text-align: center; font-size: .78rem; color: var(--gray-500); padding: 16px; }
 
 /* ---------- responsive ---------- */

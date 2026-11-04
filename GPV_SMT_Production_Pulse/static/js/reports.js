@@ -2,7 +2,7 @@
 (function () {
   "use strict";
   const { h, clear, $, api, fmtNumber, fmtDateTime, fmtDate, alertBox } = Pulse;
-  const SOURCE = { odata: "Consulta directa", cache: "Caché vigente", stored: "Información guardada" };
+  const SOURCE = { odata: "Consulta directa", cache: "Caché vigente", stored: "Información guardada", local: "Recolector (datos locales)" };
 
   // ------------------------------------------------------------------ list
   async function loadList() {
@@ -59,7 +59,7 @@
     add("Periodo solicitado", fmtDate(snap.period.start) + " – " + fmtDate(snap.period.end));
     add("Filtros", Pulse.filtersText(snap.filters));
     add("Intervalo", snap.interval_label);
-    add("Extracción OData", fmtDateTime(snap.source.fetched_at));
+    add(snap.source.source === "local" ? "Última lectura del recolector" : "Extracción OData", fmtDateTime(snap.source.fetched_at));
     add("Información desde caché", snap.source.from_cache ? "Sí" : "No (consulta directa)");
     add("Calidad del resultado", Pulse.STATUS_LABELS[snap.analytics.quality] || snap.analytics.quality);
     add("Registros utilizados", String(snap.analytics.records_used) + (snap.analytics.truncated ? " (resultado parcial)" : ""));

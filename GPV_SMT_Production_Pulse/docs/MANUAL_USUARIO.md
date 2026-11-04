@@ -1,8 +1,35 @@
 # Manual de usuario — GPV SMT Production Pulse
 
+## Monitor (pantalla principal)
+
+El **Monitor** (`http://127.0.0.1:8765/`) se actualiza solo, sin recargar la página y sin que el
+operador haga nada. Lee la información que el **recolector automático** guarda cada 5 minutos.
+
+| Elemento | Significado |
+|---|---|
+| ACTUALIZADO | La última lectura de FactoryLogix fue correcta. |
+| SINCRONIZANDO HISTORIAL | Se están recuperando registros pendientes (al iniciar o tras una interrupción). Los totales son *parciales*. |
+| SIN DATOS RECIENTES | No hay producción confirmada en los últimos 30 min (por hora de producción). |
+| ERROR: REINTENTO PROGRAMADO | FactoryLogix no respondió o rechazó la consulta. **Se muestran los últimos datos guardados**, con la advertencia y la hora de la última lectura correcta. |
+| RECOLECCIÓN BLOQUEADA | Falta un campo o un filtro comprobado. Avisar a ingeniería (ver Estado de conexión). |
+
+Tarjetas:
+
+* **Unidades registradas hoy**: producción con hora de producción de hoy (según el campo de cantidad
+  y su semántica: por intervalo o acumulada).
+* **Incremento entre lecturas**: cuánto aumentó la producción registrada entre las dos últimas
+  lecturas (≈5 min). Indica las horas exactas de ambas lecturas.
+* **Tendencia por hora**: última hora completa contra la anterior.
+* **Hora del último registro**: hora de *producción* del dato más reciente recibido y su antigüedad.
+  FactoryLogix puede registrar con retraso: **no es la hora actual de la línea**.
+* **Actividad reciente**: "Con actividad" / "Sin datos recientes" / "Sincronizando".
+
+Tablas de **Líneas SMT**, **Proyecto**, **WO** y **Producto**: aparecen solo si esos campos existen en
+FactoryLogix. "Origen y tiempos" separa la *hora de consulta* de la *hora de producción*.
+
 ## Uso básico (operadores)
 
-1. Abrir **http://127.0.0.1:8765**.
+1. Abrir **http://127.0.0.1:8765/production** (Consulta histórica).
 2. Elegir **Fecha inicial** y **Fecha final** (por defecto: hoy).
 3. Elegir **Línea SMT** si el filtro aparece (escribir o seleccionar de la lista).
 4. Presionar **Consultar producción**.
@@ -16,7 +43,7 @@ funciona**. Si no lo ves, no está disponible todavía.
 
 | Botón | Qué hace |
 |---|---|
-| Consultar producción | Consulta el periodo. Si otra persona consultó lo mismo hace menos de 5 min, se reutiliza la caché (no se molesta al servidor). Se deshabilita mientras consulta. |
+| Consultar producción | Con el recolector activo, consulta la **información local** guardada (no contacta FactoryLogix). Sin recolector, consulta FactoryLogix con caché de 5 min. Se deshabilita mientras consulta. |
 | Ver última consulta | Muestra la última información guardada en este equipo, **sin** consultar FactoryLogix. |
 | Exportar Excel | Descarga un `.xlsx` con hojas Resumen, Datos y Series. |
 | Exportar PDF | Abre la vista de reporte y el cuadro de impresión: elegir **Guardar como PDF**. |
@@ -58,7 +85,8 @@ Si aparece "resultado parcial", reduce el periodo o aplica un filtro de línea.
 
 ## Tendencias
 
-Compara dos consultas guardadas (Periodo A vs Periodo B) por total y por línea. **No consulta
+Con el recolector activo compara dos rangos de fechas (y opcionalmente una línea) usando los
+registros locales. Sin recolector, compara dos consultas guardadas (Periodo A vs Periodo B) por total y por línea. **No consulta
 FactoryLogix**: usa solo información guardada dentro de la política de retención (7 días).
 
 ## Reportes
