@@ -45,12 +45,12 @@
     <h2>Credenciales de FactoryLogix (opcional)</h2>
     <span class="muted small" id="cred-current"></span>
   </div>
-  <p class="note">De forma predeterminada la aplicación entra con <strong>tu sesión de Windows</strong>. Si esa
-  cuenta no tiene permiso sobre ProductivityOverTime, escribe aquí una cuenta de Windows autorizada. La
-  contraseña se usa solo para autenticarte y <strong>se guarda únicamente en memoria</strong> mientras la
-  aplicación está abierta: no se escribe en disco ni en los registros.</p>
+  <p class="note">El servidor de FactoryLogix pide usuario y contraseña. Escríbelos aquí para poder leer los
+  datos. La contraseña se usa solo para autenticarte y <strong>se guarda únicamente en memoria</strong>
+  mientras la aplicación está abierta: no se escribe en disco, ni en <code>config.json</code>, ni en los
+  registros. En Windows, si el servidor usara autenticación integrada, también se intenta con tu sesión.</p>
   <form id="cred-form" class="filters" autocomplete="off">
-    <div class="field"><label for="cred-user">Usuario (o DOMINIO\usuario)</label>
+    <div class="field"><label for="cred-user">Usuario de FactoryLogix</label>
       <input type="text" id="cred-user" name="user" maxlength="128" autocomplete="username"></div>
     <div class="field"><label for="cred-domain">Dominio (opcional)</label>
       <input type="text" id="cred-domain" name="domain" maxlength="128"></div>

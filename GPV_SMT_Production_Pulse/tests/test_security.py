@@ -95,10 +95,9 @@ class ConfigSecurityTests(TempDirMixin, unittest.TestCase):
         self.assertFalse((ROOT / "requirements-windows-auth.txt").exists())
         client = build_client(make_config(self.tmp, odata={"auth_mode": "none"}))
         self.assertEqual(type(client.transport).__name__, "UrllibTransport")
-        # On non-Windows CI, "auto" falls back to anonymous; SSPI is Windows-only.
+        # "auto" uses the authenticating transport (Basic when credentials are entered; SSPI on Windows).
         auto = build_client(make_config(self.tmp, odata={"auth_mode": "auto"}))
-        expected = "SspiHttpTransport" if sspi_auth.sspi_available() else "UrllibTransport"
-        self.assertEqual(type(auto.transport).__name__, expected)
+        self.assertEqual(type(auto.transport).__name__, "AuthHttpTransport")
 
     def test_credentials_never_persisted_or_logged(self):
         import logging, sspi_auth

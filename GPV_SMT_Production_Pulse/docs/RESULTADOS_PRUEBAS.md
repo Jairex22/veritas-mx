@@ -1,10 +1,11 @@
-# Resultados de pruebas automatizadas — v1.1.3
+# Resultados de pruebas automatizadas — v1.1.4
 
 * Fecha de ejecución: 2026-11-04T16:55Z
 * Intérprete: Python 3.14.6 con `-W error::DeprecationWarning`; también Python 3.11: OK. (Entorno Linux de desarrollo; no se ejecutó en Windows.)
 * Comando: `py -m unittest discover -s tests -v`
 * Alcance: servidor OData **simulado** (`demo_source.DemoTransport` y variantes con fallas 401/500/timeout/desconexión/filtros rechazados) y servidores HTTP de prueba en 127.0.0.1.
 * **Autenticación de Windows (SSPI):** la capa `sspi_auth.py` llama a `Secur32.dll` por ctypes y **solo puede ejecutarse en Windows**; en CI (Linux) no se ejecuta. Lo que sí se probó: el intercambio HTTP del handshake (401→token→200) sobre una conexión keep-alive con un proveedor de tokens simulado (`test_sspi.py`), y un flujo extremo a extremo (metadata + pruebas + entidad + ingesta de 6 registros) a través de `SspiHttpTransport` con proveedor simulado contra un servidor local que exige el handshake.
+* **Autenticación real del servidor GPV = HTTP Basic** (usuario/contraseña), confirmado el 04/11/2026 (`WWW-Authenticate: Basic`). Se probó de extremo a extremo con un servidor Basic local y el navegador: sin credenciales el recolector se bloquea (401, nada se descarga); al escribir usuario/contraseña en la interfaz, autentica, ingiere 10 registros y el Monitor muestra las líneas. La contraseña nunca se persiste ni se registra.
 * **Observación real en GPV (04/11/2026, v1.1.0):** `$metadata` respondió 200 sin credenciales; `ProductivityOverTime` respondió 401. En v1.1.1 se retiró la autenticación (consultas anónimas) y se reprodujo ese escenario con un servidor local (200 en `$metadata`, 401 `Negotiate`/`NTLM` en la entidad): 2 solicitudes en total, ninguna con encabezado de autenticación, mensaje con los esquemas solicitados y espera de 10 min.
 * **Sin pruebas de integración con datos reales de la entidad.** Verificación manual adicional: `py app.py --live` contra `10.62.54.10:6065` desde el entorno de desarrollo → 1 intento a `$metadata`, timeout de 15 s, espera de 300 s, advertencia visible en el monitor; una segunda instancia fue rechazada por el lock.
 * Prueba de interfaz en Chromium (Playwright): Monitor con actualización sin recarga de página (1 navegación en 30+ s), Consulta histórica local con exportación XLSX, Tendencias local, Estado de conexión; ancho móvil 390 px sin desplazamiento horizontal; sin errores de consola ni de CSP. Con el hilo real del recolector (modo DEMO) el segundo ciclo se ejecutó solo, exactamente 300 s después del primero (48 registros nuevos, 2 sin cambio, sin duplicados).
@@ -21,6 +22,7 @@
 | Recolector único | LockTests.test_single_instance |
 | 401 en la entidad con `$metadata` anónimo | WindowsAuthScenarioTests, test_repeated_auth_headers_kept |
 | Handshake SSPI (parseo de reto, header, reuso de conexión, límite de saltos, redirect/tamaño) | test_sspi.py |
+| Autenticación Basic (el esquema real del servidor): bloqueo sin credenciales, ingesta tras login, contraseña preemptiva, password incorrecto, fallback SSPI, redirect | test_auth.py (servidor Basic local + navegador) |
 | Credenciales explícitas: holder en memoria, identidad al cliente SSPI, API set/clear, no persiste/log | test_security.py, test_collector.py |
 | Acumulado vs intervalo | test_live_metrics: SemanticsTests |
 | Sin datos recientes, incrementos, hora de producción vs consulta, dimensiones solo si existen | test_live_metrics: MonitorTests |
@@ -39,6 +41,13 @@ test_parse_number (test_analytics.AnalyticsTests.test_parse_number) ... ok
 test_totals_and_buckets (test_analytics.AnalyticsTests.test_totals_and_buckets) ... ok
 test_trend (test_analytics.AnalyticsTests.test_trend) ... ok
 test_truncated_is_partial (test_analytics.AnalyticsTests.test_truncated_is_partial) ... ok
+test_no_credentials_returns_401 (test_auth.AuthTransportTests.test_no_credentials_returns_401) ... ok
+test_preemptive_basic (test_auth.AuthTransportTests.test_preemptive_basic) ... ok
+test_redirect_blocked (test_auth.AuthTransportTests.test_redirect_blocked) ... ok
+test_sspi_fallback_when_server_wants_negotiate (test_auth.AuthTransportTests.test_sspi_fallback_when_server_wants_negotiate) ... ok
+test_blocks_without_credentials_then_ingests_after_login (test_auth.BasicEndToEndTests.test_blocks_without_credentials_then_ingests_after_login) ... ok
+test_every_entity_request_carries_top (test_auth.BasicEndToEndTests.test_every_entity_request_carries_top) ... ok
+test_wrong_password_stays_blocked (test_auth.BasicEndToEndTests.test_wrong_password_stays_blocked) ... ok
 test_demo_and_live_never_mix (test_cache.DatabaseCacheTests.test_demo_and_live_never_mix) ... ok
 test_expiration (test_cache.DatabaseCacheTests.test_expiration) ... ok
 test_no_credentials_columns (test_cache.DatabaseCacheTests.test_no_credentials_columns) ... ok
@@ -192,7 +201,7 @@ test_size_limit (test_sspi.SspiTransportTests.test_size_limit) ... ok
 test_sspi_error_becomes_connection_error (test_sspi.SspiTransportTests.test_sspi_error_becomes_connection_error) ... ok
 
 ----------------------------------------------------------------------
-Ran 164 tests in 13.530s
+Ran 171 tests in 17.496s
 
 OK
 ```

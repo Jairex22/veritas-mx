@@ -296,6 +296,92 @@ class SspiHttpTransport:
             conn.close()
 
 
+class AuthHttpTransport:
+    """GET transport that authenticates to FactoryLogix with the operator's credentials.
+
+    * If explicit credentials are set, it sends **HTTP Basic** preemptively (this is what the GPV
+      server requests).
+    * If the server instead answers 401 with a Negotiate/NTLM challenge and SSPI is available
+      (Windows), it runs the Windows handshake over the same connection, using the explicit
+      credentials when provided or the logged-on user otherwise.
+
+    The password never leaves the ``WindowsCredentials`` holder except as the Basic token or the
+    SSPI identity; it is never logged or written to disk. Same redirect-block, size-limit and
+    timeout guards as the anonymous transport.
+    """
+
+    def __init__(self, credentials: "Any | None" = None, use_system_proxy: bool = False,
+                 allow_sspi: "bool | None" = None, sspi_factory: "Callable[[str], Any] | None" = None) -> None:
+        self.credentials = credentials
+        self.allow_sspi = sspi_auth.sspi_available() if allow_sspi is None else allow_sspi
+        self._sspi_factory = sspi_factory or (lambda host: sspi_auth.make_client(
+            "Negotiate", "HTTP/" + host,
+            self.credentials.identity() if self.credentials and self.credentials.present else None))
+
+    def get(self, url: str, headers: dict[str, str], timeout: float, max_bytes: int) -> TransportResponse:
+        parts = urlsplit(url)
+        if parts.scheme != "http":
+            raise TransportConnectionError("Este transporte solo admite http:// (servidor interno)")
+        host = parts.hostname or ""
+        path = parts.path + ("?" + parts.query if parts.query else "")
+        deadline = time.monotonic() + timeout
+        conn = http.client.HTTPConnection(host, parts.port or 80, timeout=timeout)
+        basic = self.credentials.basic_token() if (self.credentials and self.credentials.present) else None
+        sspi_client = None
+        token = None
+        try:
+            legs = 0
+            while True:
+                legs += 1
+                request_headers = dict(headers)
+                if sspi_client is not None and token:
+                    request_headers["Authorization"] = "Negotiate " + base64.b64encode(token).decode("ascii")
+                elif sspi_client is None and basic:
+                    request_headers["Authorization"] = "Basic " + basic
+                try:
+                    conn.request("GET", path, headers=request_headers)
+                    response = conn.getresponse()
+                except (socket.timeout, TimeoutError) as exc:
+                    raise TransportTimeout(str(exc)) from exc
+                except (http.client.HTTPException, ConnectionError, OSError) as exc:
+                    raise TransportConnectionError(str(exc)) from exc
+                status = response.status
+                resp_headers = _merge_headers(response.getheaders())
+                if 300 <= status < 400:
+                    response.read()
+                    raise RedirectBlockedError(f"redirect {status} blocked")
+                if status == 401 and legs < 4:
+                    offered = set(auth_schemes(resp_headers.get("WWW-Authenticate", "")))
+                    if self.allow_sspi and ({"Negotiate", "NTLM"} & offered) and (sspi_client is None or not sspi_client.complete):
+                        challenge = extract_challenge(resp_headers.get("WWW-Authenticate", ""), "Negotiate")
+                        response.read()  # drain so the connection can be reused
+                        try:
+                            if sspi_client is None:
+                                sspi_client = self._sspi_factory(host)
+                                token = sspi_client.first_token()
+                            elif challenge:
+                                token = sspi_client.next_token(challenge)
+                            else:
+                                return TransportResponse(status, resp_headers, b"")
+                        except sspi_auth.SspiError as exc:
+                            raise TransportConnectionError(f"SSPI: {exc}") from exc
+                        continue
+                    body = _read_bounded(response.read, min(max_bytes, 65_536), deadline)
+                    return TransportResponse(status, resp_headers, body)
+                length = resp_headers.get("Content-Length")
+                if length and length.isdigit() and int(length) > max_bytes:
+                    raise ResponseTooLargeError("declared Content-Length too large")
+                body = _read_bounded(response.read, max_bytes, deadline)
+                return TransportResponse(status, resp_headers, body)
+        finally:
+            if sspi_client is not None:
+                try:
+                    sspi_client.close()
+                except Exception:  # noqa: BLE001
+                    pass
+            conn.close()
+
+
 # --------------------------------------------------------------------------- protection
 
 
@@ -609,24 +695,29 @@ class ODataClient:
         """Explain a 401 using only the scheme names the server offered (never the challenge data)."""
         raw = ", ".join(v for k, v in headers.items() if k.lower() == "www-authenticate")
         schemes = sorted(set(auth_schemes(raw)))
+        creds = getattr(self.transport, "credentials", None)
+        have_creds = bool(creds and creds.present)
         text = MESSAGES_ES[Status.AUTH_REQUIRED]
         if schemes:
             text += f" El servidor solicita: {', '.join(schemes)}."
-        if type(self.transport).__name__ == "SspiHttpTransport":
-            text += (" La aplicación se autenticó con tu sesión de Windows y el servidor la rechazó. "
-                     "Puedes escribir una cuenta de Windows autorizada en 'Estado de conexión → Credenciales de "
-                     "FactoryLogix'. Si ninguna cuenta tuya tiene acceso, TI debe conceder lectura de "
-                     "ProductivityOverTime a tu usuario o al grupo de SMT.")
+        if "Basic" in schemes:
+            if have_creds:
+                text += (" El usuario o la contraseña no son válidos, o esa cuenta no tiene acceso a "
+                         "ProductivityOverTime. Verifícalos en 'Estado de conexión → Credenciales de FactoryLogix'.")
+            else:
+                text += (" Escribe tu usuario y contraseña de FactoryLogix en 'Estado de conexión → "
+                         "Credenciales de FactoryLogix' para poder leer los datos.")
         elif {"Negotiate", "NTLM", "Kerberos"} & set(schemes):
-            text += (" El servidor pide autenticación de Windows pero la aplicación está consultando de forma "
-                     "anónima. Ejecútala en la PC de planta (Windows) con auth_mode 'auto' para que use tu sesión.")
-        elif "Basic" in schemes:
-            text += (" El servidor pide usuario y contraseña (Basic); esta aplicación no almacena contraseñas: "
-                     "consulta con TI el mecanismo aprobado.")
+            if have_creds:
+                text += (" La cuenta indicada fue rechazada por el servidor. Prueba otra cuenta autorizada en "
+                         "'Estado de conexión → Credenciales de FactoryLogix' o pide acceso a TI.")
+            else:
+                text += (" La aplicación usó tu sesión de Windows y el servidor la rechazó. Escribe una cuenta "
+                         "autorizada en 'Estado de conexión → Credenciales de FactoryLogix' o pide acceso a TI.")
         else:
-            text += " En Windows la aplicación usará tu sesión automáticamente (auth_mode 'auto')."
+            text += (" Escribe tus credenciales de FactoryLogix en 'Estado de conexión → Credenciales de "
+                     "FactoryLogix'.")
         return text
-
     def snapshot(self) -> dict[str, Any]:
         return {"last": dict(self.last), "breaker": self.breaker.snapshot(), "busy": self.gate.is_busy()}
 
@@ -729,14 +820,13 @@ def auth_schemes(header_value: str) -> list[str]:
 def build_client(config: Config, transport: Transport | None = None) -> ODataClient:
     """Create the client with the transport selected by ``odata.auth_mode``.
 
-    * ``auto`` (default): on Windows authenticate as the logged-on user via SSPI (Negotiate/NTLM,
-      no install, no stored password); on other systems fall back to anonymous HTTP.
-    * ``sspi``: force SSPI (Windows only; anonymous fallback with a warning elsewhere).
+    * ``auto`` (default) / ``sspi``: use ``AuthHttpTransport`` — sends HTTP Basic with the operator's
+      credentials when provided (this is what the GPV server requests), and falls back to Windows
+      SSPI (Negotiate/NTLM) if the server challenges for it and SSPI is available.
     * ``none``: anonymous HTTP, never sends an Authorization header.
 
-    The returned client always carries a ``credentials`` holder (``sspi_auth.WindowsCredentials``)
-    so the operator can optionally supply an explicit account at runtime; it is used only by the
-    SSPI transport and never persisted or logged.
+    The client always carries a ``credentials`` holder (``sspi_auth.WindowsCredentials``) that the
+    operator fills at runtime; it is used only to authenticate and is never persisted or logged.
     """
     credentials = sspi_auth.WindowsCredentials()
     if transport is not None:
@@ -744,18 +834,17 @@ def build_client(config: Config, transport: Transport | None = None) -> ODataCli
         client.credentials = credentials
         return client
     mode = getattr(config.odata, "auth_mode", "auto")
-    if mode in ("auto", "sspi") and sspi_auth.sspi_available():
-        client = ODataClient(config, SspiHttpTransport("Negotiate", config.odata.use_system_proxy, credentials))
-        client.auth_description = "Windows integrada (tu sesión, SSPI)"
+    if mode == "none":
+        client = ODataClient(config, UrllibTransport(config.odata.use_system_proxy))
         client.credentials = credentials
-        logger.info("auth: Windows integrated via SSPI as the logged-on user")
+        client.auth_description = "Anónima (sin credenciales)"
         return client
-    client = ODataClient(config, UrllibTransport(config.odata.use_system_proxy))
+    client = ODataClient(config, AuthHttpTransport(credentials, config.odata.use_system_proxy))
     client.credentials = credentials
-    if mode == "sspi":
-        client.auth_description = "Anónima (SSPI no disponible en este sistema)"
-        logger.warning("auth_mode=sspi but SSPI is unavailable on this platform; using anonymous HTTP")
+    if sspi_auth.sspi_available():
+        client.auth_description = "Windows (tu sesión) o usuario/contraseña"
+        logger.info("auth: Windows SSPI available; Basic used when credentials are entered")
     else:
-        client.auth_description = ("Windows integrada (se activa en Windows)" if mode == "auto"
-                                   else "Anónima (sin credenciales)")
+        client.auth_description = "Usuario/contraseña (Basic)"
+        logger.info("auth: Basic (enter FactoryLogix credentials in Estado de conexión)")
     return client

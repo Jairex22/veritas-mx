@@ -1,4 +1,4 @@
-# Arquitectura — GPV SMT Production Pulse v1.1.3
+# Arquitectura — GPV SMT Production Pulse v1.1.4
 
 ## Novedades v1.1: recolector automático
 
@@ -63,7 +63,7 @@ conexión" (limitadas en frecuencia).
 | Solo biblioteca estándar de Python (`http.server`, `urllib`, `sqlite3`, `xml.etree`, `zipfile`) | Cero dependencias obligatorias: funciona descomprimiendo el ZIP en una cuenta estándar, sin pip, sin internet, sin bibliotecas obsoletas a futuro. Flask no aporta lo suficiente para este alcance (pocas rutas JSON). |
 | XLSX generado con `zipfile` + SpreadsheetML | Excel nativo sin `openpyxl`. Validado abriendo en LibreOffice. |
 | PDF mediante vista de impresión del navegador | Evita bibliotecas PDF pesadas; el navegador produce PDF fiel con gráficas SVG. |
-| Autenticación como el propio usuario (SSPI, sin instalar) | El servidor exige autenticación de Windows en la entidad. La app se identifica con la sesión del operador mediante `ctypes` → `Secur32.dll` (Negotiate/NTLM), igual que el navegador. No guarda contraseñas ni requiere pip/admin. Si la cuenta no tiene permiso, el 401 persiste (lo resuelve TI). `auth_mode`: `auto` (SSPI en Windows, anónimo en otros), `sspi`, `none`. Credenciales explícitas opcionales (cuenta/contraseña) solo en memoria, vía SSPI con identidad explícita. |
+| Autenticación como el propio usuario (SSPI, sin instalar) | El servidor exige autenticación de Windows en la entidad. La app se identifica con la sesión del operador mediante `ctypes` → `Secur32.dll` (Negotiate/NTLM), igual que el navegador. No guarda contraseñas ni requiere pip/admin. Si la cuenta no tiene permiso, el 401 persiste (lo resuelve TI). El servidor de GPV usa **HTTP Basic**: con las credenciales que escribe el operador, `AuthHttpTransport` envía `Authorization: Basic` (y, si el servidor pidiera Negotiate/NTLM en Windows, recurre a SSPI con esa identidad). Contraseña solo en memoria, nunca persistida ni registrada. `auth_mode`: `auto`, `none`. |
 | DEMO como *transporte simulado* | El modo DEMO ejecuta el **mismo** cliente OData, caché, sondas y análisis que producción; solo cambia la capa de red. |
 | Base SQLite separada para DEMO | Imposible mezclar datos simulados y reales (la base registra su modo y rechaza el otro). |
 

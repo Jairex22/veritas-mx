@@ -1,4 +1,4 @@
-# GPV SMT Production Pulse — v1.1.3
+# GPV SMT Production Pulse — v1.1.4
 
 **GPV Americas | SMT Production Pulse** — Monitoreo inteligente de productividad de SMT.
 
@@ -10,10 +10,10 @@ guarda los resultados en SQLite sin duplicados. El **Monitor** se actualiza solo
 ## Ejecutar en Windows 11 (sin administrador)
 
 Entra a la carpeta que contiene `app.py` (al extraer el ZIP queda dentro de
-`GPV_SMT_Production_Pulse_v1.1.3\GPV_SMT_Production_Pulse`). En PowerShell:
+`GPV_SMT_Production_Pulse_v1.1.4\GPV_SMT_Production_Pulse`). En PowerShell:
 
 ```powershell
-cd "$env:USERPROFILE\Downloads\GPV_SMT_Production_Pulse_v1.1.3\GPV_SMT_Production_Pulse"
+cd "$env:USERPROFILE\Downloads\GPV_SMT_Production_Pulse_v1.1.4\GPV_SMT_Production_Pulse"
 ```
 
 ```bat
@@ -28,11 +28,10 @@ Sin ventana de consola, una vez validado con `py` (sigue recolectando; `pyw` no 
 pyw app.py --live
 ```
 
-No requiere instalar nada con `pip`. En Windows, si el servidor exige autenticación, la aplicación se
-identifica con **tu propia sesión de Windows** usando la API del sistema (SSPI) — igual que Excel o el
-navegador, sin instalar nada ni ser administrador. Si tu sesión no es la cuenta autorizada en
-FactoryLogix, puedes escribir una cuenta de Windows en *Estado de conexión → Credenciales de
-FactoryLogix*; la contraseña se guarda **solo en memoria** (nunca en disco ni en los registros).
+No requiere instalar nada con `pip`. El servidor de FactoryLogix pide **usuario y contraseña** (autenticación Basic). Escríbelos en
+*Estado de conexión → Credenciales de FactoryLogix*: con eso la aplicación lee los datos. La contraseña
+se guarda **solo en memoria** (nunca en disco, en `config.json` ni en los registros). Si el servidor
+usara autenticación de Windows, en Windows también se intenta con tu sesión (SSPI), sin instalar nada.
 
 Modo demostración (servidor simulado, base de datos separada):
 
@@ -72,7 +71,7 @@ Detalle completo, inicio automático al iniciar sesión y solución de problemas
 | `analytics.py`, `report_generator.py` | Análisis histórico, CSV/XLSX/PDF |
 | `app.py` | Servidor local (127.0.0.1), API JSON, arranque del recolector |
 | `templates/`, `static/` | Monitor, Consulta histórica, Tendencias, Reportes, Estado de conexión |
-| `tests/` | 164 pruebas (`unittest`) |
+| `tests/` | 171 pruebas (`unittest`) |
 
 ## Documentación
 
@@ -86,7 +85,7 @@ Detalle completo, inicio automático al iniciar sesión y solución de problemas
 
 * **Prueba real en GPV (04/11/2026):** `$metadata` respondió de forma anónima, pero
   `ProductivityOverTime` respondió **HTTP 401** (la entidad exige autenticación de Windows). Por eso
-  v1.1.3 se identifica con la sesión de Windows del operador (SSPI). **Pendiente de confirmar en la
+  v1.1.4 se identifica con la sesión de Windows del operador (SSPI). **Pendiente de confirmar en la
   PC de planta** que esa cuenta tenga permiso de lectura: si lo tiene, recolectará; si no, el 401
   persiste y solo TI puede conceder el acceso a la cuenta (ver docs/VALIDACIONES_PENDIENTES.md).
 * La capa SSPI (llamadas ctypes a Secur32.dll) **no pudo probarse en el entorno de desarrollo (Linux)**;

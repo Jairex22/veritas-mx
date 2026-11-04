@@ -15,6 +15,7 @@ bounded-read, redirect-block and size-limit protections as the anonymous transpo
 """
 from __future__ import annotations
 
+import base64
 import sys
 
 # SSPI return codes.
@@ -73,6 +74,13 @@ class WindowsCredentials:
     def identity(self) -> tuple[str, str, str] | None:
         """(user, password, domain) for SSPI, or None to use the logged-on user."""
         return (self.user, self._password, self.domain or "") if self.present else None
+
+    def basic_token(self) -> str | None:
+        """Base64 of ``user:password`` (or ``DOMAIN\\user:password``) for HTTP Basic, or None."""
+        if not self.present:
+            return None
+        name = f"{self.domain}\\{self.user}" if self.domain else self.user
+        return base64.b64encode(f"{name}:{self._password}".encode("utf-8")).decode("ascii")
 
 
 def sspi_available() -> bool:

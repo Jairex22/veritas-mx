@@ -608,7 +608,7 @@ class PulseService:
     # ------------------------------------------------------------------ credentials (in memory only)
     def credentials_info(self) -> dict[str, Any]:
         cred = getattr(self.client, "credentials", None)
-        supported = type(self.client.transport).__name__ == "SspiHttpTransport"
+        supported = type(self.client.transport).__name__ in ("AuthHttpTransport", "SspiHttpTransport")
         return {"supported": supported, "set": bool(cred and cred.present),
                 "account": cred.display if cred else "Sesión de Windows (usuario actual)",
                 "auth_description": getattr(self.client, "auth_description", "—")}
@@ -617,9 +617,8 @@ class PulseService:
         cred = getattr(self.client, "credentials", None)
         if cred is None:
             return {"ok": False, "message": "Esta configuración no admite credenciales."}
-        if type(self.client.transport).__name__ != "SspiHttpTransport":
-            return {"ok": False, "message": "Las credenciales de Windows solo se usan al ejecutar en Windows "
-                                            "con autenticación integrada (auth_mode 'auto' o 'sspi')."}
+        if type(self.client.transport).__name__ not in ("AuthHttpTransport", "SspiHttpTransport"):
+            return {"ok": False, "message": "Esta configuración no usa credenciales (auth_mode 'none')."}
         if not isinstance(body, dict):
             return {"ok": False, "message": "Solicitud no válida."}
         user, password, domain = body.get("user"), body.get("password"), body.get("domain")
@@ -629,7 +628,7 @@ class PulseService:
             cred.set(user, password, domain)
         except ValueError as exc:
             return {"ok": False, "message": str(exc)}
-        logger.info("explicit FactoryLogix credentials set for account %s (password not stored)", cred.display)
+        logger.info("FactoryLogix credentials set for account %s (password kept only in memory)", cred.display)
         if self.collector is not None:
             self.collector.retry_now()
         return {"ok": True, "message": f"Credenciales guardadas en memoria para {cred.display}. "
