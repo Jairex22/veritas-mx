@@ -14,7 +14,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 APP_NAME = "GPV SMT Production Pulse"
-APP_VERSION = "1.1.1"
+APP_VERSION = "1.1.2"
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG_PATH = BASE_DIR / "config.json"
 ALLOWED_ENTITY_SET = "ProductivityOverTime"
@@ -92,6 +92,7 @@ class ODataSettings:
     base_url: str = "http://10.62.54.10:6065/odata/"
     entity_set: str = ALLOWED_ENTITY_SET
     use_system_proxy: bool = False
+    auth_mode: str = "auto"  # "auto" | "sspi" | "none"
     accept_header: str = "application/json"
     append_format_json: bool = False
 
@@ -279,12 +280,10 @@ def load_config(path: Path | None = None, overrides: dict[str, Any] | None = Non
             "Por seguridad la aplicación solo escucha en 127.0.0.1. Para exponerla en red se requiere "
             "autorización de TI y app.allow_non_localhost=true."
         )
-    odata_raw = dict(raw.get("odata", {}))
-    if "auth_mode" in odata_raw:  # removed in v1.1.1: requests are always anonymous
-        logger.warning("odata.auth_mode=%r ignorado: la autenticación fue retirada; las consultas son anónimas.",
-                       odata_raw.pop("auth_mode"))
-    odata = _build_section(ODataSettings, odata_raw, "odata")
+    odata = _build_section(ODataSettings, raw.get("odata", {}), "odata")
     _validate_odata(odata)
+    if odata.auth_mode not in ("auto", "sspi", "none"):
+        raise ConfigError("odata.auth_mode debe ser 'auto', 'sspi' o 'none'.")
     limits = _build_limits(raw.get("limits", {}))
     retention = _build_section(Retention, raw.get("retention", {}), "retention")
     analytics = _build_section(AnalyticsSettings, raw.get("analytics", {}), "analytics")

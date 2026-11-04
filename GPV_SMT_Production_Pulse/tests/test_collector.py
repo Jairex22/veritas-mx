@@ -294,8 +294,8 @@ class WindowsAuthScenarioTests(TempDirMixin, unittest.TestCase):
         client = ODataClient(self.service().config, UrllibTransport())
         hint = client._auth_hint({"WWW-Authenticate": "Negotiate abc==, NTLM"})
         self.assertIn("NTLM, Negotiate", hint)
-        self.assertIn("lectura anónima", hint)
-        self.assertNotIn("abc==", hint)  # challenge data is never shown
+        self.assertIn("auth_mode", hint)            # anonymous transport: tells operator to run on Windows
+        self.assertNotIn("abc==", hint)             # challenge data is never shown
 
 
 class LockTests(TempDirMixin, unittest.TestCase):

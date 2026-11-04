@@ -10,6 +10,7 @@
     "base_url": "http://10.62.54.10:6065/odata/",
     "entity_set": "ProductivityOverTime",
     "use_system_proxy": false,
+    "auth_mode": "auto",
     "accept_header": "application/json",
     "append_format_json": false
   },

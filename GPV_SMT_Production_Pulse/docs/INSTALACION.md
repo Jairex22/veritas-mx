@@ -1,4 +1,4 @@
-# Manual de instalación — GPV SMT Production Pulse v1.1.1
+# Manual de instalación — GPV SMT Production Pulse v1.1.2
 
 Windows 11 · Python 3.11 o superior (probado con 3.14) · cuenta estándar **sin permisos de
 administrador** · sin Docker, npm, instaladores MSI, `.bat`, `.exe` ni PowerShell sin firmar.
@@ -14,7 +14,7 @@ Clic derecho sobre el ZIP → **Extraer todo…**. Windows crea una carpeta con 
 **dentro** está la carpeta de la aplicación:
 
 ```
-GPV_SMT_Production_Pulse_v1.1.1\
+GPV_SMT_Production_Pulse_v1.1.2\
 └── GPV_SMT_Production_Pulse\      ← aquí están app.py y config.json
 ```
 
@@ -23,13 +23,13 @@ Abre una terminal **en la carpeta que contiene `app.py`**. Ejemplo si extrajiste
 PowerShell (terminal predeterminada de Windows 11 y de VS Code):
 
 ```powershell
-cd "$env:USERPROFILE\Downloads\GPV_SMT_Production_Pulse_v1.1.1\GPV_SMT_Production_Pulse"
+cd "$env:USERPROFILE\Downloads\GPV_SMT_Production_Pulse_v1.1.2\GPV_SMT_Production_Pulse"
 ```
 
 Símbolo del sistema (CMD):
 
 ```bat
-cd /d "%USERPROFILE%\Downloads\GPV_SMT_Production_Pulse_v1.1.1\GPV_SMT_Production_Pulse"
+cd /d "%USERPROFILE%\Downloads\GPV_SMT_Production_Pulse_v1.1.2\GPV_SMT_Production_Pulse"
 ```
 
 > `%USERPROFILE%` solo funciona en CMD; en PowerShell se usa `$env:USERPROFILE`.
@@ -47,16 +47,22 @@ Debe mostrar `Python 3.11` o superior (por ejemplo `Python 3.14.7`). Si `py` no 
 `python --version`. Sin Python: instalador de python.org con la opción "Install for me only"
 (no requiere administrador).
 
-## 3. Sin instalación de dependencias
+## 3. Autenticación: tu propia sesión de Windows (sin instalar nada)
 
-No hay que instalar nada con `pip`. Las consultas a FactoryLogix son **anónimas**: la aplicación no
-envía, solicita ni guarda credenciales.
+No hay que instalar nada con `pip`. En Windows, si FactoryLogix exige autenticación, la aplicación se
+identifica con **tu sesión de Windows** usando la API del sistema (SSPI), igual que el navegador o
+Excel. No se piden ni guardan contraseñas y no se necesita administrador. Esto lo controla
+`config.json → odata.auth_mode`:
 
-> Si FactoryLogix responde **401** a `ProductivityOverTime`, el servidor exige autenticación para
-> esa entidad. La aplicación lo indica en el Monitor y en *Estado de conexión* (con el tipo de
-> autenticación que solicita el servidor) y reintenta con espera creciente, sin consultas
-> repetitivas. Se resuelve del lado de FactoryLogix/TI: ver
-> [VALIDACIONES_PENDIENTES.md](VALIDACIONES_PENDIENTES.md#bloqueo-actual-http-401-en-productivityovertime).
+* `"auto"` (predeterminado): en Windows usa tu sesión; en otros sistemas consulta de forma anónima.
+* `"sspi"`: fuerza la autenticación de Windows.
+* `"none"`: siempre anónimo (sin enviar identidad).
+
+Al iniciar con `py app.py --live`, en `logs\production_pulse.log` debe aparecer
+`auth: Windows integrated via SSPI as the logged-on user`. Si tu cuenta **tiene permiso** sobre
+`ProductivityOverTime`, la recolección comienza. Si **no lo tiene**, el servidor responde 401 y el
+Monitor lo indica: en ese caso solo TI puede conceder lectura a tu cuenta (o al grupo de SMT); ver
+[VALIDACIONES_PENDIENTES.md](VALIDACIONES_PENDIENTES.md).
 
 ## 4. Revisar `config.json`
 
@@ -65,7 +71,7 @@ Valores ya configurados para GPV:
 ```json
 "app":   { "mode": "live", "host": "127.0.0.1", "port": 8765 },
 "odata": { "base_url": "http://10.62.54.10:6065/odata/", "entity_set": "ProductivityOverTime",
-           "use_system_proxy": false },
+           "auth_mode": "auto", "use_system_proxy": false },
 "collector": { "enabled": true, "interval_seconds": 300, "initial_backfill_hours": 8,
                "lookback_minutes": 15, "max_backoff_seconds": 3600, "recent_activity_minutes": 30,
                "quantity_semantics": "auto", "auto_apply_detected_mapping": true }
@@ -128,7 +134,7 @@ Para iniciarlo automáticamente al iniciar sesión en Windows (solo para tu usua
 1. Presiona `Win + R`, escribe `shell:startup` y presiona Enter.
 2. Clic derecho → **Nuevo → Acceso directo**.
 3. Ubicación del elemento (usa la ruta real de la carpeta que contiene `app.py`):
-   `pyw.exe "C:\Users\<usuario>\Downloads\GPV_SMT_Production_Pulse_v1.1.1\GPV_SMT_Production_Pulse\app.py" --live`
+   `pyw.exe "C:\Users\<usuario>\Downloads\GPV_SMT_Production_Pulse_v1.1.2\GPV_SMT_Production_Pulse\app.py" --live`
 4. Nombre: `GPV SMT Production Pulse`. Abre las propiedades del acceso directo y en **Iniciar en**
    escribe la misma carpeta (sin `app.py`).
 
@@ -166,7 +172,7 @@ py -m unittest discover -s tests -v
 | `Cannot find path ...%USERPROFILE%...` | Estás en PowerShell: usa `$env:USERPROFILE` o la ruta completa |
 | "Ya hay otra instancia…" | Ya se está ejecutando (revisa `pythonw.exe` en el Administrador de tareas) |
 | "No se pudo abrir el puerto 8765" | `py app.py --live --port 8780` |
-| Error 401 en el monitor | El servidor exige autenticación para `ProductivityOverTime`: solicitar a TI lectura anónima para este equipo (ver VALIDACIONES_PENDIENTES.md) |
+| Error 401 en el monitor | El servidor exige autenticación. Con `auth_mode "auto"` en Windows ya usa tu sesión; si persiste, tu cuenta no tiene permiso sobre la entidad y TI debe concederlo |
 | "Recolección bloqueada" | Ver Estado de conexión → motivo (campo de fecha o filtros no comprobados) |
 | "Error: reintento programado" | Servidor sin respuesta: se reintenta con espera creciente (máx. 1 h); los datos previos se conservan |
 | Registro de eventos | `logs\production_pulse.log` (rotativo; sin credenciales ni encabezados Authorization) |

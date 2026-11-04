@@ -1,9 +1,10 @@
-# Resultados de pruebas automatizadas — v1.1.1
+# Resultados de pruebas automatizadas — v1.1.2
 
 * Fecha de ejecución: 2026-11-04T16:55Z
 * Intérprete: Python 3.14.6 con `-W error::DeprecationWarning`; también Python 3.11: OK. (Entorno Linux de desarrollo; no se ejecutó en Windows.)
 * Comando: `py -m unittest discover -s tests -v`
 * Alcance: servidor OData **simulado** (`demo_source.DemoTransport` y variantes con fallas 401/500/timeout/desconexión/filtros rechazados) y servidores HTTP de prueba en 127.0.0.1.
+* **Autenticación de Windows (SSPI):** la capa `sspi_auth.py` llama a `Secur32.dll` por ctypes y **solo puede ejecutarse en Windows**; en CI (Linux) no se ejecuta. Lo que sí se probó: el intercambio HTTP del handshake (401→token→200) sobre una conexión keep-alive con un proveedor de tokens simulado (`test_sspi.py`), y un flujo extremo a extremo (metadata + pruebas + entidad + ingesta de 6 registros) a través de `SspiHttpTransport` con proveedor simulado contra un servidor local que exige el handshake.
 * **Observación real en GPV (04/11/2026, v1.1.0):** `$metadata` respondió 200 sin credenciales; `ProductivityOverTime` respondió 401. En v1.1.1 se retiró la autenticación (consultas anónimas) y se reprodujo ese escenario con un servidor local (200 en `$metadata`, 401 `Negotiate`/`NTLM` en la entidad): 2 solicitudes en total, ninguna con encabezado de autenticación, mensaje con los esquemas solicitados y espera de 10 min.
 * **Sin pruebas de integración con datos reales de la entidad.** Verificación manual adicional: `py app.py --live` contra `10.62.54.10:6065` desde el entorno de desarrollo → 1 intento a `$metadata`, timeout de 15 s, espera de 300 s, advertencia visible en el monitor; una segunda instancia fue rechazada por el lock.
 * Prueba de interfaz en Chromium (Playwright): Monitor con actualización sin recarga de página (1 navegación en 30+ s), Consulta histórica local con exportación XLSX, Tendencias local, Estado de conexión; ancho móvil 390 px sin desplazamiento horizontal; sin errores de consola ni de CSP. Con el hilo real del recolector (modo DEMO) el segundo ciclo se ejecutó solo, exactamente 300 s después del primero (48 registros nuevos, 2 sin cambio, sin duplicados).
@@ -18,7 +19,8 @@
 | Bloqueo sin filtro de fecha validado | test_blocked_when_date_filter_fails |
 | Usuarios no generan consultas | test_users_never_trigger_odata |
 | Recolector único | LockTests.test_single_instance |
-| 401 en la entidad con `$metadata` anónimo | WindowsAuthScenarioTests, test_repeated_auth_headers_kept, test_requests_are_anonymous |
+| 401 en la entidad con `$metadata` anónimo | WindowsAuthScenarioTests, test_repeated_auth_headers_kept |
+| Handshake SSPI (parseo de reto, header, reuso de conexión, límite de saltos, redirect/tamaño) | test_sspi.py |
 | Acumulado vs intervalo | test_live_metrics: SemanticsTests |
 | Sin datos recientes, incrementos, hora de producción vs consulta, dimensiones solo si existen | test_live_metrics: MonitorTests |
 
@@ -140,10 +142,11 @@ test_snapshot_contents (test_reports.ReportTests.test_snapshot_contents) ... ok
 test_viewed_source_cannot_be_forged_for_old_data (test_reports.ReportTests.test_viewed_source_cannot_be_forged_for_old_data) ... ok
 test_xlsx_is_valid_workbook (test_reports.ReportTests.test_xlsx_is_valid_workbook) ... ok
 test_auto_refresh_default_off (test_security.ConfigSecurityTests.test_auto_refresh_default_off) ... ok
+test_invalid_auth_mode_rejected (test_security.ConfigSecurityTests.test_invalid_auth_mode_rejected) ... ok
 test_no_credentials_in_url (test_security.ConfigSecurityTests.test_no_credentials_in_url) ... ok
+test_no_stored_credentials (test_security.ConfigSecurityTests.test_no_stored_credentials) ... ok
 test_only_authorized_entity (test_security.ConfigSecurityTests.test_only_authorized_entity) ... ok
 test_only_localhost_by_default (test_security.ConfigSecurityTests.test_only_localhost_by_default) ... ok
-test_requests_are_anonymous (test_security.ConfigSecurityTests.test_requests_are_anonymous) ... ok
 test_source_has_no_eval_or_shell (test_security.ConfigSecurityTests.test_source_has_no_eval_or_shell) ... ok
 test_templates_have_no_inline_script (test_security.ConfigSecurityTests.test_templates_have_no_inline_script) ... ok
 test_body_size_limit_and_methods (test_security.HttpLayerTests.test_body_size_limit_and_methods) ... ok
@@ -175,9 +178,16 @@ test_auto_refresh_disabled (test_service.QueryValidationTests.test_auto_refresh_
 test_max_records_limit_and_partial_flag (test_service.QueryValidationTests.test_max_records_limit_and_partial_flag) ... ok
 test_rules (test_service.QueryValidationTests.test_rules) ... ok
 test_stored_data_labelled_not_live (test_service.QueryValidationTests.test_stored_data_labelled_not_live) ... ok
+test_make_client_off_windows_raises (test_sspi.AvailabilityTests.test_make_client_off_windows_raises) ... ok
+test_extract (test_sspi.ChallengeParsingTests.test_extract) ... ok
+test_account_rejected_returns_401 (test_sspi.SspiTransportTests.test_account_rejected_returns_401) ... ok
+test_handshake_succeeds_and_reuses_one_connection (test_sspi.SspiTransportTests.test_handshake_succeeds_and_reuses_one_connection) ... ok
+test_redirect_blocked (test_sspi.SspiTransportTests.test_redirect_blocked) ... ok
+test_size_limit (test_sspi.SspiTransportTests.test_size_limit) ... ok
+test_sspi_error_becomes_connection_error (test_sspi.SspiTransportTests.test_sspi_error_becomes_connection_error) ... ok
 
 ----------------------------------------------------------------------
-Ran 152 tests in 9.186s
+Ran 160 tests in 11.159s
 
 OK
 ```

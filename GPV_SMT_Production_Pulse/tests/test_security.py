@@ -88,13 +88,21 @@ class ConfigSecurityTests(TempDirMixin, unittest.TestCase):
         with self.assertRaises(ConfigError):
             make_config(self.tmp, odata={"base_url": "http://user:pass@10.0.0.1/odata/"})
 
-    def test_requests_are_anonymous(self):
+    def test_no_stored_credentials(self):
         from odata_client import build_client
-        config = make_config(self.tmp, odata={"auth_mode": "windows_negotiate"})  # legacy key: ignored
-        client = build_client(config)
-        self.assertEqual(type(client.transport).__name__, "UrllibTransport")
-        self.assertFalse(hasattr(config.odata, "auth_mode"))
+        import sspi_auth
+        # No password is ever stored and no credential libraries are bundled.
         self.assertFalse((ROOT / "requirements-windows-auth.txt").exists())
+        client = build_client(make_config(self.tmp, odata={"auth_mode": "none"}))
+        self.assertEqual(type(client.transport).__name__, "UrllibTransport")
+        # On non-Windows CI, "auto" falls back to anonymous; SSPI is Windows-only.
+        auto = build_client(make_config(self.tmp, odata={"auth_mode": "auto"}))
+        expected = "SspiHttpTransport" if sspi_auth.sspi_available() else "UrllibTransport"
+        self.assertEqual(type(auto.transport).__name__, expected)
+
+    def test_invalid_auth_mode_rejected(self):
+        with self.assertRaises(ConfigError):
+            make_config(self.tmp, odata={"auth_mode": "basic"})
 
     def test_auto_refresh_default_off(self):
         self.assertFalse(make_config(self.tmp).limits.AUTO_REFRESH_ENABLED)

@@ -1,8 +1,10 @@
-# GPV SMT Production Pulse v1.1.1
+# GPV SMT Production Pulse v1.1.2
 #
-# La aplicación NO requiere dependencias externas: usa solo la biblioteca estándar
-# de Python 3.11+ (probada en 3.14). No hay nada que instalar con pip.
+# La aplicación NO requiere dependencias externas: solo la biblioteca estándar de
+# Python 3.11+ (probada en 3.14). No hay nada que instalar con pip.
+#
+# La autenticación de Windows (cuando el servidor la exige) usa la API SSPI del sistema
+# mediante ctypes (modulo sspi_auth.py): tampoco requiere instalar nada ni ser administrador.
 #
 # OPCIONAL - solo si se configura analytics.plant_timezone con un nombre IANA en Windows:
-#
 #   py -m pip install --user tzdata

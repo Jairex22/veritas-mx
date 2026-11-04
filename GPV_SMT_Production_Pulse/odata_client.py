@@ -13,6 +13,8 @@ Design rules enforced here (not merely documented):
 """
 from __future__ import annotations
 
+import base64
+import http.client
 import json
 import logging
 import socket
@@ -24,10 +26,11 @@ from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Protocol
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 from security import ALLOWED_FILTER_OPERATORS, ensure_allowed_resource, validate_property_name
 from settings import Config, Limits
+import sspi_auth
 from timeutil import iso_utc, utc_now
 
 logger = logging.getLogger("pulse.odata")
@@ -64,7 +67,7 @@ class Status(str, Enum):
 MESSAGES_ES: dict[Status, str] = {
     Status.OK: "Respuesta recibida de FactoryLogix.",
     Status.BAD_REQUEST: "FactoryLogix rechazó la consulta (consulta incompatible). No se reintentó sin filtros.",
-    Status.AUTH_REQUIRED: "FactoryLogix rechazó la consulta anónima: el recurso requiere autenticación.",
+    Status.AUTH_REQUIRED: "FactoryLogix requiere autenticación para esta consulta.",
     Status.FORBIDDEN: "Acceso denegado por FactoryLogix para esta cuenta.",
     Status.NOT_FOUND: "El recurso solicitado no existe en el servidor OData.",
     Status.TOO_MANY_REQUESTS: "FactoryLogix indicó demasiadas solicitudes. Se pausarán las consultas temporalmente.",
@@ -198,6 +201,96 @@ class UrllibTransport:
             raise TransportTimeout(str(exc)) from exc
         except (ConnectionError, OSError) as exc:
             raise TransportConnectionError(str(exc)) from exc
+
+
+def extract_challenge(header_value: str, scheme: str) -> bytes | None:
+    """Return the base64-decoded token the server offered for ``scheme`` in WWW-Authenticate.
+
+    ``None`` means the scheme was not offered; ``b""`` means it was offered without a token.
+    """
+    for part in header_value.split(","):
+        part = part.strip()
+        if part.lower().startswith(scheme.lower()):
+            rest = part[len(scheme):].strip()
+            if not rest:
+                return b""
+            try:
+                return base64.b64decode(rest)
+            except Exception:  # noqa: BLE001 - malformed token is treated as "no token"
+                return b""
+    return None
+
+
+class SspiHttpTransport:
+    """GET transport that authenticates as the logged-on Windows user via SSPI (stdlib only).
+
+    The first request already carries the user's SSPI token; if the server answers 401 with a
+    continuation challenge, the handshake proceeds over the SAME keep-alive connection
+    (NTLM is connection-bound) for at most three legs. No password is sent, requested or stored.
+    """
+
+    def __init__(self, package: str = "Negotiate", use_system_proxy: bool = False,
+                 client_factory: "Callable[[str], Any] | None" = None) -> None:
+        self.package = package
+        self._factory = client_factory or (lambda host: sspi_auth.make_client(package, "HTTP/" + host))
+
+    def get(self, url: str, headers: dict[str, str], timeout: float, max_bytes: int) -> TransportResponse:
+        parts = urlsplit(url)
+        if parts.scheme != "http":
+            raise TransportConnectionError("SSPI transport only supports http:// (internal server)")
+        host = parts.hostname or ""
+        path = parts.path + ("?" + parts.query if parts.query else "")
+        deadline = time.monotonic() + timeout
+        conn = http.client.HTTPConnection(host, parts.port or 80, timeout=timeout)
+        client = None
+        try:
+            try:
+                client = self._factory(host)
+                token = client.first_token()          # send our identity on the first request
+            except sspi_auth.SspiError as exc:
+                raise TransportConnectionError(f"SSPI: {exc}") from exc
+            legs = 0
+            while True:
+                legs += 1
+                request_headers = dict(headers)
+                if token:
+                    request_headers["Authorization"] = self.package + " " + base64.b64encode(token).decode("ascii")
+                try:
+                    conn.request("GET", path, headers=request_headers)
+                    response = conn.getresponse()
+                except (socket.timeout, TimeoutError) as exc:
+                    raise TransportTimeout(str(exc)) from exc
+                except (http.client.HTTPException, ConnectionError, OSError) as exc:
+                    raise TransportConnectionError(str(exc)) from exc
+                status = response.status
+                resp_headers = _merge_headers(response.getheaders())
+                if 300 <= status < 400:
+                    response.read()
+                    raise RedirectBlockedError(f"redirect {status} blocked")
+                if status == 401 and legs < 3 and not client.complete:
+                    challenge = extract_challenge(resp_headers.get("WWW-Authenticate", ""), self.package)
+                    if not challenge:
+                        # Server offered no continuation token: our identity was rejected. Return the 401.
+                        body = _read_bounded(response.read, min(max_bytes, 65_536), deadline)
+                        return TransportResponse(status, resp_headers, body)
+                    response.read()  # drain so the connection can be reused for the next leg
+                    try:
+                        token = client.next_token(challenge)
+                    except sspi_auth.SspiError as exc:
+                        raise TransportConnectionError(f"SSPI: {exc}") from exc
+                    continue
+                length = resp_headers.get("Content-Length")
+                if length and length.isdigit() and int(length) > max_bytes:
+                    raise ResponseTooLargeError("declared Content-Length too large")
+                body = _read_bounded(response.read, max_bytes, deadline)
+                return TransportResponse(status, resp_headers, body)
+        finally:
+            if client is not None:
+                try:
+                    client.close()
+                except Exception:  # noqa: BLE001
+                    pass
+            conn.close()
 
 
 # --------------------------------------------------------------------------- protection
@@ -509,14 +602,25 @@ class ODataClient:
         return result
 
     def _auth_hint(self, headers: dict[str, str]) -> str:
-        """Explain a 401 using only the scheme names offered by the server (never the challenge data)."""
+        """Explain a 401 using only the scheme names the server offered (never the challenge data)."""
         raw = ", ".join(v for k, v in headers.items() if k.lower() == "www-authenticate")
         schemes = sorted(set(auth_schemes(raw)))
         text = MESSAGES_ES[Status.AUTH_REQUIRED]
         if schemes:
             text += f" El servidor solicita: {', '.join(schemes)}."
-        return text + (" Esta aplicación consulta sin credenciales: TI debe habilitar la lectura anónima de "
-                       "ProductivityOverTime para este equipo (como ya ocurre con $metadata).")
+        if type(self.transport).__name__ == "SspiHttpTransport":
+            text += (" La aplicación se autenticó con tu sesión de Windows y el servidor la rechazó: tu usuario "
+                     "no tiene permiso de lectura sobre ProductivityOverTime. Pide a TI acceso de lectura para tu "
+                     "cuenta o el grupo de SMT.")
+        elif {"Negotiate", "NTLM", "Kerberos"} & set(schemes):
+            text += (" El servidor pide autenticación de Windows pero la aplicación está consultando de forma "
+                     "anónima. Ejecútala en la PC de planta (Windows) con auth_mode 'auto' para que use tu sesión.")
+        elif "Basic" in schemes:
+            text += (" El servidor pide usuario y contraseña (Basic); esta aplicación no almacena contraseñas: "
+                     "consulta con TI el mecanismo aprobado.")
+        else:
+            text += " En Windows la aplicación usará tu sesión automáticamente (auth_mode 'auto')."
+        return text
 
     def snapshot(self) -> dict[str, Any]:
         return {"last": dict(self.last), "breaker": self.breaker.snapshot(), "busy": self.gate.is_busy()}
@@ -618,9 +722,26 @@ def auth_schemes(header_value: str) -> list[str]:
 
 
 def build_client(config: Config, transport: Transport | None = None) -> ODataClient:
-    """Create the client. Requests are anonymous (no credentials are sent, stored or requested)."""
+    """Create the client with the transport selected by ``odata.auth_mode``.
+
+    * ``auto`` (default): on Windows, authenticate as the logged-on user via SSPI (Negotiate/NTLM,
+      no install, no stored password); on other systems fall back to anonymous HTTP.
+    * ``sspi``: force SSPI (Windows only; anonymous fallback with a warning elsewhere).
+    * ``none``: anonymous HTTP, never sends an Authorization header.
+    """
     if transport is not None:
         return ODataClient(config, transport)
+    mode = getattr(config.odata, "auth_mode", "auto")
+    if mode in ("auto", "sspi") and sspi_auth.sspi_available():
+        client = ODataClient(config, SspiHttpTransport("Negotiate", config.odata.use_system_proxy))
+        client.auth_description = "Windows integrada (tu sesión, SSPI)"
+        logger.info("auth: Windows integrated via SSPI as the logged-on user")
+        return client
     client = ODataClient(config, UrllibTransport(config.odata.use_system_proxy))
-    client.auth_description = "Anónima (sin credenciales)"
+    if mode == "sspi":
+        client.auth_description = "Anónima (SSPI no disponible en este sistema)"
+        logger.warning("auth_mode=sspi but SSPI is unavailable on this platform; using anonymous HTTP")
+    else:
+        client.auth_description = ("Windows integrada (se activa en Windows)" if mode == "auto"
+                                   else "Anónima (sin credenciales)")
     return client

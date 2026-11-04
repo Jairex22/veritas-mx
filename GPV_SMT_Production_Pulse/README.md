@@ -1,4 +1,4 @@
-# GPV SMT Production Pulse — v1.1.1
+# GPV SMT Production Pulse — v1.1.2
 
 **GPV Americas | SMT Production Pulse** — Monitoreo inteligente de productividad de SMT.
 
@@ -10,10 +10,10 @@ guarda los resultados en SQLite sin duplicados. El **Monitor** se actualiza solo
 ## Ejecutar en Windows 11 (sin administrador)
 
 Entra a la carpeta que contiene `app.py` (al extraer el ZIP queda dentro de
-`GPV_SMT_Production_Pulse_v1.1.1\GPV_SMT_Production_Pulse`). En PowerShell:
+`GPV_SMT_Production_Pulse_v1.1.2\GPV_SMT_Production_Pulse`). En PowerShell:
 
 ```powershell
-cd "$env:USERPROFILE\Downloads\GPV_SMT_Production_Pulse_v1.1.1\GPV_SMT_Production_Pulse"
+cd "$env:USERPROFILE\Downloads\GPV_SMT_Production_Pulse_v1.1.2\GPV_SMT_Production_Pulse"
 ```
 
 ```bat
@@ -28,7 +28,9 @@ Sin ventana de consola, una vez validado con `py` (sigue recolectando; `pyw` no 
 pyw app.py --live
 ```
 
-No requiere instalar nada con `pip`. Las consultas son **anónimas** (no se envían ni guardan credenciales).
+No requiere instalar nada con `pip`. En Windows, si el servidor exige autenticación, la aplicación se
+identifica con **tu propia sesión de Windows** usando la API del sistema (SSPI) — igual que Excel o el
+navegador. No se piden ni guardan contraseñas, y no hace falta administrador.
 
 Modo demostración (servidor simulado, base de datos separada):
 
@@ -61,13 +63,14 @@ Detalle completo, inicio automático al iniciar sesión y solución de problemas
 | `live_metrics.py` | Métricas del monitor solo desde SQLite; intervalo vs acumulado |
 | `metadata_inspector.py` | Lectura de `$metadata`, campos reales, detección de funciones |
 | `capability_probe.py` | Pruebas de compatibilidad `$top=1` |
-| `odata_client.py` | Único punto de red: GET anónimo, límites, circuit breaker |
+| `odata_client.py` | Único punto de red: GET, límites, circuit breaker, transporte anónimo y SSPI |
+| `sspi_auth.py` | Autenticación Windows integrada (SSPI vía ctypes, sin instalar nada) |
 | `database.py` | SQLite: registros, historial de lecturas, ciclos, caché, reportes |
 | `pulse_service.py` | Reglas de negocio, consulta local, monitor |
 | `analytics.py`, `report_generator.py` | Análisis histórico, CSV/XLSX/PDF |
 | `app.py` | Servidor local (127.0.0.1), API JSON, arranque del recolector |
 | `templates/`, `static/` | Monitor, Consulta histórica, Tendencias, Reportes, Estado de conexión |
-| `tests/` | 152 pruebas (`unittest`) |
+| `tests/` | 160 pruebas (`unittest`) |
 
 ## Documentación
 
@@ -79,10 +82,13 @@ Detalle completo, inicio automático al iniciar sesión y solución de problemas
 
 ## Estado honesto
 
-* **Prueba real en GPV (04/11/2026):** desde la PC de planta `$metadata` respondió de forma anónima,
-  pero `ProductivityOverTime` respondió **HTTP 401**. Sin autenticación la aplicación funciona y lo
-  informa, pero **no puede recolectar datos hasta que TI habilite la lectura anónima de esa entidad**
-  (ver [docs/VALIDACIONES_PENDIENTES.md](docs/VALIDACIONES_PENDIENTES.md)).
+* **Prueba real en GPV (04/11/2026):** `$metadata` respondió de forma anónima, pero
+  `ProductivityOverTime` respondió **HTTP 401** (la entidad exige autenticación de Windows). Por eso
+  v1.1.2 se identifica con la sesión de Windows del operador (SSPI). **Pendiente de confirmar en la
+  PC de planta** que esa cuenta tenga permiso de lectura: si lo tiene, recolectará; si no, el 401
+  persiste y solo TI puede conceder el acceso a la cuenta (ver docs/VALIDACIONES_PENDIENTES.md).
+* La capa SSPI (llamadas ctypes a Secur32.dll) **no pudo probarse en el entorno de desarrollo (Linux)**;
+  sí se probó el intercambio HTTP del handshake con un proveedor de prueba. Ver RESULTADOS_PRUEBAS.md.
 
 * Desde el entorno de desarrollo `10.62.54.10:6065` no es accesible; las pruebas automatizadas usan
   un servidor simulado.

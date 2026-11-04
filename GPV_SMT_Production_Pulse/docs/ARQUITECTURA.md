@@ -1,4 +1,4 @@
-# Arquitectura — GPV SMT Production Pulse v1.1.1
+# Arquitectura — GPV SMT Production Pulse v1.1.2
 
 ## Novedades v1.1: recolector automático
 
@@ -63,7 +63,7 @@ conexión" (limitadas en frecuencia).
 | Solo biblioteca estándar de Python (`http.server`, `urllib`, `sqlite3`, `xml.etree`, `zipfile`) | Cero dependencias obligatorias: funciona descomprimiendo el ZIP en una cuenta estándar, sin pip, sin internet, sin bibliotecas obsoletas a futuro. Flask no aporta lo suficiente para este alcance (pocas rutas JSON). |
 | XLSX generado con `zipfile` + SpreadsheetML | Excel nativo sin `openpyxl`. Validado abriendo en LibreOffice. |
 | PDF mediante vista de impresión del navegador | Evita bibliotecas PDF pesadas; el navegador produce PDF fiel con gráficas SVG. |
-| Consultas anónimas, sin credenciales | Retirada la autenticación Windows (v1.1.1) por decisión de GPV: no se envían, piden ni guardan credenciales. Si la entidad exige autenticación, el 401 se informa con el esquema solicitado y se aplica espera creciente. |
+| Autenticación como el propio usuario (SSPI, sin instalar) | El servidor exige autenticación de Windows en la entidad. La app se identifica con la sesión del operador mediante `ctypes` → `Secur32.dll` (Negotiate/NTLM), igual que el navegador. No guarda contraseñas ni requiere pip/admin. Si la cuenta no tiene permiso, el 401 persiste (lo resuelve TI). `auth_mode`: `auto` (SSPI en Windows, anónimo en otros), `sspi`, `none`. |
 | DEMO como *transporte simulado* | El modo DEMO ejecuta el **mismo** cliente OData, caché, sondas y análisis que producción; solo cambia la capa de red. |
 | Base SQLite separada para DEMO | Imposible mezclar datos simulados y reales (la base registra su modo y rechaza el otro). |
 
@@ -83,7 +83,7 @@ pulse_service.py ─ flujo de consulta, reglas de bloqueo, mapeo, diagnóstico, 
    ├── metadata_inspector.py  EDMX → esquema validado + sugerencias de campos
    ├── capability_probe.py  sondas $top=1 explícitas
    └── odata_client.py .... ÚNICO punto de salida de red
-            ├── UrllibTransport (servidor real, anónimo)
+            ├── UrllibTransport (anónimo) / SspiHttpTransport (sesión Windows, sspi_auth.py)
             └── DemoTransport (demo_source.py)       (simulador)
 settings.py ─ config.json validado (rangos, tipos, entidad única, localhost)
 timeutil.py ─ zona horaria de planta, parseo de fechas OData V2/V3/V4
