@@ -1,10 +1,11 @@
-# Resultados de pruebas automatizadas — v1.1.0
+# Resultados de pruebas automatizadas — v1.1.1
 
 * Fecha de ejecución: 2026-11-04T16:55Z
 * Intérprete: Python 3.14.6 con `-W error::DeprecationWarning`; también Python 3.11: OK. (Entorno Linux de desarrollo; no se ejecutó en Windows.)
 * Comando: `py -m unittest discover -s tests -v`
 * Alcance: servidor OData **simulado** (`demo_source.DemoTransport` y variantes con fallas 401/500/timeout/desconexión/filtros rechazados) y servidores HTTP de prueba en 127.0.0.1.
-* **Sin pruebas de integración con FactoryLogix real.** Verificación manual adicional: `py app.py --live` contra `10.62.54.10:6065` desde el entorno de desarrollo → 1 intento a `$metadata`, timeout de 15 s, espera de 300 s, advertencia visible en el monitor; una segunda instancia fue rechazada por el lock.
+* **Observación real en GPV (04/11/2026, v1.1.0):** `$metadata` respondió 200 sin credenciales; `ProductivityOverTime` respondió 401. En v1.1.1 se retiró la autenticación (consultas anónimas) y se reprodujo ese escenario con un servidor local (200 en `$metadata`, 401 `Negotiate`/`NTLM` en la entidad): 2 solicitudes en total, ninguna con encabezado de autenticación, mensaje con los esquemas solicitados y espera de 10 min.
+* **Sin pruebas de integración con datos reales de la entidad.** Verificación manual adicional: `py app.py --live` contra `10.62.54.10:6065` desde el entorno de desarrollo → 1 intento a `$metadata`, timeout de 15 s, espera de 300 s, advertencia visible en el monitor; una segunda instancia fue rechazada por el lock.
 * Prueba de interfaz en Chromium (Playwright): Monitor con actualización sin recarga de página (1 navegación en 30+ s), Consulta histórica local con exportación XLSX, Tendencias local, Estado de conexión; ancho móvil 390 px sin desplazamiento horizontal; sin errores de consola ni de CSP. Con el hilo real del recolector (modo DEMO) el segundo ciclo se ejecutó solo, exactamente 300 s después del primero (48 registros nuevos, 2 sin cambio, sin duplicados).
 
 | Requisito v1.1 | Prueba |
@@ -17,6 +18,7 @@
 | Bloqueo sin filtro de fecha validado | test_blocked_when_date_filter_fails |
 | Usuarios no generan consultas | test_users_never_trigger_odata |
 | Recolector único | LockTests.test_single_instance |
+| 401 en la entidad con `$metadata` anónimo | WindowsAuthScenarioTests, test_repeated_auth_headers_kept, test_requests_are_anonymous |
 | Acumulado vs intervalo | test_live_metrics: SemanticsTests |
 | Sin datos recientes, incrementos, hora de producción vs consulta, dimensiones solo si existen | test_live_metrics: MonitorTests |
 
@@ -64,6 +66,8 @@ test_state_persists_across_restart (test_collector.CollectorTests.test_state_per
 test_trend_not_computed_from_unsynced_hours (test_collector.CollectorTests.test_trend_not_computed_from_unsynced_hours) ... ok
 test_users_never_trigger_odata (test_collector.CollectorTests.test_users_never_trigger_odata) ... ok
 test_single_instance (test_collector.LockTests.test_single_instance) ... ok
+test_auth_hint_for_anonymous_transport (test_collector.WindowsAuthScenarioTests.test_auth_hint_for_anonymous_transport) ... ok
+test_metadata_ok_entity_401 (test_collector.WindowsAuthScenarioTests.test_metadata_ok_entity_401) ... ok
 test_examples_are_marked_simulated (test_demo.DemoModeTests.test_examples_are_marked_simulated) ... ok
 test_full_flow (test_demo.DemoModeTests.test_full_flow) ... ok
 test_generator_deterministic_and_not_future (test_demo.DemoModeTests.test_generator_deterministic_and_not_future) ... ok
@@ -124,6 +128,7 @@ test_top_mandatory_and_bounded (test_odata_client.UrlBuildingTests.test_top_mand
 test_connection_refused (test_odata_client.UrllibTransportTests.test_connection_refused) ... ok
 test_ok (test_odata_client.UrllibTransportTests.test_ok) ... ok
 test_redirect_blocked (test_odata_client.UrllibTransportTests.test_redirect_blocked) ... ok
+test_repeated_auth_headers_kept (test_odata_client.UrllibTransportTests.test_repeated_auth_headers_kept) ... ok
 test_size_limit (test_odata_client.UrllibTransportTests.test_size_limit) ... ok
 test_timeout (test_odata_client.UrllibTransportTests.test_timeout) ... ok
 test_csv (test_reports.ReportTests.test_csv) ... ok
@@ -138,6 +143,7 @@ test_auto_refresh_default_off (test_security.ConfigSecurityTests.test_auto_refre
 test_no_credentials_in_url (test_security.ConfigSecurityTests.test_no_credentials_in_url) ... ok
 test_only_authorized_entity (test_security.ConfigSecurityTests.test_only_authorized_entity) ... ok
 test_only_localhost_by_default (test_security.ConfigSecurityTests.test_only_localhost_by_default) ... ok
+test_requests_are_anonymous (test_security.ConfigSecurityTests.test_requests_are_anonymous) ... ok
 test_source_has_no_eval_or_shell (test_security.ConfigSecurityTests.test_source_has_no_eval_or_shell) ... ok
 test_templates_have_no_inline_script (test_security.ConfigSecurityTests.test_templates_have_no_inline_script) ... ok
 test_body_size_limit_and_methods (test_security.HttpLayerTests.test_body_size_limit_and_methods) ... ok
@@ -171,7 +177,7 @@ test_rules (test_service.QueryValidationTests.test_rules) ... ok
 test_stored_data_labelled_not_live (test_service.QueryValidationTests.test_stored_data_labelled_not_live) ... ok
 
 ----------------------------------------------------------------------
-Ran 148 tests in 9.030s
+Ran 152 tests in 9.186s
 
 OK
 ```

@@ -481,7 +481,6 @@ class PulseService:
         return {
             "data_mode": self.data_mode,
             "server": "Simulador local (modo DEMO)" if self.config.is_demo else self.config.odata.base_url,
-            "auth_mode": self.config.odata.auth_mode,
             "metadata": self.metadata_state,
             "summary": self.connection_summary(),
             "entity": {

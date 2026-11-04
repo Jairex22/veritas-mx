@@ -292,11 +292,10 @@ class WindowsAuthScenarioTests(TempDirMixin, unittest.TestCase):
 
         self.assertEqual(sorted(auth_schemes('Negotiate abc==, NTLM, Basic realm="x"')), ["Basic", "NTLM", "Negotiate"])
         client = ODataClient(self.service().config, UrllibTransport())
-        hint = client._auth_hint({"WWW-Authenticate": "Negotiate, NTLM"})
-        self.assertIn("requirements-windows-auth.txt", hint)
-        basic = client._auth_hint({"WWW-Authenticate": 'Basic realm="FactoryLogix"'})
-        self.assertIn("no almacena contraseñas", basic)
-        self.assertNotIn("FactoryLogix\"", basic)
+        hint = client._auth_hint({"WWW-Authenticate": "Negotiate abc==, NTLM"})
+        self.assertIn("NTLM, Negotiate", hint)
+        self.assertIn("lectura anónima", hint)
+        self.assertNotIn("abc==", hint)  # challenge data is never shown
 
 
 class LockTests(TempDirMixin, unittest.TestCase):

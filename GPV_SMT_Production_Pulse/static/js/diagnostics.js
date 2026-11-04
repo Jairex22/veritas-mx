@@ -29,7 +29,7 @@
     const meta = d.metadata || {};
     const tiles = clear($("#diag-tiles"));
     const metaOk = meta.status === "ok" || meta.status === "loaded";
-    tiles.appendChild(tile("FactoryLogix", d.server, "Autenticación (" + d.auth_mode + "): " + d.auth));
+    tiles.appendChild(tile("FactoryLogix", d.server, "Acceso: " + d.auth));
     const col = d.collector;
     tiles.appendChild(tile("Recolector automático", col ? (col.running ? "En ejecución" : "Detenido") : "No iniciado",
       col ? `${col.message || ""} Última lectura correcta: ${col.last_success_at ? fmtDateTime(col.last_success_at) : "ninguna"}` : "Inicia con: py app.py --live",

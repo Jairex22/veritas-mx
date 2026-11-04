@@ -39,7 +39,7 @@ PROBE_ORDER = tuple(PROBE_LABELS_ES)
 # Statuses that abort the remaining probes (server health/auth problems).
 _ABORT = {Status.TIMEOUT, Status.CONNECTION_ERROR, Status.SERVER_ERROR, Status.UNAVAILABLE,
           Status.TOO_MANY_REQUESTS, Status.AUTH_REQUIRED, Status.FORBIDDEN, Status.CIRCUIT_OPEN,
-          Status.BUSY, Status.SESSION_LIMIT, Status.GLOBAL_LIMIT, Status.AUTH_NOT_AVAILABLE,
+          Status.BUSY, Status.SESSION_LIMIT, Status.GLOBAL_LIMIT,
           Status.RESPONSE_TOO_LARGE, Status.REDIRECT_BLOCKED, Status.NOT_FOUND}
 
 

@@ -1,6 +1,0 @@
-# Opcional: autenticación Windows integrada (Negotiate/NTLM vía SSPI) con la sesión del usuario.
-# No se almacena ninguna contraseña. Instalar (PowerShell o CMD, sin administrador):
-#   py -m pip install --user -r requirements-windows-auth.txt
-# Verificado: existen paquetes para Windows 64 bits + Python 3.14 (incluye pywin32 312).
-requests>=2.32,<3
-requests-negotiate-sspi>=0.5.2,<1

@@ -59,13 +59,12 @@ class Status(str, Enum):
     GLOBAL_LIMIT = "global_limit"
     CIRCUIT_OPEN = "circuit_open"
     BLOCKED_UNVERIFIED = "blocked_unverified"
-    AUTH_NOT_AVAILABLE = "auth_not_available"
 
 
 MESSAGES_ES: dict[Status, str] = {
     Status.OK: "Respuesta recibida de FactoryLogix.",
     Status.BAD_REQUEST: "FactoryLogix rechazó la consulta (consulta incompatible). No se reintentó sin filtros.",
-    Status.AUTH_REQUIRED: "FactoryLogix requiere autenticación. Verifica la configuración aprobada por TI.",
+    Status.AUTH_REQUIRED: "FactoryLogix rechazó la consulta anónima: el recurso requiere autenticación.",
     Status.FORBIDDEN: "Acceso denegado por FactoryLogix para esta cuenta.",
     Status.NOT_FOUND: "El recurso solicitado no existe en el servidor OData.",
     Status.TOO_MANY_REQUESTS: "FactoryLogix indicó demasiadas solicitudes. Se pausarán las consultas temporalmente.",
@@ -86,7 +85,6 @@ MESSAGES_ES: dict[Status, str] = {
     Status.GLOBAL_LIMIT: "Se alcanzó el límite de consultas por hora de la aplicación.",
     Status.CIRCUIT_OPEN: "Las consultas están pausadas temporalmente por errores repetidos del servidor.",
     Status.BLOCKED_UNVERIFIED: "Consulta bloqueada: los filtros necesarios no están comprobados.",
-    Status.AUTH_NOT_AVAILABLE: "La autenticación Windows está configurada, pero falta la biblioteca opcional requerida.",
 }
 
 # Statuses that count as server/network health failures for the circuit breaker.
@@ -97,7 +95,7 @@ BREAKER_FAILURES = frozenset({
 # Local states: no request reached the server.
 LOCAL_REJECTIONS = frozenset({
     Status.BUSY, Status.RATE_LIMITED, Status.SESSION_LIMIT, Status.GLOBAL_LIMIT,
-    Status.CIRCUIT_OPEN, Status.BLOCKED_UNVERIFIED, Status.AUTH_NOT_AVAILABLE,
+    Status.CIRCUIT_OPEN, Status.BLOCKED_UNVERIFIED,
 })
 
 
@@ -120,10 +118,6 @@ class RedirectBlockedError(Exception):
     pass
 
 
-class AuthNotAvailableError(Exception):
-    pass
-
-
 @dataclass
 class TransportResponse:
     status: int
@@ -132,7 +126,7 @@ class TransportResponse:
 
 
 class Transport(Protocol):
-    """Minimal GET-only transport interface (real HTTP, Windows auth, or demo simulator)."""
+    """Minimal GET-only transport interface (real HTTP or demo simulator)."""
 
     def get(self, url: str, headers: dict[str, str], timeout: float, max_bytes: int) -> TransportResponse:
         ...
@@ -141,6 +135,14 @@ class Transport(Protocol):
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[override]
         raise RedirectBlockedError(f"redirect {code} blocked")
+
+
+def _merge_headers(items: Any) -> dict[str, str]:
+    """Header dict that keeps repeated headers (e.g. several WWW-Authenticate) joined by ", "."""
+    merged: dict[str, str] = {}
+    for key, value in items:
+        merged[key] = f"{merged[key]}, {value}" if key in merged else value
+    return merged
 
 
 def _read_bounded(read: Callable[[int], bytes], max_bytes: int, deadline: float) -> bytes:
@@ -160,7 +162,7 @@ def _read_bounded(read: Callable[[int], bytes], max_bytes: int, deadline: float)
 
 
 class UrllibTransport:
-    """Standard-library HTTP transport (anonymous or network-level authentication)."""
+    """Standard-library HTTP transport. Anonymous: no Authorization header is ever sent."""
 
     def __init__(self, use_system_proxy: bool = False) -> None:
         handlers: list[Any] = [_NoRedirect()]
@@ -177,13 +179,13 @@ class UrllibTransport:
                 if length and length.isdigit() and int(length) > max_bytes:
                     raise ResponseTooLargeError("declared Content-Length too large")
                 body = _read_bounded(response.read, max_bytes, deadline)
-                return TransportResponse(response.status, dict(response.headers.items()), body)
+                return TransportResponse(response.status, _merge_headers(response.headers.items()), body)
         except urllib.error.HTTPError as exc:
             try:
                 body = _read_bounded(exc.read, min(max_bytes, 65_536), deadline)
             except Exception:  # noqa: BLE001 - error body is optional
                 body = b""
-            return TransportResponse(exc.code, dict(exc.headers.items()) if exc.headers else {}, body)
+            return TransportResponse(exc.code, _merge_headers(exc.headers.items()) if exc.headers else {}, body)
         except RedirectBlockedError:
             raise
         except urllib.error.URLError as exc:
@@ -196,44 +198,6 @@ class UrllibTransport:
             raise TransportTimeout(str(exc)) from exc
         except (ConnectionError, OSError) as exc:
             raise TransportConnectionError(str(exc)) from exc
-
-
-class NegotiateTransport:
-    """Windows integrated authentication (Negotiate/NTLM via SSPI) using the logged-on user.
-
-    Requires the optional packages ``requests`` and ``requests-negotiate-sspi`` installed
-    per user (``py -m pip install --user ...``). No password is stored or requested.
-    """
-
-    def __init__(self, use_system_proxy: bool = False) -> None:
-        try:
-            import requests  # type: ignore[import-not-found]
-            from requests_negotiate_sspi import HttpNegotiateAuth  # type: ignore[import-not-found]
-        except ImportError as exc:
-            raise AuthNotAvailableError(str(exc)) from exc
-        self._requests = requests
-        self._session = requests.Session()
-        self._session.trust_env = use_system_proxy
-        self._session.auth = HttpNegotiateAuth()
-        self._session.max_redirects = 0
-
-    def get(self, url: str, headers: dict[str, str], timeout: float, max_bytes: int) -> TransportResponse:
-        deadline = time.monotonic() + timeout
-        try:
-            response = self._session.get(url, headers=headers, timeout=(timeout, timeout),
-                                         stream=True, allow_redirects=False)
-        except self._requests.exceptions.Timeout as exc:
-            raise TransportTimeout(str(exc)) from exc
-        except self._requests.exceptions.RequestException as exc:
-            raise TransportConnectionError(str(exc)) from exc
-        try:
-            if 300 <= response.status_code < 400:
-                raise RedirectBlockedError(f"redirect {response.status_code} blocked")
-            raw = response.raw
-            body = _read_bounded(lambda n: raw.read(n), max_bytes, deadline)
-            return TransportResponse(response.status_code, dict(response.headers.items()), body)
-        finally:
-            response.close()
 
 
 # --------------------------------------------------------------------------- protection
@@ -477,13 +441,11 @@ def parse_entity_payload(body: bytes) -> tuple[list[dict[str, Any]], bool]:
 class ODataClient:
     """GET-only client restricted to $metadata and ProductivityOverTime."""
 
-    def __init__(self, config: Config, transport: Transport | None,
-                 clock: Callable[[], float] = time.monotonic,
-                 transport_error: str = "") -> None:
+    def __init__(self, config: Config, transport: Transport,
+                 clock: Callable[[], float] = time.monotonic) -> None:
         self.config = config
         self.limits = config.limits
         self.transport = transport
-        self.transport_error = transport_error
         self.base_url = config.odata.base_url
         self.gate = RequestGate(config.limits, clock)
         self.breaker = CircuitBreaker(config.limits.CIRCUIT_BREAKER_FAILURE_THRESHOLD,
@@ -550,20 +512,11 @@ class ODataClient:
         """Explain a 401 using only the scheme names offered by the server (never the challenge data)."""
         raw = ", ".join(v for k, v in headers.items() if k.lower() == "www-authenticate")
         schemes = sorted(set(auth_schemes(raw)))
-        base = MESSAGES_ES[Status.AUTH_REQUIRED]
-        if not schemes:
-            return base
-        text = f"{base} El servidor solicita: {', '.join(schemes)}."
-        windows = {"Negotiate", "NTLM", "Kerberos"} & set(schemes)
-        if windows and isinstance(self.transport, UrllibTransport):
-            text += (" Instala la autenticación Windows integrada (py -m pip install --user -r "
-                     "requirements-windows-auth.txt) y reinicia la aplicación.")
-        elif windows:
-            text += " Se envió la identidad de Windows y fue rechazada: la cuenta no tiene permiso; consulta con TI."
-        elif "Basic" in schemes:
-            text += (" El servidor pide usuario y contraseña (Basic); esta aplicación no almacena contraseñas: "
-                     "consulta con TI el mecanismo aprobado.")
-        return text
+        text = MESSAGES_ES[Status.AUTH_REQUIRED]
+        if schemes:
+            text += f" El servidor solicita: {', '.join(schemes)}."
+        return text + (" Esta aplicación consulta sin credenciales: TI debe habilitar la lectura anónima de "
+                       "ProductivityOverTime para este equipo (como ya ocurre con $metadata).")
 
     def snapshot(self) -> dict[str, Any]:
         return {"last": dict(self.last), "breaker": self.breaker.snapshot(), "busy": self.gate.is_busy()}
@@ -572,9 +525,6 @@ class ODataClient:
     def _execute(self, relative: str, session_id: str, max_bytes: int, accept: str,
                  parse_entities: bool, enforce_spacing: bool) -> ODataResult:
         requested_at = iso_utc(utc_now())
-        if self.transport is None:
-            return ODataResult(Status.AUTH_NOT_AVAILABLE, MESSAGES_ES[Status.AUTH_NOT_AVAILABLE],
-                               technical_detail=self.transport_error, requested_at=requested_at)
         allowed, remaining = self.breaker.allow()
         if not allowed:
             return ODataResult(Status.CIRCUIT_OPEN,
@@ -668,30 +618,9 @@ def auth_schemes(header_value: str) -> list[str]:
 
 
 def build_client(config: Config, transport: Transport | None = None) -> ODataClient:
-    """Create the client with the transport selected by configuration.
-
-    ``auth_mode``:
-    * ``windows_negotiate``: Windows integrated auth is mandatory; if the optional libraries are
-      missing, no request is sent and the UI explains what to install.
-    * ``auto``: use Windows integrated auth when the optional libraries are installed (credentials
-      are only presented if the server asks for them with a 401 Negotiate/NTLM challenge);
-      otherwise anonymous HTTP.
-    * ``none``: anonymous HTTP only.
-    """
+    """Create the client. Requests are anonymous (no credentials are sent, stored or requested)."""
     if transport is not None:
         return ODataClient(config, transport)
-    mode = config.odata.auth_mode
-    if mode in ("windows_negotiate", "auto"):
-        try:
-            client = ODataClient(config, NegotiateTransport(config.odata.use_system_proxy))
-            client.auth_description = "Windows integrada (SSPI)"
-            logger.info("auth: Windows integrated (Negotiate/NTLM via SSPI)")
-            return client
-        except AuthNotAvailableError as exc:
-            if mode == "windows_negotiate":
-                logger.error("windows_negotiate configured but optional libraries missing: %s", exc)
-                return ODataClient(config, None, transport_error=str(exc))
-            logger.info("auth auto: optional Windows auth libraries not installed; using anonymous HTTP")
     client = ODataClient(config, UrllibTransport(config.odata.use_system_proxy))
-    client.auth_description = "Anónima / red" if mode == "none" else "Anónima (bibliotecas de autenticación Windows no instaladas)"
+    client.auth_description = "Anónima (sin credenciales)"
     return client

@@ -1,13 +1,7 @@
-# GPV SMT Production Pulse v1.1.0
+# GPV SMT Production Pulse v1.1.1
 #
 # La aplicación NO requiere dependencias externas: usa solo la biblioteca estándar
-# de Python 3.11+ (probada en 3.14). Exportación Excel (.xlsx), CSV, servidor web,
-# SQLite y lectura de metadata funcionan sin instalar nada.
-#
-# OPCIONAL - solo si TI aprueba autenticación Windows integrada (odata.auth_mode =
-# "windows_negotiate"). Instalar por usuario, sin privilegios de administrador:
-#
-#   py -m pip install --user -r requirements-windows-auth.txt
+# de Python 3.11+ (probada en 3.14). No hay nada que instalar con pip.
 #
 # OPCIONAL - solo si se configura analytics.plant_timezone con un nombre IANA en Windows:
 #

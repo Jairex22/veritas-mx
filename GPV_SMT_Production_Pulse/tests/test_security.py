@@ -88,6 +88,14 @@ class ConfigSecurityTests(TempDirMixin, unittest.TestCase):
         with self.assertRaises(ConfigError):
             make_config(self.tmp, odata={"base_url": "http://user:pass@10.0.0.1/odata/"})
 
+    def test_requests_are_anonymous(self):
+        from odata_client import build_client
+        config = make_config(self.tmp, odata={"auth_mode": "windows_negotiate"})  # legacy key: ignored
+        client = build_client(config)
+        self.assertEqual(type(client.transport).__name__, "UrllibTransport")
+        self.assertFalse(hasattr(config.odata, "auth_mode"))
+        self.assertFalse((ROOT / "requirements-windows-auth.txt").exists())
+
     def test_auto_refresh_default_off(self):
         self.assertFalse(make_config(self.tmp).limits.AUTO_REFRESH_ENABLED)
 

@@ -52,7 +52,7 @@ from timeutil import iso_utc, parse_odata_datetime, utc_now
 
 logger = logging.getLogger("pulse.collector")
 COLLECTOR_SESSION = "collector-process-000000"
-AUTH_ERRORS = {Status.AUTH_REQUIRED, Status.FORBIDDEN, Status.AUTH_NOT_AVAILABLE}
+AUTH_ERRORS = {Status.AUTH_REQUIRED, Status.FORBIDDEN}
 
 
 class SingleInstanceLock:

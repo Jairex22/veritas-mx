@@ -261,6 +261,11 @@ class _Handler(BaseHTTPRequestHandler):
             time.sleep(3)
             self.send_response(200)
             self.end_headers()
+        elif "auth" in self.path:
+            self.send_response(401)
+            self.send_header("WWW-Authenticate", "Negotiate")
+            self.send_header("WWW-Authenticate", "NTLM")
+            self.end_headers()
         elif "big" in self.path:
             self.send_response(200)
             self.end_headers()
@@ -290,6 +295,12 @@ class UrllibTransportTests(unittest.TestCase):
     def test_ok(self):
         r = UrllibTransport().get(self.base + "ok", {}, 5, 10_000)
         self.assertEqual(r.status, 200)
+
+    def test_repeated_auth_headers_kept(self):
+        r = UrllibTransport().get(self.base + "auth", {}, 5, 10_000)
+        self.assertEqual(r.status, 401)
+        self.assertIn("Negotiate", r.headers["WWW-Authenticate"])
+        self.assertIn("NTLM", r.headers["WWW-Authenticate"])
 
     def test_redirect_blocked(self):
         from odata_client import RedirectBlockedError

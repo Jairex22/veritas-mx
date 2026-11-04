@@ -6,6 +6,26 @@ funcionalidad se verificó con un servidor OData simulado y datos ficticios. Los
 del modo DEMO (`IntervalStart`, `GoodCount`, `LineName`, `WorkOrder`…) **son inventados para la
 simulación** y no se asumen en el código: en modo real se usan los campos que declare `$metadata`.
 
+## Bloqueo actual: HTTP 401 en ProductivityOverTime
+
+Resultado observado en la PC de GPV (04/11/2026, v1.1.0):
+
+* `GET $metadata` → **200** sin credenciales (se identificaron los campos).
+* `GET ProductivityOverTime?$top=1` → **401** (el servidor exige autenticación para la entidad).
+
+Desde la v1.1.1 la aplicación **no usa autenticación** por decisión de GPV. Mientras el servidor exija
+credenciales para la entidad **no es posible recolectar datos**; la aplicación muestra el error, conserva
+lo guardado y reintenta con espera creciente (10, 20, 40 min y después cada hora), sin consultas
+repetitivas. Opciones para resolverlo, todas del lado de FactoryLogix/TI:
+
+1. **Habilitar lectura anónima** de `ProductivityOverTime` en el servicio OData (como ya está `$metadata`),
+   idealmente restringida a la IP de la PC de planta. No requiere cambios en la aplicación.
+2. Si TI exige autenticación, se debe definir un mecanismo aprobado. Esta versión no lo implementa a
+   propósito (no se guardan contraseñas); habría que acordarlo y desarrollarlo como cambio aparte.
+
+En *Estado de conexión → Historial* y en el Monitor se muestra qué esquema pide el servidor
+(por ejemplo `NTLM, Negotiate` o `Basic`); entrégaselo a TI junto con este documento.
+
 ## Requisitos que dependen de lo que exista en `ProductivityOverTime`
 
 | Requisito | Qué se necesita del esquema | Si no existe | Cómo resolverlo |
@@ -24,8 +44,8 @@ simulación** y no se asumen en el código: en modo real se usan los campos que 
 
 | # | Validación | Cómo | Esperado | Resultado GPV |
 |---|---|---|---|---|
-| 1 | Conectividad al puerto 6065 | Monitor / Estado de conexión | `$metadata` HTTP 200 | ☐ |
-| 2 | Autenticación | Si 401: instalar `requirements-windows-auth.txt`, confirmar con TI | 200 sin guardar credenciales | ☐ |
+| 1 | Conectividad al puerto 6065 | Monitor / Estado de conexión | `$metadata` HTTP 200 | ☑ (04/11/2026) |
+| 2 | Lectura anónima de la entidad | Monitor sin error 401 | `ProductivityOverTime` responde 200 | ☐ (hoy: 401) |
 | 3 | Campos reales | Estado de conexión → Propiedades | Se identifica fecha, cantidad, línea… | ☐ |
 | 4 | Mapeo auto-detectado correcto | Comparar con MES y **Confirmar mapeo** | Origen "Confirmado" | ☐ |
 | 5 | `$top` y filtro de fecha comprobados | Compatibilidad de consultas | Ambos "Comprobado" | ☐ |
