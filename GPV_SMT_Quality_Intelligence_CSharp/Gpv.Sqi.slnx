@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Gpv.Sqi/Gpv.Sqi.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Gpv.Sqi.Tests/Gpv.Sqi.Tests.csproj" />
+  </Folder>
+</Solution>

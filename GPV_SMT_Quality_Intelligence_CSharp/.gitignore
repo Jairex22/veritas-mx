@@ -1,0 +1,11 @@
+bin/
+obj/
+publish/
+*.user
+.vs/
+config.json
+*.sqlite3
+*.sqlite3-*
+logs/
+database/
+TestResults/

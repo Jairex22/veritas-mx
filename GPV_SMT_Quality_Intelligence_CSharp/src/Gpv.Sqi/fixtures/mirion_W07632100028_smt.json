@@ -1,0 +1,69 @@
+{
+  "_fixture_note": "FIXTURE HISTÓRICO - caso Mirion confirmado mediante consultas OData por GPV. Solo para pruebas y demostración; no es producción actual. Los campos no confirmados se dejan en null.",
+  "value": [
+    {
+      "Customer": "Mirion Technologies (Canberra) Inc.",
+      "Assembly": "MR.48.SM",
+      "AssemblyRevision": "MR.48.SM$$E",
+      "AssemblyDescription": null,
+      "Process": null,
+      "ProcessRevision": null,
+      "WorkOrder": null,
+      "Batch": "W076321",
+      "Attempts": null,
+      "Placements": null,
+      "Identifier": "W07632100028",
+      "ODataKey": "00000000-0000-0000-0000-000000000000",
+      "OperationName": "SMT Post-Reflow AOI Top",
+      "EventDate": "2026-11-04T15:11:08-06:00"
+    },
+    {
+      "Customer": "Mirion Technologies (Canberra) Inc.",
+      "Assembly": "MR.48.SM",
+      "AssemblyRevision": "MR.48.SM$$E",
+      "AssemblyDescription": null,
+      "Process": null,
+      "ProcessRevision": null,
+      "WorkOrder": null,
+      "Batch": "W076321",
+      "Attempts": null,
+      "Placements": null,
+      "Identifier": "W07632100028",
+      "ODataKey": "00000000-0000-0000-0000-000000000000",
+      "OperationName": "SMT Post-Reflow AOI Top",
+      "EventDate": "2026-11-04T15:23:11-06:00"
+    },
+    {
+      "Customer": "Mirion Technologies (Canberra) Inc.",
+      "Assembly": "MR.48.SM",
+      "AssemblyRevision": "MR.48.SM$$E",
+      "AssemblyDescription": null,
+      "Process": null,
+      "ProcessRevision": null,
+      "WorkOrder": null,
+      "Batch": "W076321",
+      "Attempts": null,
+      "Placements": null,
+      "Identifier": "W07632100028",
+      "ODataKey": "00000000-0000-0000-0000-000000000000",
+      "OperationName": "SMT REPAIR",
+      "EventDate": "2026-11-04T15:23:18-06:00"
+    },
+    {
+      "Customer": "Mirion Technologies (Canberra) Inc.",
+      "Assembly": "MR.48.SM",
+      "AssemblyRevision": "MR.48.SM$$E",
+      "AssemblyDescription": null,
+      "Process": null,
+      "ProcessRevision": null,
+      "WorkOrder": null,
+      "Batch": "W076321",
+      "Attempts": null,
+      "Placements": null,
+      "Identifier": "W07632100028",
+      "ODataKey": "00000000-0000-0000-0000-000000000000",
+      "OperationName": "QA SMT",
+      "EventDate": "2026-11-04T15:36:28-06:00"
+    }
+  ]
+}
