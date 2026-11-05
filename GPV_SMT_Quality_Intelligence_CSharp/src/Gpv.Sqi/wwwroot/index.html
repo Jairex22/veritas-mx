@@ -114,8 +114,8 @@
               <label>Intervalo
                 <select name="window">
                   <option value="1h">Última hora</option>
-                  <option value="4h">Últimas 4 horas</option>
-                  <option value="24h" selected>Últimas 24 horas</option>
+                  <option value="4h" selected>Últimas 4 horas</option>
+                  <option value="24h">Últimas 24 horas</option>
                   <option value="shift">Turno actual</option>
                   <option value="custom">Periodo personalizado</option>
                 </select></label>
@@ -179,7 +179,7 @@
         <section class="view" id="view-config" hidden>
           <div class="card">
             <h2>Configuración</h2>
-            <p class="hint">Las contraseñas nunca se guardan aquí. Use variables de entorno o el Administrador de credenciales de Windows (<code>py -3.14 main.py --set-credential</code>). Las banderas de seguridad solo se cambian en <code>config.json</code>.</p>
+            <p class="hint">Las contraseñas nunca se guardan aquí. Use variables de entorno o el Administrador de credenciales de Windows (<code>GPV.SMT.QualityIntelligence.exe --set-credential</code>). Las banderas de seguridad solo se cambian en <code>config.json</code>.</p>
             <form id="config-form" class="config-grid" autocomplete="off"></form>
             <div class="row-actions">
               <button class="btn primary" id="config-save">Guardar</button>

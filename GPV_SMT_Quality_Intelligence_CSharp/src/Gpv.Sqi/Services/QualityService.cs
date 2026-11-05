@@ -19,7 +19,7 @@ public sealed class QualityService(AppServices ctx)
     public async Task<Dictionary<string, object?>> DashboardAsync(JsonObject p, CancellationToken ct = default)
     {
         var cfg = ctx.Config; var ds = ctx.DataSource;
-        if (!p.ContainsKey("window") || p["window"] is null) { p = p.Clone(); p["window"] = "24h"; }
+        if (!p.ContainsKey("window") || p["window"] is null) { p = p.Clone(); p["window"] = "4h"; }
         var (start, end, label) = TimeWindows.Resolve(p, cfg);
         var filters = new List<Filter> { new("DateCreated", "ge", start), new("DateCreated", "le", end) };
         var applied = new Dictionary<string, object?>();
@@ -31,7 +31,7 @@ public sealed class QualityService(AppServices ctx)
             applied[key] = val;
         }
         var max = cfg.Int("quality.max_defects");
-        var res = await ctx.ExecuteAsync(new QuerySpec("Quality", filters, [("DateCreated", "desc")], max), ct);
+        var res = await ctx.ExecuteAsync(new QuerySpec("Quality", filters, top: max), ct);
         var rows = res.Rows;
         if (res.Ok) ctx.Cache.Store("Quality", rows, ds);
         else
@@ -81,7 +81,7 @@ public sealed class QualityService(AppServices ctx)
         for (var i = 0; i < ids.Count; i += ODataFilterBuilder.MaxInValues)
         {
             var res = await ctx.ExecuteAsync(new QuerySpec("QualityHistory", [new Filter("DefectID", "in", ids.Skip(i).Take(ODataFilterBuilder.MaxInValues).ToList())],
-                [("DefectHistoryTime", "asc")], 500), ct);
+                top: 200), ct);
             last = res;
             if (!res.Ok) break;
             rows.AddRange(res.Rows);

@@ -64,6 +64,23 @@ Luego en la app: **Diagnóstico OData → Probar $metadata → Probar SMT**.
 
 Novedad respecto a Python: `odata.connect_timeout_seconds` (por defecto 5 s) separa el tiempo de conexión del tiempo total (`timeout_seconds`, 10 s).
 
+### Protección de FactoryLogix (v1.1.0)
+
+| Medida | Valor por defecto | Efecto |
+|---|---|---|
+| Sin consultas automáticas | — | Pulse y Quality solo consultan al pulsar el botón |
+| `$select` (`odata.use_select`) | activado | Solo se piden las columnas que la app usa (Quality: ~22 de ~47) |
+| Sin `$orderby` en búsquedas | — | El orden se hace en la app; FactoryLogix no ordena |
+| `odata.max_retries` | 0 | Un HTTP 500 lento no se repite |
+| `odata.max_pages` | 1 | No se siguen páginas adicionales |
+| `protection.cooldown_seconds` | 60 | Tras timeout / 5xx / 429 / error de red, esa entidad no se consulta durante 60 s (estado `COOLDOWN`, nunca se interpreta como "sin registros") |
+| `protection.result_cache_seconds` | 60 | La misma consulta dentro de 60 s se responde desde memoria |
+| `protection.min_interval_ms` | 1000 | Separación mínima entre solicitudes |
+| Límites | Pulse 200, Quality 200 (4 h), trazabilidad 100/50/200, rework 500 | Menos filas por consulta |
+| `odata.metadata_ttl_minutes` | 1440 | `$metadata` se descarga una vez al día |
+
+Los valores de un `config.json` existente tienen prioridad: actualícelo con `config.example.json`.
+
 ## 4. Compilar desde código (equipo con .NET 10 SDK)
 
 ```powershell

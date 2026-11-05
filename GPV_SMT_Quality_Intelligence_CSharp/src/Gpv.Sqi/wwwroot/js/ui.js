@@ -42,14 +42,14 @@ const UI = (() => {
     return data;
   }
 
-  const STATUS_CLASS = { OK: "ok", EMPTY: "ok", NOT_REQUESTED: "nv" };
+  const STATUS_CLASS = { OK: "ok", EMPTY: "ok", NOT_REQUESTED: "nv", COOLDOWN: "warn" };
   const STATUS_TEXT = {
     OK: "Correcto", EMPTY: "Sin registros", AUTH_ERROR: "HTTP 401", FORBIDDEN: "HTTP 403",
     NOT_FOUND: "HTTP 404", BAD_REQUEST: "HTTP 400", RATE_LIMITED: "HTTP 429", SERVER_ERROR: "Error servidor",
     HTTP_ERROR: "Error HTTP", TIMEOUT: "Timeout", CONNECTION_ERROR: "Sin conexión",
     INVALID_RESPONSE: "Respuesta inválida", BLOCKED_BY_POLICY: "Bloqueado por política",
     NOT_CONFIGURED: "No configurado", VALIDATION_ERROR: "Entrada inválida", BUSY: "Ocupado",
-    NOT_REQUESTED: "No requerida",
+    NOT_REQUESTED: "No requerida", COOLDOWN: "Pausa de protección",
   };
   function statusChip(s) {
     if (!s) return el("span", { class: "chip nv", text: "Sin datos" });

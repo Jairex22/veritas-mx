@@ -68,4 +68,20 @@ public static class Entities
     {
         ["SMT"] = "EventDate", ["Quality"] = "DateCreated", ["QualityHistory"] = "DefectHistoryTime",
     };
+
+    /// <summary>
+    /// Columnas que la aplicación usa realmente ($select). Reducen el trabajo de FactoryLogix y el tamaño de la
+    /// respuesta. El cliente descarta las que no existan en $metadata.
+    /// </summary>
+    public static readonly Dictionary<string, string[]> SelectFields = new()
+    {
+        ["SMT"] = ["Customer", "Assembly", "AssemblyRevision", "Process", "WorkOrder", "Batch", "OperationName",
+                   "Attempts", "Placements", "Identifier", "EventDate", "ODataKey"],
+        ["Quality"] = ["CustomerName", "Assembly", "AssemblyRevision", "WorkOrder", "BatchName", "Identifier", "Lot", "DefectID",
+                       "DefectStatus", "SourceOperation", "CurrentOperation", "InspectionWorkstation", "Line", "DefectReference",
+                       "DefectComment", "DefectPartNumber", "AegisInspectionCodeName", "AegisCategoryName", "SymptomDescription",
+                       "SymptomCategory", "DateCreated", "ODataKey"],
+        ["QualityHistory"] = ["Identifier", "DefectID", "DefectHistoryTime", "DefectHistoryStatus", "DefectHistoryOperation",
+                              "DefectHistoryWorkstation", "DefectHistoryOperator", "DefectHistoryComment", "ODataKey"],
+    };
 }

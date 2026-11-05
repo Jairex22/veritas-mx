@@ -23,6 +23,7 @@ public enum ODataStatus
     VALIDATION_ERROR,   // Entrada rechazada antes de consultar
     BUSY,               // Límite de concurrencia alcanzado
     NOT_REQUESTED,      // La fuente no fue necesaria
+    COOLDOWN,           // Pausa de protección tras un fallo de FactoryLogix (no se envió la consulta)
 }
 
 public static class ODataStatusInfo
@@ -50,6 +51,7 @@ public static class ODataStatusInfo
         ODataStatus.VALIDATION_ERROR => "Entrada no válida",
         ODataStatus.BUSY => "Otra consulta OData en curso",
         ODataStatus.NOT_REQUESTED => "No requerida",
+        ODataStatus.COOLDOWN => "Pausa de protección: FactoryLogix falló hace poco",
         _ => s.ToString(),
     };
 }

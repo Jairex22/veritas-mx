@@ -25,7 +25,7 @@ public sealed class ReworkService(AppServices ctx)
     {
         var batch = InputValidation.Term(body, "batch", "Batch", required: true)!;
         var cfg = ctx.Config; var ds = ctx.DataSource;
-        var res = await ctx.ExecuteAsync(new QuerySpec("SMT", [new Filter("Batch", "eq", batch)], [("EventDate", "asc")], cfg.Int("rework.max_batch_events")), ct);
+        var res = await ctx.ExecuteAsync(new QuerySpec("SMT", [new Filter("Batch", "eq", batch)], top: cfg.Int("rework.max_batch_events")), ct);
         if (res.Ok) ctx.Cache.Store("SMT", res.Rows, ds);
         var groups = new SortedDictionary<string, List<JsonObject>>(StringComparer.Ordinal);
         foreach (var r in res.Rows)

@@ -101,7 +101,7 @@ public class ConfigTests
             ["mode"] = JsonValue.Create("live"), ["odata.max_retries"] = JsonValue.Create(99), ["security.live_mode_approved"] = JsonValue.Create(true),
         });
         Assert.Equal("live", cfg.Mode);
-        Assert.Equal(1, cfg.Int("odata.max_retries"));
+        Assert.Equal(0, cfg.Int("odata.max_retries"));   // 99 inválido: se conserva el valor por defecto
         Assert.False(cfg.Bool("security.live_mode_approved"));
     }
 }

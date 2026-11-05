@@ -21,6 +21,8 @@ public sealed class AppServices
     public AuditRepository Audit { get; }
     public CacheRepository Cache { get; }
     public SettingsRepository Settings { get; }
+    /// <summary>Protección compartida (caché, pausas, ritmo) que sobrevive a cambios de configuración.</summary>
+    public ODataGuard Guard { get; } = new();
 
     public AppServices(AppConfig baseConfig, Database? db = null, IDataSource? demo = null, Func<AppConfig, IDataSource>? liveFactory = null)
     {
@@ -30,7 +32,7 @@ public sealed class AppServices
         Cache = new CacheRepository(Db);
         Settings = new SettingsRepository(Db);
         _demo = demo ?? new DemoDataSource();
-        _liveFactory = liveFactory ?? (cfg => new FactoryLogixODataClient(cfg, onResult: Audit.RecordQuery));
+        _liveFactory = liveFactory ?? (cfg => new FactoryLogixODataClient(cfg, onResult: Audit.RecordQuery, guard: Guard));
         Reload();
     }
 

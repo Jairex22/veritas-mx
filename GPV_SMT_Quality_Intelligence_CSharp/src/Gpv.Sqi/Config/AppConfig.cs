@@ -12,7 +12,7 @@ public sealed class ConfigException(string message) : Exception(message);
 /// </summary>
 public sealed class AppConfig
 {
-    public const string AppVersion = "1.0.0";
+    public const string AppVersion = "1.1.0";
 
     public const string DefaultsJson = """
     {
@@ -27,17 +27,19 @@ public sealed class AppConfig
         "timeout_seconds": 10,
         "connect_timeout_seconds": 5,
         "max_concurrent_requests": 1,
-        "max_retries": 1,
+        "max_retries": 0,
         "backoff_seconds": 2.0,
         "max_response_mb": 20,
-        "max_pages": 3,
-        "metadata_ttl_minutes": 60
+        "max_pages": 1,
+        "metadata_ttl_minutes": 1440,
+        "use_select": true
       },
       "security": {"live_mode_approved": false, "allow_basic_auth_over_http": false},
-      "pulse": {"auto_refresh_enabled": false, "refresh_interval_seconds": 300, "max_events": 500, "shifts": []},
-      "quality": {"default_window_hours": 24, "max_defects": 500, "max_closetime_lookups": 10},
-      "trace": {"max_smt_events": 200, "max_quality_rows": 200, "max_history_rows": 500},
-      "rework": {"repair_keywords": ["REPAIR", "REWORK", "REPARACION", "REPARACIÓN"], "process_flows": {}, "max_batch_events": 1000},
+      "protection": {"cooldown_seconds": 60, "result_cache_seconds": 60, "min_interval_ms": 1000},
+      "pulse": {"auto_refresh_enabled": false, "refresh_interval_seconds": 300, "max_events": 200, "shifts": []},
+      "quality": {"default_window_hours": 4, "max_defects": 200, "max_closetime_lookups": 10},
+      "trace": {"max_smt_events": 100, "max_quality_rows": 50, "max_history_rows": 200},
+      "rework": {"repair_keywords": ["REPAIR", "REWORK", "REPARACION", "REPARACIÓN"], "process_flows": {}, "max_batch_events": 500},
       "paths": {"database": "database/gpv_sqi.sqlite3", "logs": "logs"}
     }
     """;
@@ -57,6 +59,9 @@ public sealed class AppConfig
         ["pulse.max_events"] = "int",
         ["quality.default_window_hours"] = "int",
         ["rework.repair_keywords"] = "list",
+        ["protection.cooldown_seconds"] = "int",
+        ["protection.result_cache_seconds"] = "int",
+        ["protection.min_interval_ms"] = "int",
     };
 
     private static readonly Dictionary<string, (double Lo, double Hi)> Limits = new()
@@ -68,6 +73,9 @@ public sealed class AppConfig
         ["pulse.refresh_interval_seconds"] = (300, 3600),
         ["pulse.max_events"] = (10, 1000),
         ["quality.default_window_hours"] = (1, 168),
+        ["protection.cooldown_seconds"] = (0, 600),
+        ["protection.result_cache_seconds"] = (0, 600),
+        ["protection.min_interval_ms"] = (0, 10000),
     };
 
     private static readonly Dictionary<string, string[]> Choices = new()
@@ -107,6 +115,10 @@ public sealed class AppConfig
         throw new ConfigException($"{path}: se esperaba número");
     }
     public int Int(string path) => (int)Num(path);
+
+    /// <summary>Número opcional: si la clave no existe (config.json antiguo) usa el valor por defecto.</summary>
+    public double NumOr(string path, double fallback) => Node(path) is JsonValue v && TryNumber(v, out var d) ? d : fallback;
+    public bool BoolOr(string path, bool fallback) => Node(path) is JsonValue v && v.TryGetValue<bool>(out var b) ? b : fallback;
 
     /// <summary>Lee un número de un JsonValue leído de JSON (JsonElement) o creado en memoria (int, long, double, decimal).</summary>
     public static bool TryNumber(JsonValue v, out double value)
@@ -275,6 +287,7 @@ public sealed class AppConfig
         ["security"] = Node("security")?.DeepClone(),
         ["pulse"] = Node("pulse")?.DeepClone(),
         ["quality"] = Node("quality")?.DeepClone(),
+        ["protection"] = Node("protection")?.DeepClone(),
         ["rework"] = new Dictionary<string, object?>
         {
             ["repair_keywords"] = StrList("rework.repair_keywords"),

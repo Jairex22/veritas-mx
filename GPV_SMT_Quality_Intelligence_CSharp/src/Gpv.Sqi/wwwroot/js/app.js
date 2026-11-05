@@ -26,8 +26,10 @@
     $("sidebar").classList.remove("open");
     if (name !== "pulse") stopPulseTimer();
     const loaders = { dashboard: loadDashboard, history: loadHistory, reports: loadReportsRecent, config: loadConfig,
-                      diagnostics: loadDiagnostics, pulse: () => { if (!$("pulse-out").childNodes.length) runPulse(); },
-                      quality: () => { if (!$("quality-out").childNodes.length) runQuality(); } };
+                      diagnostics: loadDiagnostics,
+                      // Sin consultas automáticas al entrar: FactoryLogix solo se consulta al pulsar el botón.
+                      pulse: () => { if (!$("pulse-out").childNodes.length) mount($("pulse-out"), stateBox("", "Seleccione el intervalo y pulse Actualizar. La consulta solo se envía a FactoryLogix al pulsar el botón.")); },
+                      quality: () => { if (!$("quality-out").childNodes.length) mount($("quality-out"), stateBox("", "Seleccione el intervalo y pulse Consultar. La consulta solo se envía a FactoryLogix al pulsar el botón.")); } };
     if (loaders[name]) loaders[name]();
     const focusId = { dashboard: "dash-input", trace: "trace-input" }[name];
     if (focusId) setTimeout(() => $(focusId).focus(), 30);
@@ -440,6 +442,9 @@
     ["pulse.max_events", "Máx. eventos Pulse", "number", null, "10–1000"],
     ["quality.default_window_hours", "Ventana Quality (h)", "number", null, "1–168"],
     ["rework.repair_keywords", "Palabras clave de reparación", "text", null, "Separadas por coma"],
+    ["protection.cooldown_seconds", "Pausa tras fallo (s)", "number", null, "0–600; tras timeout/5xx no se consulta esa entidad durante este tiempo"],
+    ["protection.result_cache_seconds", "Reutilizar respuestas (s)", "number", null, "0–600; misma consulta no vuelve a FactoryLogix dentro de este tiempo"],
+    ["protection.min_interval_ms", "Intervalo mínimo entre consultas (ms)", "number", null, "0–10000"],
   ];
   function getPath(o, p) { return p.split(".").reduce((a, k) => (a == null ? a : a[k]), o); }
   async function loadConfig() {
@@ -491,7 +496,9 @@
           kv("Credencial", d.credential_configured === null ? "No aplica" : (d.credential_configured ? "Configurada" : "No configurada")),
           kv("Timeout", `${d.timeout_seconds} s`), kv("Reintentos", d.max_retries), kv("Concurrencia", d.max_concurrent_requests),
           kv("Caché SMT / Quality / Historial", `${d.cache_counts.CachedSMTEvents} / ${d.cache_counts.CachedQualityDefects} / ${d.cache_counts.CachedQualityHistory}`),
-          kv("Runtime", d.python)),
+          kv("Runtime", d.python),
+          kv("Protección", d.protection ? `pausa ${d.protection.cooldown_seconds} s · caché ${d.protection.result_cache_seconds} s · intervalo ${d.protection.min_interval_ms} ms` : null),
+          kv("Entidades en pausa", d.protection ? d.protection.state.paused_entities.map(p => `${p.entity} (${p.remaining_seconds} s)`) : null)),
         el("h3", { text: "Salud por entidad" }), healthTable(d.health));
       mount($("diag-queries"), auditTable(d.recent_queries));
     } catch (e) { mount($("diag-info"), stateBox("error", e.message)); }

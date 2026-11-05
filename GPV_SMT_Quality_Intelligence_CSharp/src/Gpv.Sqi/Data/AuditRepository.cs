@@ -41,7 +41,7 @@ public sealed class AuditRepository(Database db)
                 r.Attempts, r.Rows.Count, Trunc(r.Error, 500));
             cmd.ExecuteNonQuery();
         }
-        if (r.Status is ODataStatus.VALIDATION_ERROR or ODataStatus.NOT_REQUESTED) return;
+        if (r.Status is ODataStatus.VALIDATION_ERROR or ODataStatus.NOT_REQUESTED or ODataStatus.COOLDOWN) return;   // no hubo contacto con FactoryLogix
         var ok = r.Ok;
         using var up = c.CreateCommand();
         up.CommandText = """

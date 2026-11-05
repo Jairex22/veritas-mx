@@ -45,6 +45,11 @@ public static class TestHelpers
         cfg.Set("odata.timeout_seconds", 2);
         cfg.Set("odata.backoff_seconds", 0.01);
         cfg.Set("odata.max_retries", 1);
+        cfg.Set("odata.max_pages", 3);
+        // Protección desactivada por defecto en las pruebas; ProtectionTests la activa explícitamente.
+        cfg.Set("protection.cooldown_seconds", 0);
+        cfg.Set("protection.result_cache_seconds", 0);
+        cfg.Set("protection.min_interval_ms", 0);
         tweak?.Invoke(cfg);
         return cfg;
     }

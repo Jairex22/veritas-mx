@@ -29,6 +29,7 @@ public sealed class FactoryLogixODataClient : IDataSource, IDisposable
     private readonly SemaphoreSlim _semaphore;
     private readonly SemaphoreSlim _metadataLock = new(1, 1);
     private readonly HttpClient _http;
+    private readonly ODataGuard _guard;
     private ODataMetadata? _metadata;
     private long _metadataAt;          // Stopwatch ticks
     private long _metadataFailedAt;
@@ -36,9 +37,10 @@ public sealed class FactoryLogixODataClient : IDataSource, IDisposable
     public Dictionary<string, object?>? LastMetadataStatus { get; private set; }
 
     public FactoryLogixODataClient(AppConfig config, Func<AppConfig, Credential?>? credentialProvider = null,
-                                   Action<QueryResult>? onResult = null)
+                                   Action<QueryResult>? onResult = null, ODataGuard? guard = null)
     {
         _config = config;
+        _guard = guard ?? new ODataGuard();
         _baseUrl = config.Str("odata.base_url").TrimEnd('/') + "/";
         _credentialProvider = credentialProvider ?? Credentials.Get;
         _onResult = onResult;
@@ -113,6 +115,7 @@ public sealed class FactoryLogixODataClient : IDataSource, IDisposable
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
             result.Attempts = attempt;
+            await _guard.PaceAsync(_config.NumOr("protection.min_interval_ms", 1000), ct);
             using var req = new HttpRequestMessage(HttpMethod.Get, url);
             req.Headers.Accept.ParseAdd(accept);
             req.Headers.UserAgent.ParseAdd("GPV-SMT-Quality-Intelligence");
@@ -281,12 +284,37 @@ public sealed class FactoryLogixODataClient : IDataSource, IDisposable
             props = real; version = meta.OdataVersion; verified = true;
         }
         string url;
+        if (_config.BoolOr("odata.use_select", true) && spec.Select is null && Entities.SelectFields.TryGetValue(spec.Entity, out var sel))
+            spec = new QuerySpec(spec.Entity, spec.Filters, spec.OrderBy, spec.Top, sel);
+        if (spec.Select is { Count: > 0 }) description += $" | $select {spec.Select.Count(props!.ContainsKey)} columnas";
         try { url = ODataFilterBuilder.BuildQueryUrl(_baseUrl, spec, props, version); }
         catch (FilterException ex)
         {
             return Emit(new QueryResult(ODataStatus.VALIDATION_ERROR, spec.Entity) { QueryDescription = description, Error = ex.Message });
         }
         if (!verified) description += " | tipos no verificados ($metadata no disponible)";
+
+        // Protección de FactoryLogix: respuesta reciente en caché o pausa tras un fallo.
+        var cacheSeconds = _config.NumOr("protection.result_cache_seconds", 60);
+        if (_guard.TryCache(url) is { } hit)
+        {
+            return Emit(new QueryResult(hit.Status, spec.Entity)
+            {
+                Rows = hit.Rows.Select(r => r.DeepClone().AsObject()).ToList(), HttpStatus = hit.HttpStatus, Attempts = 0,
+                QueryDescription = description + $" | respuesta reutilizada (caché local {Json.Num(cacheSeconds)} s, sin consultar FactoryLogix)",
+                DataSource = "live", Truncated = hit.Truncated, FetchedAt = hit.FetchedAt,
+                Timings = new() { ["wait_headers_ms"] = 0, ["download_ms"] = 0, ["parse_ms"] = 0 },
+            });
+        }
+        var (remaining, reason) = _guard.Cooldown(spec.Entity);
+        if (remaining > 0)
+        {
+            return Emit(new QueryResult(ODataStatus.COOLDOWN, spec.Entity)
+            {
+                QueryDescription = description, DataSource = "live",
+                Error = $"Consulta no enviada para proteger FactoryLogix: {spec.Entity} falló hace poco ({reason}). Reintente en {remaining} s.",
+            });
+        }
 
         var busy = await AcquireAsync(spec.Entity, ct);
         if (busy is not null) { busy.QueryDescription = description; return Emit(busy); }
@@ -311,6 +339,7 @@ public sealed class FactoryLogixODataClient : IDataSource, IDisposable
                 if (res.Status != ODataStatus.OK || body is null)
                 {
                     total.Status = res.Status; total.Error = res.Error; total.Rows = [];
+                    _guard.Trip(spec.Entity, total.Status, _config.NumOr("protection.cooldown_seconds", 60));
                     return Emit(total);
                 }
                 var tp = Stopwatch.GetTimestamp();
@@ -341,6 +370,8 @@ public sealed class FactoryLogixODataClient : IDataSource, IDisposable
             if (all.Count >= spec.Top) total.Truncated = true;
             total.Rows = all.Select(r => r.Row).ToList();
             total.Status = total.Rows.Count > 0 ? ODataStatus.OK : ODataStatus.EMPTY;
+            _guard.Reset(spec.Entity);
+            _guard.Store(url, total, cacheSeconds);
             return Emit(total);
         }
         finally { _semaphore.Release(); }

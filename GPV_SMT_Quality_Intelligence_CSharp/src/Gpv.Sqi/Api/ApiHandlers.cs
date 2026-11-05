@@ -133,6 +133,14 @@ public sealed class ApiHandlers(AppServices ctx)
             ["recent_queries"] = ctx.Audit.RecentQueries(30),
             ["metadata_status"] = ctx.Source.LastMetadataStatus,
             ["cache_counts"] = ctx.Cache.Counts(),
+            ["protection"] = new Dictionary<string, object?>
+            {
+                ["cooldown_seconds"] = cfg.NumOr("protection.cooldown_seconds", 60),
+                ["result_cache_seconds"] = cfg.NumOr("protection.result_cache_seconds", 60),
+                ["min_interval_ms"] = cfg.NumOr("protection.min_interval_ms", 1000),
+                ["use_select"] = cfg.BoolOr("odata.use_select", true),
+                ["state"] = ctx.Guard.Snapshot(),
+            },
             ["entities"] = Entities.Names.ToList(),
             ["python"] = ".NET " + Environment.Version,   // clave conservada por compatibilidad con el frontend
             ["platform"] = RuntimeInformation.OSDescription,
@@ -176,7 +184,10 @@ public sealed class ApiHandlers(AppServices ctx)
             $"Timestamp: {TimeParse.NowUtcIso()}", $"Versión: {d["version"]}", $"Modo: {d["mode"]}", $"Servidor: {d["host"]}",
             $"Puerto: {d["port"]}", $"Esquema: {d["scheme"]}", $"Autenticación: {d["auth_method"]} ({cred})",
             $"Timeout: {Json.Num((double)d["timeout_seconds"]!)} s | Reintentos: {d["max_retries"]} | Concurrencia: {d["max_concurrent_requests"]}",
-            $"Bloqueo de política: {d["policy_block"] ?? "ninguno"}", "", "Salud por entidad:",
+            $"Bloqueo de política: {d["policy_block"] ?? "ninguno"}",
+            $"Protección: pausa tras fallo {Prot(d, "cooldown_seconds")} s | reutilizar respuestas {Prot(d, "result_cache_seconds")} s | intervalo mínimo {Prot(d, "min_interval_ms")} ms | $select {Prot(d, "use_select")}",
+            $"Entidades en pausa: {Paused(d)}",
+            "", "Salud por entidad:",
         };
         foreach (var h in (List<Dictionary<string, object?>>)d["health"]!)
             lines.Add($"  {h["entity"]}: {h["last_status"]} HTTP={h["last_http"] ?? "None"} {h["last_elapsed_ms"]} ms | último OK={h["last_success_at"] ?? "None"} | " +
@@ -187,6 +198,16 @@ public sealed class ApiHandlers(AppServices ctx)
             lines.Add($"  {q["ts"]} {q["entity"]} {q["status"]} HTTP={q["http_status"] ?? "None"} {q["elapsed_ms"]} ms intentos={q["attempts"]} filas={q["rows"]} {q["error"]}");
         lines.Add($"Runtime: {d["python"]} | {d["platform"]}");
         return new Dictionary<string, object?> { ["text"] = string.Join("\n", lines) };
+    }
+
+    private static string Prot(Dictionary<string, object?> d, string key) =>
+        Convert.ToString(((Dictionary<string, object?>)d["protection"]!)[key], System.Globalization.CultureInfo.InvariantCulture) ?? "";
+
+    private static string Paused(Dictionary<string, object?> d)
+    {
+        var state = (Dictionary<string, object?>)((Dictionary<string, object?>)d["protection"]!)["state"]!;
+        var list = (List<Dictionary<string, object?>>)state["paused_entities"]!;
+        return list.Count == 0 ? "ninguna" : string.Join(", ", list.Select(p => $"{p["entity"]} ({p["remaining_seconds"]} s, {p["reason"]})"));
     }
 
     public Task<object> OpenLogsAsync(JsonObject _, CancellationToken ct)

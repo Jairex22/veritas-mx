@@ -2,7 +2,7 @@
 
 Fecha: 2026-11-05 · Linux, .NET SDK 10.0.114 · Comando: `dotnet test`
 
-**Resultado: 125 pruebas, 0 fallos.**
+**Resultado v1.1.0: 135 pruebas, 0 fallos** (125 de v1.0.0 + 10 de protección de FactoryLogix en `ProtectionTests`).
 
 ## Equivalencia con la versión Python
 

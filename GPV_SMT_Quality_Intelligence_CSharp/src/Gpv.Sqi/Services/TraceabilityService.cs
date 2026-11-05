@@ -22,9 +22,11 @@ public sealed class TraceabilityService(AppServices ctx)
     public async Task<Dictionary<string, object?>> TraceAsync(string identifier, CancellationToken ct = default)
     {
         var cfg = ctx.Config; var ds = ctx.DataSource;
-        var smt = await ctx.ExecuteAsync(new QuerySpec("SMT", [new Filter("Identifier", "eq", identifier)], [("EventDate", "asc")], cfg.Int("trace.max_smt_events")), ct);
+        // Sin $orderby: el orden se hace localmente (evita trabajo de ordenamiento en FactoryLogix).
+        var smt = await ctx.ExecuteAsync(new QuerySpec("SMT", [new Filter("Identifier", "eq", identifier)], top: cfg.Int("trace.max_smt_events")), ct);
         if (smt.Ok) ctx.Cache.Store("SMT", smt.Rows, ds);
         else smt = WithCacheFallback(smt, ctx.Cache.SmtByIdentifier(identifier, ds));
+        smt.Rows = smt.Rows.OrderBy(r => TimeParse.SortKey(r.Str("EventDate"))).ToList();
 
         var quality = await ctx.ExecuteAsync(new QuerySpec("Quality", [new Filter("Identifier", "eq", identifier)], top: cfg.Int("trace.max_quality_rows")), ct);
         if (quality.Ok) ctx.Cache.Store("Quality", quality.Rows, ds);
@@ -94,7 +96,7 @@ public sealed class TraceabilityService(AppServices ctx)
         for (var i = 0; i < defectIds.Count; i += ODataFilterBuilder.MaxInValues)
         {
             var chunk = defectIds.Skip(i).Take(ODataFilterBuilder.MaxInValues).ToList();
-            var res = await ctx.ExecuteAsync(new QuerySpec("QualityHistory", [new Filter("DefectID", "in", chunk)], [("DefectHistoryTime", "asc")], top), ct);
+            var res = await ctx.ExecuteAsync(new QuerySpec("QualityHistory", [new Filter("DefectID", "in", chunk)], top: top), ct);
             if (merged is null) merged = res;
             else
             {

@@ -18,45 +18,75 @@
     "credential_target": "GPV_SMT_QI_FactoryLogix",
     "timeout_seconds": 10,
     "max_concurrent_requests": 1,
-    "max_retries": 1,
+    "max_retries": 0,
     "backoff_seconds": 2.0,
     "max_response_mb": 20,
-    "max_pages": 3,
-    "metadata_ttl_minutes": 60
+    "max_pages": 1,
+    "metadata_ttl_minutes": 1440,
+    "connect_timeout_seconds": 5,
+    "use_select": true
   },
   "security": {
     "_comment": "Solo TI/MES debe cambiar estas banderas. live_mode_approved habilita consultas reales. allow_basic_auth_over_http permite enviar Basic Auth por HTTP sin cifrar (NO recomendado).",
     "live_mode_approved": false,
     "allow_basic_auth_over_http": false
   },
+  "protection": {
+    "_comment": "Protege a FactoryLogix: pausa por entidad tras timeout/5xx, reutiliza respuestas recientes y separa consultas.",
+    "cooldown_seconds": 60,
+    "result_cache_seconds": 60,
+    "min_interval_ms": 1000
+  },
   "pulse": {
     "auto_refresh_enabled": false,
     "refresh_interval_seconds": 300,
-    "max_events": 500,
+    "max_events": 200,
     "_shifts_example": [
-      {"name": "Turno 1", "start": "06:00", "end": "14:30"},
-      {"name": "Turno 2", "start": "14:30", "end": "23:00"},
-      {"name": "Turno 3", "start": "23:00", "end": "06:00"}
+      {
+        "name": "Turno 1",
+        "start": "06:00",
+        "end": "14:30"
+      },
+      {
+        "name": "Turno 2",
+        "start": "14:30",
+        "end": "23:00"
+      },
+      {
+        "name": "Turno 3",
+        "start": "23:00",
+        "end": "06:00"
+      }
     ],
     "shifts": []
   },
   "quality": {
-    "default_window_hours": 24,
-    "max_defects": 500,
+    "default_window_hours": 4,
+    "max_defects": 200,
     "max_closetime_lookups": 10
   },
   "trace": {
-    "max_smt_events": 200,
-    "max_quality_rows": 200,
-    "max_history_rows": 500
+    "max_smt_events": 100,
+    "max_quality_rows": 50,
+    "max_history_rows": 200
   },
   "rework": {
-    "repair_keywords": ["REPAIR", "REWORK", "REPARACION", "REPARACIÓN"],
+    "repair_keywords": [
+      "REPAIR",
+      "REWORK",
+      "REPARACION",
+      "REPARACIÓN"
+    ],
     "_process_flows_example": {
-      "MR.48.SM": ["SMT Solder Paste Inspection", "SMT Pick and Place", "SMT Post-Reflow AOI Top", "QA SMT"]
+      "MR.48.SM": [
+        "SMT Solder Paste Inspection",
+        "SMT Pick and Place",
+        "SMT Post-Reflow AOI Top",
+        "QA SMT"
+      ]
     },
     "process_flows": {},
-    "max_batch_events": 1000
+    "max_batch_events": 500
   },
   "paths": {
     "database": "database/gpv_sqi.sqlite3",
